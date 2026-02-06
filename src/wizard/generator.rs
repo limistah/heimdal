@@ -57,7 +57,14 @@ impl ConfigGenerator {
             .take(20) // Limit length
             .collect::<String>();
 
-        format!("{}-{}", clean_hostname, os)
+        // Handle empty clean_hostname (e.g., hostname with only special chars)
+        let profile_prefix = if clean_hostname.is_empty() {
+            "default".to_string()
+        } else {
+            clean_hostname
+        };
+
+        format!("{}-{}", profile_prefix, os)
     }
 
     /// Set the Git repository URL
@@ -372,11 +379,9 @@ mod tests {
 
         // Should contain hostname and OS separated by dash
         assert!(profile_name.contains('-'));
-        assert!(
-            profile_name.contains("mac")
-                || profile_name.contains("linux")
-                || profile_name.contains("windows")
-        );
+
+        // Should contain the current OS name
+        assert!(profile_name.contains(std::env::consts::OS));
 
         // Should be lowercase
         assert_eq!(profile_name, profile_name.to_lowercase());

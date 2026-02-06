@@ -1,6 +1,6 @@
 pub mod store;
 
-pub use store::SecretStore;
+pub use store::{Secret, SecretStore};
 
 use anyhow::Result;
 use std::collections::HashMap;
