@@ -3,6 +3,7 @@ use clap::Parser;
 use std::path::PathBuf;
 
 mod cli;
+mod commands;
 mod config;
 mod import;
 mod package;
@@ -48,7 +49,7 @@ fn main() -> Result<()> {
             cmd_sync(quiet, dry_run)?;
         }
         Commands::Status { verbose } => {
-            cmd_status(verbose)?;
+            commands::run_status(verbose)?;
         }
         Commands::Profiles => {
             cmd_profiles()?;
@@ -326,71 +327,6 @@ fn cmd_sync(quiet: bool, dry_run: bool) -> Result<()> {
     Ok(())
 }
 
-fn cmd_status(verbose: bool) -> Result<()> {
-    header("Heimdal Status");
-
-    // Load state
-    let state = state::HeimdallState::load()?;
-
-    // Basic info
-    info(&format!("Active Profile: {}", state.active_profile));
-    info(&format!("Dotfiles Path: {}", state.dotfiles_path.display()));
-    info(&format!("Repository: {}", state.repo_url));
-
-    if let Some(last_sync) = &state.last_sync {
-        info(&format!("Last Sync: {}", last_sync));
-    } else {
-        info("Last Sync: Never");
-    }
-
-    if let Some(last_apply) = &state.last_apply {
-        info(&format!("Last Apply: {}", last_apply));
-    } else {
-        info("Last Apply: Never");
-    }
-
-    // Check git status if verbose
-    if verbose {
-        header("Git Status");
-
-        let output = std::process::Command::new("git")
-            .arg("-C")
-            .arg(&state.dotfiles_path)
-            .arg("status")
-            .arg("--short")
-            .output()
-            .with_context(|| "Failed to execute git status")?;
-
-        if output.status.success() {
-            let status_output = String::from_utf8_lossy(&output.stdout);
-            if status_output.trim().is_empty() {
-                success("Working tree clean");
-            } else {
-                info("Changes:");
-                for line in status_output.lines() {
-                    info(&format!("  {}", line));
-                }
-            }
-        }
-
-        // Show current branch
-        let output = std::process::Command::new("git")
-            .arg("-C")
-            .arg(&state.dotfiles_path)
-            .arg("branch")
-            .arg("--show-current")
-            .output()
-            .with_context(|| "Failed to get current branch")?;
-
-        if output.status.success() {
-            let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            info(&format!("Current Branch: {}", branch));
-        }
-    }
-
-    Ok(())
-}
-
 fn cmd_profiles() -> Result<()> {
     header("Available Profiles");
 
@@ -657,7 +593,10 @@ fn cmd_history(limit: usize) -> Result<()> {
 fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()> {
     use console::style;
     use import::{detect_tool, import_from_tool, DotfileTool};
-    use wizard::{ConfigGenerator, DotfileCategory, DetectedPackage, PackageCategory, PackageManager, ScannedDotfile};
+    use wizard::{
+        ConfigGenerator, DetectedPackage, DotfileCategory, PackageCategory, PackageManager,
+        ScannedDotfile,
+    };
 
     header("Import Dotfiles");
 
@@ -669,7 +608,7 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
     };
 
     let path_buf = std::path::PathBuf::from(&dotfiles_path);
-    
+
     if !path_buf.exists() {
         error(&format!("Directory not found: {}", dotfiles_path));
         return Ok(());
@@ -689,13 +628,20 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
             "stow" => DotfileTool::Stow,
             "dotbot" => DotfileTool::Dotbot,
             _ => {
-                error(&format!("Unknown tool: {}. Use: auto, stow, or dotbot", from));
+                error(&format!(
+                    "Unknown tool: {}. Use: auto, stow, or dotbot",
+                    from
+                ));
                 return Ok(());
             }
         }
     };
 
-    println!("{} Detected: {}", style("✓").green(), style(tool.name()).bold());
+    println!(
+        "{} Detected: {}",
+        style("✓").green(),
+        style(tool.name()).bold()
+    );
     println!();
 
     // Import
@@ -713,7 +659,10 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
     if !import_result.dotfiles.is_empty() {
         println!("\n{}:", style("Sample dotfiles").bold());
         for (i, mapping) in import_result.dotfiles.iter().take(5).enumerate() {
-            let rel_source = mapping.source.strip_prefix(&path_buf).unwrap_or(&mapping.source);
+            let rel_source = mapping
+                .source
+                .strip_prefix(&path_buf)
+                .unwrap_or(&mapping.source);
             println!("  {}. {}", i + 1, style(rel_source.display()).cyan());
         }
         if import_result.dotfiles.len() > 5 {
@@ -744,7 +693,7 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
     println!("\n{} Generating heimdal.yaml...", style("→").cyan());
 
     let mut generator = ConfigGenerator::new("personal");
-    
+
     if import_result.stow_compat {
         generator = generator.with_stow_compat(true);
     }
@@ -762,15 +711,13 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
                 Some("tmux") => DotfileCategory::Tmux,
                 _ => DotfileCategory::Other,
             };
-            let relative_path = mapping.source
+            let relative_path = mapping
+                .source
                 .strip_prefix(&path_buf)
                 .unwrap_or(&mapping.source)
                 .to_string_lossy()
                 .to_string();
-            let size = mapping.source
-                .metadata()
-                .map(|m| m.len())
-                .unwrap_or(0);
+            let size = mapping.source.metadata().map(|m| m.len()).unwrap_or(0);
             ScannedDotfile {
                 path: mapping.source.clone(),
                 relative_path,
@@ -803,7 +750,8 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
         path_buf.join("heimdal.yaml")
     };
 
-    generator.save(&output_path)
+    generator
+        .save(&output_path)
         .with_context(|| format!("Failed to save configuration to {}", output_path.display()))?;
 
     println!(
@@ -814,8 +762,14 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
 
     println!("\n{}", style("Next steps:").bold());
     println!("  1. Review the generated heimdal.yaml");
-    println!("  2. Run: {} to preview changes", style("heimdal apply --dry-run").cyan());
-    println!("  3. Run: {} to apply configuration", style("heimdal apply").cyan());
+    println!(
+        "  2. Run: {} to preview changes",
+        style("heimdal apply --dry-run").cyan()
+    );
+    println!(
+        "  3. Run: {} to apply configuration",
+        style("heimdal apply").cyan()
+    );
 
     Ok(())
 }
