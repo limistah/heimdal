@@ -141,7 +141,7 @@ pub fn run_add(
 
         // Ask about optional dependencies
         if !optional.is_empty() {
-            let selected_optional = MultiSelect::new()
+            let _selected_optional = MultiSelect::new()
                 .with_prompt("Select optional dependencies to install")
                 .items(&optional)
                 .interact()?;
