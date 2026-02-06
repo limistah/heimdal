@@ -1,0 +1,19 @@
+# Minimal Heimdal Configuration
+
+heimdal:
+  version: "1.0"
+  repo: "git@github.com:yourusername/dotfiles.git"
+  stow_compat: true
+
+sources:
+  packages:
+    - git
+    - vim
+    - tmux
+
+profiles:
+  default:
+    sources:
+      - packages
+    dotfiles:
+      use_stowrc: true

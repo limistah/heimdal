@@ -1,0 +1,51 @@
+[package]
+name = "heimdal"
+version = "1.0.0"
+edition = "2021"
+authors = ["Aleem Isiaka"]
+description = "A universal dotfile and system configuration manager"
+license = "MIT"
+repository = "https://github.com/limistah/heimdal"
+homepage = "https://github.com/limistah/heimdal"
+documentation = "https://github.com/limistah/heimdal#readme"
+readme = "README.md"
+keywords = ["dotfiles", "configuration", "package-manager", "stow", "cli"]
+categories = ["command-line-utilities", "config", "development-tools"]
+rust-version = "1.70"
+
+[dependencies]
+# CLI framework
+clap = { version = "4.5", features = ["derive", "cargo", "env"] }
+
+# Configuration & serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1.0"
+toml = "0.8"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
+
+# Terminal colors & formatting
+colored = "2.1"
+
+# File system operations
+walkdir = "2.5"
+glob = "0.3"
+
+# Path manipulation
+shellexpand = "3.1"
+
+# Lazy static initialization
+once_cell = "1.20"
+
+# Date/time
+chrono = "0.4"
+
+# Directory utilities
+dirs = "5.0"

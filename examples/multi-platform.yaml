@@ -1,0 +1,94 @@
+# Multi-Platform Heimdal Configuration
+# Works across macOS, Linux (Debian/Ubuntu, Fedora, Arch)
+
+heimdal:
+  version: "1.0"
+  repo: "git@github.com:yourusername/dotfiles.git"
+  stow_compat: true
+
+ignore:
+  - .git
+  - heimdal.yaml
+  - README.md
+
+sources:
+  # Core tools available everywhere
+  packages:
+    - git
+    - vim
+    - tmux
+    - curl
+    - wget
+    - tree
+
+  # macOS-specific
+  homebrew:
+    packages:
+      - neovim
+      - fzf
+    casks:
+      - iterm2
+    hooks:
+      pre_install:
+        - command: "xcode-select --install"
+          description: "Install Xcode Command Line Tools"
+          os: ["macos"]
+          fail_on_error: false
+
+  # Debian/Ubuntu
+  apt:
+    packages:
+      - build-essential
+      - software-properties-common
+    hooks:
+      pre_install:
+        - command: "sudo apt-get update"
+          os: ["linux"]
+
+  # Fedora/RHEL/CentOS
+  dnf:
+    packages:
+      - gcc
+      - make
+    hooks:
+      pre_install:
+        - command: "sudo dnf check-update"
+          os: ["linux"]
+          fail_on_error: false
+
+  # Arch/Manjaro
+  pacman:
+    packages:
+      - base-devel
+    hooks:
+      pre_install:
+        - command: "sudo pacman -Sy"
+          os: ["linux"]
+
+profiles:
+  # Universal profile (works on any platform)
+  universal:
+    sources:
+      - packages
+      - homebrew
+      - apt
+      - dnf
+      - pacman
+    dotfiles:
+      use_stowrc: true
+    hooks:
+      post_apply:
+        # macOS-specific post-install
+        - command: "defaults write com.apple.dock autohide -bool true && killall Dock"
+          description: "Auto-hide macOS dock"
+          os: ["macos"]
+          fail_on_error: false
+        # Linux-specific post-install
+        - command: "sudo systemctl enable ssh"
+          description: "Enable SSH service"
+          os: ["linux"]
+          fail_on_error: false
+
+sync:
+  enabled: true
+  interval: "1h"

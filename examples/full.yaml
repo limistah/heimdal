@@ -1,0 +1,175 @@
+# Full-Featured Heimdal Configuration
+
+heimdal:
+  version: "1.0"
+  repo: "git@github.com:yourusername/dotfiles.git"
+  stow_compat: true
+
+# Global ignore patterns
+ignore:
+  - .git
+  - .gitignore
+  - heimdal.yaml
+  - .stowrc
+  - "*.md"
+  - LICENSE
+  - .DS_Store
+
+# Package sources
+sources:
+  # Simple packages (auto-mapped across platforms)
+  packages:
+    - git
+    - vim
+    - tmux
+    - curl
+    - wget
+    - tree
+    - fzf
+    - ripgrep
+    - bat
+    - fd
+    - zoxide
+
+  # Homebrew (macOS)
+  homebrew:
+    packages:
+      - neovim
+      - gh
+      - node
+      - python
+    casks:
+      - iterm2
+      - visual-studio-code
+      - docker
+      - slack
+      - firefox
+    hooks:
+      pre_install:
+        - command: "brew update"
+          description: "Update Homebrew"
+      post_install:
+        - command: "brew cleanup"
+          description: "Clean up Homebrew cache"
+
+  # Mac App Store
+  mas:
+    packages:
+      - id: 497799835
+        name: "Xcode"
+      - id: 1352778147
+        name: "Bitwarden"
+    hooks:
+      pre_install:
+        - command: "mas account"
+          description: "Check App Store login"
+          fail_on_error: false
+
+  # APT (Debian/Ubuntu)
+  apt:
+    packages:
+      - build-essential
+      - python3-pip
+      - python3-venv
+      - curl
+      - wget
+    hooks:
+      pre_install:
+        - command: "sudo apt-get update"
+          description: "Update package lists"
+
+  # DNF (Fedora/RHEL/CentOS)
+  dnf:
+    packages:
+      - gcc
+      - make
+      - python3-devel
+    hooks:
+      pre_install:
+        - command: "sudo dnf check-update"
+          description: "Update DNF"
+          fail_on_error: false
+
+  # Pacman (Arch/Manjaro)
+  pacman:
+    packages:
+      - base-devel
+      - python-pip
+    hooks:
+      pre_install:
+        - command: "sudo pacman -Sy"
+          description: "Update Pacman"
+
+# Machine profiles
+profiles:
+  # Base profile for all machines
+  base:
+    sources:
+      - packages
+      - homebrew
+      - mas
+      - apt
+      - dnf
+      - pacman
+    dotfiles:
+      use_stowrc: true
+      ignore:
+        - "*.swp"
+        - "*.swo"
+        - "*.tmp"
+    hooks:
+      post_apply:
+        - command: "echo 'Heimdal setup complete!'"
+          description: "Success message"
+
+  # Work laptop (macOS)
+  work-laptop:
+    extends: base
+    sources:
+      - name: homebrew
+        packages:
+          - kubectl
+          - aws-cli
+          - terraform
+          - docker-compose
+        casks:
+          - postman
+          - zoom
+
+  # Personal desktop (Linux)
+  personal-desktop:
+    extends: base
+    sources:
+      - name: apt
+        packages:
+          - steam
+          - gimp
+      - name: homebrew
+        casks:
+          - spotify
+          - discord
+
+  # Server (minimal)
+  server:
+    sources:
+      - packages
+    dotfiles:
+      use_stowrc: true
+
+# Sync configuration
+sync:
+  enabled: true
+  interval: "1h"
+  auto_apply: true
+  notify:
+    desktop: true
+    log: true
+  rollback_on_error: true
+
+# Custom package mappings
+mappings:
+  docker:
+    apt: "docker.io"
+    brew: "docker"
+    dnf: "docker"
+    pacman: "docker"

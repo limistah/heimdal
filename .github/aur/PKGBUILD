@@ -1,0 +1,48 @@
+# Maintainer: Aleem Isiaka <your-email@example.com>
+pkgname=heimdal
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Universal dotfile and system configuration manager"
+arch=('x86_64')
+url="https://github.com/limistah/heimdal"
+license=('MIT')
+depends=('gcc-libs')
+makedepends=('rust' 'cargo')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/limistah/$pkgname/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('REPLACE_WITH_ACTUAL_SHA256')
+
+build() {
+    cd "$pkgname-$pkgver"
+    cargo build --release --locked
+}
+
+check() {
+    cd "$pkgname-$pkgver"
+    cargo test --release --locked
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    install -Dm755 "target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
+
+# To publish to AUR:
+# 1. Create an account on https://aur.archlinux.org
+# 2. Set up SSH keys
+# 3. Clone the AUR repository:
+#    git clone ssh://aur@aur.archlinux.org/heimdal.git
+# 4. Add this PKGBUILD file
+# 5. Generate .SRCINFO:
+#    makepkg --printsrcinfo > .SRCINFO
+# 6. Commit and push:
+#    git add PKGBUILD .SRCINFO
+#    git commit -m "Initial commit"
+#    git push
+#
+# To update:
+# 1. Update pkgver
+# 2. Update sha256sums (run: makepkg -g)
+# 3. Regenerate .SRCINFO
+# 4. Commit and push

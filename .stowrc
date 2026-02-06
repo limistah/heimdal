@@ -1,0 +1,10 @@
+--target=$HOME/test-target
+--ignore=.git
+--ignore=heimdal.yaml
+--ignore=.stowrc
+--ignore=Cargo.*
+--ignore=src
+--ignore=target
+--ignore=test-*
+--ignore=\.md$
+--ignore=LICENSE
