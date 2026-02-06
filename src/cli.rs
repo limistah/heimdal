@@ -181,6 +181,12 @@ pub enum Commands {
         #[command(subcommand)]
         action: PackagesAction,
     },
+
+    /// Manage templates
+    Template {
+        #[command(subcommand)]
+        action: TemplateAction,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -407,5 +413,32 @@ pub enum ProfileAction {
 
         /// New profile name
         target: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TemplateAction {
+    /// Preview how a template will be rendered
+    Preview {
+        /// Template file path
+        file: String,
+
+        /// Profile to use for variables (defaults to current)
+        #[arg(short, long)]
+        profile: Option<String>,
+    },
+
+    /// List all template files and variables
+    List {
+        /// Show variable values
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// Show all available variables
+    Variables {
+        /// Profile to show variables for (defaults to current)
+        #[arg(short, long)]
+        profile: Option<String>,
     },
 }

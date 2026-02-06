@@ -20,7 +20,7 @@ mod wizard;
 
 use cli::{
     AutoSyncAction, BranchAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction,
-    RemoteAction,
+    RemoteAction, TemplateAction,
 };
 use utils::{error, header, info, success};
 
@@ -206,6 +206,17 @@ fn main() -> Result<()> {
             }
             PackagesAction::List { installed, profile } => {
                 commands::packages::run_list(installed, profile.as_deref())?;
+            }
+        },
+        Commands::Template { action } => match action {
+            TemplateAction::Preview { file, profile } => {
+                cmd_template_preview(&file, profile.as_deref())?;
+            }
+            TemplateAction::List { verbose } => {
+                cmd_template_list(verbose)?;
+            }
+            TemplateAction::Variables { profile } => {
+                cmd_template_variables(profile.as_deref())?;
             }
         },
     }
@@ -1541,6 +1552,217 @@ fn cmd_profile_clone(source_name: &str, target_name: &str) -> Result<()> {
         "{} Run {} to switch to this profile",
         "ℹ".blue(),
         format!("heimdal profile switch {}", target_name).cyan()
+    );
+
+    Ok(())
+}
+
+fn cmd_template_preview(file_path: &str, profile_name: Option<&str>) -> Result<()> {
+    header("Template Preview");
+
+    let state = state::HeimdallState::load()?;
+    let config_path = state.dotfiles_path.join("heimdal.yaml");
+    let config = config::load_config(&config_path)?;
+
+    // Determine which profile to use
+    let profile_name = profile_name.unwrap_or(&state.active_profile);
+    let profile = config
+        .profiles
+        .get(profile_name)
+        .ok_or_else(|| anyhow::anyhow!("Profile '{}' not found", profile_name))?;
+
+    info(&format!("Profile: {}", profile_name));
+    info(&format!("Template: {}", file_path));
+
+    // Merge variables
+    let system_vars = templates::get_system_variables();
+    let merged_vars = templates::merge_variables(
+        system_vars,
+        config.templates.variables.clone(),
+        profile.templates.variables.clone(),
+    );
+
+    // Read and render the template
+    let template_path = if file_path.starts_with('/') || file_path.starts_with('~') {
+        PathBuf::from(shellexpand::tilde(file_path).to_string())
+    } else {
+        state.dotfiles_path.join(file_path)
+    };
+
+    if !template_path.exists() {
+        error(&format!(
+            "Template file not found: {}",
+            template_path.display()
+        ));
+        anyhow::bail!("Template file not found");
+    }
+
+    let content = std::fs::read_to_string(&template_path)?;
+    let engine = templates::TemplateEngine::with_variables(merged_vars);
+    let rendered = engine.render(&content)?;
+
+    // Print the rendered output
+    println!("\n{}", "Rendered Output:".bold().green());
+    println!("{}", "─".repeat(80));
+    println!("{}", rendered);
+    println!("{}", "─".repeat(80));
+
+    // Show which variables were used
+    let used_vars = templates::TemplateEngine::find_variables(&content);
+    if !used_vars.is_empty() {
+        println!("\n{}", "Variables Used:".bold().cyan());
+        for var in used_vars {
+            if let Some(value) = engine.get_variables().get(&var) {
+                println!("  {} = {}", var.yellow(), value);
+            } else {
+                println!("  {} = {}", var.yellow(), "<undefined>".red());
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn cmd_template_list(verbose: bool) -> Result<()> {
+    header("Template Files");
+
+    let state = state::HeimdallState::load()?;
+    let config_path = state.dotfiles_path.join("heimdal.yaml");
+    let config = config::load_config(&config_path)?;
+
+    let profile = config
+        .profiles
+        .get(&state.active_profile)
+        .ok_or_else(|| anyhow::anyhow!("Active profile '{}' not found", state.active_profile))?;
+
+    info(&format!("Profile: {}", state.active_profile));
+
+    // Collect all template files
+    let mut template_files = config.templates.files.clone();
+    template_files.extend(profile.templates.files.clone());
+
+    if template_files.is_empty() {
+        // Try auto-detection
+        use std::fs;
+        if let Ok(entries) = fs::read_dir(&state.dotfiles_path) {
+            for entry in entries.flatten() {
+                if let Ok(file_name) = entry.file_name().into_string() {
+                    if file_name.ends_with(".tmpl") {
+                        let dest = file_name.trim_end_matches(".tmpl").to_string();
+                        template_files.push(crate::config::schema::TemplateFile {
+                            src: file_name,
+                            dest,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    if template_files.is_empty() {
+        println!("\n{} No template files found", "ℹ".blue());
+        println!("  Create files with .tmpl extension or add them to heimdal.yaml");
+        return Ok(());
+    }
+
+    println!("\n{} Template Files:", "✓".green());
+    for tmpl in &template_files {
+        let src_path = state.dotfiles_path.join(&tmpl.src);
+        let exists = if src_path.exists() {
+            "✓".green()
+        } else {
+            "✗".red()
+        };
+        println!("  {} {} → {}", exists, tmpl.src.cyan(), tmpl.dest);
+
+        if verbose && src_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&src_path) {
+                let vars = templates::TemplateEngine::find_variables(&content);
+                if !vars.is_empty() {
+                    println!("     Variables: {}", vars.join(", ").yellow());
+                }
+            }
+        }
+    }
+
+    println!(
+        "\n{} Total: {} template(s)",
+        "ℹ".blue(),
+        template_files.len()
+    );
+
+    Ok(())
+}
+
+fn cmd_template_variables(profile_name: Option<&str>) -> Result<()> {
+    header("Template Variables");
+
+    let state = state::HeimdallState::load()?;
+    let config_path = state.dotfiles_path.join("heimdal.yaml");
+    let config = config::load_config(&config_path)?;
+
+    // Determine which profile to use
+    let profile_name = profile_name.unwrap_or(&state.active_profile);
+    let profile = config
+        .profiles
+        .get(profile_name)
+        .ok_or_else(|| anyhow::anyhow!("Profile '{}' not found", profile_name))?;
+
+    info(&format!("Profile: {}", profile_name));
+
+    // Show system variables
+    println!("\n{}", "System Variables:".bold().green());
+    let system_vars = templates::get_system_variables();
+    let mut system_keys: Vec<_> = system_vars.keys().collect();
+    system_keys.sort();
+    for key in system_keys {
+        println!("  {} = {}", key.cyan(), system_vars.get(key).unwrap());
+    }
+
+    // Show config variables
+    if !config.templates.variables.is_empty() {
+        println!("\n{}", "Config Variables:".bold().yellow());
+        let mut config_keys: Vec<_> = config.templates.variables.keys().collect();
+        config_keys.sort();
+        for key in config_keys {
+            println!(
+                "  {} = {}",
+                key.cyan(),
+                config.templates.variables.get(key).unwrap()
+            );
+        }
+    }
+
+    // Show profile variables
+    if !profile.templates.variables.is_empty() {
+        println!("\n{}", "Profile Variables:".bold().magenta());
+        let mut profile_keys: Vec<_> = profile.templates.variables.keys().collect();
+        profile_keys.sort();
+        for key in profile_keys {
+            println!(
+                "  {} = {}",
+                key.cyan(),
+                profile.templates.variables.get(key).unwrap()
+            );
+        }
+    }
+
+    // Show merged result
+    println!("\n{}", "Final Merged Variables:".bold().blue());
+    let merged_vars = templates::merge_variables(
+        system_vars,
+        config.templates.variables.clone(),
+        profile.templates.variables.clone(),
+    );
+    let mut merged_keys: Vec<_> = merged_vars.keys().collect();
+    merged_keys.sort();
+    for key in merged_keys {
+        println!("  {} = {}", key.cyan(), merged_vars.get(key).unwrap());
+    }
+
+    println!(
+        "\n{} Profile variables override config, which override system variables",
+        "ℹ".blue()
     );
 
     Ok(())
