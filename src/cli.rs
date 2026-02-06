@@ -76,6 +76,17 @@ pub enum Commands {
         verbose: bool,
     },
 
+    /// Show local changes compared to repository
+    Diff {
+        /// Show detailed information (line counts)
+        #[arg(short, long)]
+        verbose: bool,
+
+        /// Interactive mode to commit or discard changes
+        #[arg(short, long)]
+        interactive: bool,
+    },
+
     /// List available profiles
     Profiles,
 
