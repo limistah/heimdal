@@ -1,4 +1,5 @@
 pub mod apt;
+pub mod database;
 pub mod dependencies;
 pub mod dnf;
 pub mod homebrew;
@@ -9,6 +10,7 @@ pub mod mas;
 pub mod pacman;
 pub mod profiles;
 
+pub use database::{PackageCategory as DbPackageCategory, PackageDatabase, PackageInfo};
 pub use dependencies::{
     AnalysisResult, Dependency, DependencyAnalyzer, MissingDependency, Suggestion,
 };

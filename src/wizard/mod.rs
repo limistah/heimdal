@@ -149,7 +149,7 @@ fn wizard_start_fresh() -> Result<()> {
     match package_choice {
         // Use profile
         0 => {
-            use crate::package::{PackageProfile, ProfileSelector};
+            use crate::package::{PackageDatabase, PackageProfile, ProfileSelector};
 
             let selector = ProfileSelector::new();
             let options = selector.options();
@@ -172,6 +172,9 @@ fn wizard_start_fresh() -> Result<()> {
                     let profile = PackageProfile::from_type(profile_type.clone());
                     let packages = profile.resolve_packages();
 
+                    // Create package database for descriptions
+                    let db = PackageDatabase::new();
+
                     println!(
                         "\n{} Profile '{}' includes {} packages:",
                         style("✓").green(),
@@ -179,9 +182,13 @@ fn wizard_start_fresh() -> Result<()> {
                         packages.len()
                     );
 
-                    // Show first 10 packages
+                    // Show first 10 packages with descriptions
                     for pkg in packages.iter().take(10) {
-                        println!("    • {}", pkg);
+                        if let Some(info) = db.get(pkg) {
+                            println!("    • {} - {}", style(pkg).cyan(), info.description);
+                        } else {
+                            println!("    • {}", pkg);
+                        }
                     }
                     if packages.len() > 10 {
                         println!("    ... and {} more", packages.len() - 10);
