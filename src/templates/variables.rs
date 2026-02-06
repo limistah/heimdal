@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::env;
 
+use crate::secrets;
+
 /// Get system-provided variables that are always available
 pub fn get_system_variables() -> HashMap<String, String> {
     let mut vars = HashMap::new();
@@ -37,6 +39,20 @@ pub fn get_system_variables() -> HashMap<String, String> {
         Err(err) => {
             eprintln!(
                 "Warning: Failed to retrieve hostname: {}; 'hostname' variable will not be set.",
+                err
+            );
+        }
+    }
+
+    // Load secrets (if available)
+    // Secrets are stored with "secrets." prefix (e.g., secrets.github_token)
+    match secrets::get_secret_variables() {
+        Ok(secret_vars) => {
+            vars.extend(secret_vars);
+        }
+        Err(err) => {
+            eprintln!(
+                "Warning: Failed to load secrets: {}; secret variables will not be available.",
                 err
             );
         }
