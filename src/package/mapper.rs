@@ -223,7 +223,8 @@ static NAME_NORMALIZATIONS: Lazy<HashMap<&'static str, &'static str>> = Lazy::ne
     map.insert("go-lang", "go");
 
     // Python variations
-    map.insert("python3", "python");
+    // Note: 'python3' is kept separate in BUILTIN_MAPPINGS to allow platform-specific handling
+    // Only map common shorthand aliases here
     map.insert("py", "python");
     map.insert("py3", "python");
 
@@ -244,8 +245,7 @@ static NAME_NORMALIZATIONS: Lazy<HashMap<&'static str, &'static str>> = Lazy::ne
     // Grep variations
     map.insert("rg", "ripgrep");
 
-    // Other common aliases
-    map.insert("vim", "vim"); // Keep as-is
+    // Neovim alias
     map.insert("nvim", "neovim");
 
     map
