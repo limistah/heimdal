@@ -42,20 +42,23 @@ brew install heimdal
 
 ### APT (Debian/Ubuntu)
 
-**From APT Repository (Recommended):**
+**From limistah's APT Repository (Recommended):**
 
 ```bash
-# One-line setup
+# One-line setup (adds repository only)
 curl -fsSL https://limistah.github.io/apt-repo/setup.sh | sudo bash
+
+# Then install Heimdal
+sudo apt install heimdal
 ```
 
 Or manually add the repository:
 
 ```bash
 # Add repository
-echo "deb [trusted=yes] https://limistah.github.io/apt-repo stable main" | sudo tee /etc/apt/sources.list.d/heimdal.list
+echo "deb [trusted=yes] https://limistah.github.io/apt-repo stable main" | sudo tee /etc/apt/sources.list.d/limistah.list
 
-# Install
+# Update and install Heimdal
 sudo apt update
 sudo apt install heimdal
 ```
@@ -110,11 +113,14 @@ makepkg -si
 
 ### APK (Alpine Linux)
 
-**From APK Repository (Recommended):**
+**From limistah's APK Repository (Recommended):**
 
 ```bash
-# One-line setup
+# One-line setup (adds repository only)
 wget -qO- https://limistah.github.io/apk-repo/setup.sh | sudo sh
+
+# Then install Heimdal
+sudo apk add heimdal --allow-untrusted
 ```
 
 Or manually add the repository:
@@ -123,7 +129,7 @@ Or manually add the repository:
 # Add repository
 echo "https://limistah.github.io/apk-repo/stable" | sudo tee -a /etc/apk/repositories
 
-# Install
+# Update and install Heimdal
 sudo apk update
 sudo apk add heimdal --allow-untrusted
 ```
