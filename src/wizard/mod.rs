@@ -10,7 +10,8 @@ pub use scanner::*;
 use crate::import::{detect_tool, import_from_tool};
 use anyhow::Result;
 use console::{style, Term};
-use dialoguer::{Confirm, Input, Select};
+use dialoguer::{Confirm, Input, MultiSelect, Select};
+use indicatif::{ProgressBar, ProgressStyle};
 
 /// Main wizard entry point
 pub fn run_wizard() -> Result<()> {
@@ -113,14 +114,57 @@ fn wizard_start_fresh() -> Result<()> {
 
     let mut scanned_dotfiles = Vec::new();
     if scan_existing {
-        println!("\n{} Scanning for dotfiles...", style("→").cyan());
+        let spinner = ProgressBar::new_spinner();
+        spinner.set_style(
+            ProgressStyle::default_spinner()
+                .template("{spinner:.green} {msg}")
+                .unwrap(),
+        );
+        spinner.set_message("Scanning for dotfiles...");
+        spinner.enable_steady_tick(std::time::Duration::from_millis(100));
 
         match DotfileScanner::scan_home() {
             Ok(dotfiles) => {
                 if dotfiles.is_empty() {
-                    println!("{} No dotfiles found", style("ℹ").blue());
+                    spinner
+                        .finish_with_message(format!("{} No dotfiles found!", style("⚠").yellow()));
+
+                    println!("\n{}", style("This could mean:").bold());
+                    println!("  • You don't have any dotfiles yet (that's ok!)");
+                    println!("  • Your dotfiles are in a non-standard location");
+                    println!("  • Heimdal couldn't detect your setup");
+
+                    println!("\n{}", style("What would you like to do?").bold());
+                    let choice = Select::new()
+                        .with_prompt("Choose an option")
+                        .items(&[
+                            "Continue with empty configuration (add files later)",
+                            "Exit wizard and set up manually",
+                        ])
+                        .default(0)
+                        .interact()?;
+
+                    match choice {
+                        0 => {
+                            println!("\n{} Creating minimal configuration...", style("→").cyan());
+                            // Continue with empty scanned_dotfiles
+                        }
+                        1 => {
+                            println!(
+                                "\n{} Exiting wizard. Run 'heimdal wizard' when ready!",
+                                style("→").cyan()
+                            );
+                            return Ok(());
+                        }
+                        _ => unreachable!(),
+                    }
                 } else {
-                    println!("{} Found {} dotfiles\n", style("✓").green(), dotfiles.len());
+                    spinner.finish_with_message(format!(
+                        "{} Found {} dotfiles",
+                        style("✓").green(),
+                        dotfiles.len()
+                    ));
+                    println!();
 
                     // Group by category
                     let grouped = DotfileScanner::group_by_category(&dotfiles);
@@ -140,11 +184,42 @@ fn wizard_start_fresh() -> Result<()> {
                         println!();
                     }
 
-                    scanned_dotfiles = dotfiles;
+                    // Ask user to select which files to track
+                    let file_items: Vec<String> = dotfiles
+                        .iter()
+                        .map(|f| {
+                            format!(
+                                "{} ({}, {})",
+                                f.relative_path,
+                                f.category.as_str(),
+                                DotfileScanner::format_size(f.size)
+                            )
+                        })
+                        .collect();
+
+                    let defaults = vec![true; file_items.len()]; // Select all by default
+
+                    let selections = MultiSelect::new()
+                        .with_prompt("Select files to track (Space to toggle, Enter to confirm)")
+                        .items(&file_items)
+                        .defaults(&defaults)
+                        .interact()?;
+
+                    scanned_dotfiles = selections.iter().map(|&i| dotfiles[i].clone()).collect();
+
+                    println!(
+                        "\n{} Selected {} files to track",
+                        style("✓").green(),
+                        scanned_dotfiles.len()
+                    );
                 }
             }
             Err(e) => {
-                println!("{} Failed to scan: {}", style("⚠").yellow(), e);
+                spinner.finish_with_message(format!(
+                    "{} Failed to scan: {}",
+                    style("⚠").yellow(),
+                    e
+                ));
             }
         }
     }
@@ -226,16 +301,36 @@ fn wizard_start_fresh() -> Result<()> {
         }
         // Detect packages
         1 => {
-            println!("\n{} Detecting packages...", style("→").cyan());
+            let spinner = ProgressBar::new_spinner();
+            spinner.set_style(
+                ProgressStyle::default_spinner()
+                    .template("{spinner:.green} {msg}")
+                    .unwrap(),
+            );
+            spinner.set_message("Detecting packages...");
+            spinner.enable_steady_tick(std::time::Duration::from_millis(100));
 
             match PackageDetector::detect_all() {
                 Ok(packages) => {
                     let filtered = PackageDetector::filter_common(packages);
 
                     if filtered.is_empty() {
-                        println!("{} No packages found", style("ℹ").blue());
+                        spinner.finish_with_message(format!(
+                            "{} No packages found",
+                            style("⚠").yellow()
+                        ));
+
+                        println!("\n{}", style("Note:").bold());
+                        println!("  • This could mean you don't have packages installed yet");
+                        println!("  • Or they're installed in a non-standard location");
+                        println!("  • You can add packages later using 'heimdal pkg add'");
                     } else {
-                        println!("{} Found {} packages\n", style("✓").green(), filtered.len());
+                        spinner.finish_with_message(format!(
+                            "{} Found {} packages",
+                            style("✓").green(),
+                            filtered.len()
+                        ));
+                        println!();
 
                         // Group by category
                         let grouped = PackageDetector::group_by_category(&filtered);
@@ -251,11 +346,45 @@ fn wizard_start_fresh() -> Result<()> {
                             println!();
                         }
 
-                        detected_packages = filtered;
+                        // Ask user to select which packages to track
+                        let pkg_items: Vec<String> = filtered
+                            .iter()
+                            .map(|p| {
+                                format!(
+                                    "{} (via {}, {})",
+                                    p.name,
+                                    p.manager.as_str(),
+                                    p.category.as_str()
+                                )
+                            })
+                            .collect();
+
+                        let defaults = vec![true; pkg_items.len()]; // Select all by default
+
+                        let selections = MultiSelect::new()
+                            .with_prompt(
+                                "Select packages to track (Space to toggle, Enter to confirm)",
+                            )
+                            .items(&pkg_items)
+                            .defaults(&defaults)
+                            .interact()?;
+
+                        detected_packages =
+                            selections.iter().map(|&i| filtered[i].clone()).collect();
+
+                        println!(
+                            "\n{} Selected {} packages to track",
+                            style("✓").green(),
+                            detected_packages.len()
+                        );
                     }
                 }
                 Err(e) => {
-                    println!("{} Failed to detect packages: {}", style("⚠").yellow(), e);
+                    spinner.finish_with_message(format!(
+                        "{} Failed to detect packages: {}",
+                        style("⚠").yellow(),
+                        e
+                    ));
                 }
             }
         }
@@ -664,20 +793,39 @@ fn wizard_import() -> Result<()> {
             .interact()?;
 
         if scan {
-            println!("\n{} Scanning for dotfiles...", style("→").cyan());
+            let spinner = ProgressBar::new_spinner();
+            spinner.set_style(
+                ProgressStyle::default_spinner()
+                    .template("{spinner:.green} {msg}")
+                    .unwrap(),
+            );
+            spinner.set_message("Scanning for dotfiles...");
+            spinner.enable_steady_tick(std::time::Duration::from_millis(100));
+
             // Use existing scanner logic
             let scanner = DotfileScanner::new(path);
             match scanner.scan() {
                 Ok(found) => {
                     if !found.is_empty() {
-                        println!("{} Found {} files", style("✓").green(), found.len());
+                        spinner.finish_with_message(format!(
+                            "{} Found {} files",
+                            style("✓").green(),
+                            found.len()
+                        ));
                         // Could generate config here too
                     } else {
-                        println!("{} No dotfiles found", style("ℹ").blue());
+                        spinner.finish_with_message(format!(
+                            "{} No dotfiles found",
+                            style("ℹ").blue()
+                        ));
                     }
                 }
                 Err(e) => {
-                    println!("{} Failed to scan: {}", style("⚠").yellow(), e);
+                    spinner.finish_with_message(format!(
+                        "{} Failed to scan: {}",
+                        style("⚠").yellow(),
+                        e
+                    ));
                 }
             }
         }
