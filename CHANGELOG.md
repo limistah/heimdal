@@ -8,7 +8,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet
+- **Interactive Setup Wizard** (`heimdal wizard`) - Onboarding in under 2 minutes
+  - Three setup flows: Start fresh, Import existing, Clone repo
+  - Automatic dotfile scanning in home directory
+  - Package detection across all supported package managers
+  - Configuration generation with preview
+  - Git repository setup assistance
+
+- **Import System** - Effortless migration from other dotfile managers
+  - Import command: `heimdal import --path ~/dotfiles`
+  - Auto-detection of existing tools (Stow, dotbot, manual)
+  - Direct conversion to Heimdal format
+  - Preserves compatibility settings (e.g., Stow compatibility mode)
+  - Extracts package information from dotbot shell commands
+
+- **Stow Importer** - Full GNU Stow support
+  - Detects `.stowrc` and Stow directory structure
+  - Scans all packages automatically
+  - Maps files to home directory destinations
+  - Maintains Stow compatibility mode in generated config
+  
+- **dotbot Importer** - dotbot configuration conversion
+  - Parses `install.conf.yaml`
+  - Converts link directives to Heimdal format
+  - Extracts package installations from shell commands
+  - Supports brew and apt package extraction
+
+- **Enhanced Package Detection**
+  - Automatic categorization (Essential, Development, Terminal, Editor, Application)
+  - Support for 5 package managers: Homebrew, APT, DNF, Pacman, mas
+  - Filters system packages (APT/DNF) to show only user-installed
+  - Smart grouping and display in wizard
+
+- **Improved Error Messages**
+  - Helpful error formatting with causes and solutions
+  - Symlink error helpers with actionable advice
+  - Package installation error guidance
+  - Configuration error details
+
+### Changed
+- Updated README with wizard quick start guide
+- Added import examples and migration documentation
+- Enhanced installation instructions
+
+### Fixed
+- Package categorization now checks editors before essential tools (fixes neovim classification)
+- All tests passing (30/30)
 
 ## [1.0.0] - 2026-02-06
 

@@ -14,6 +14,24 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// Interactive setup wizard (recommended for new users)
+    Wizard,
+
+    /// Import from existing dotfile managers (Stow, dotbot, etc.)
+    Import {
+        /// Path to dotfiles directory (defaults to ~/dotfiles)
+        #[arg(short, long)]
+        path: Option<String>,
+
+        /// Tool to import from (stow, dotbot, auto)
+        #[arg(short, long, default_value = "auto")]
+        from: String,
+
+        /// Output path for generated heimdal.yaml
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+
     /// Initialize Heimdal on a new machine
     Init {
         /// Profile name to use (e.g., work-laptop, personal-desktop)

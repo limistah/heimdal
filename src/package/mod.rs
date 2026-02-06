@@ -7,7 +7,7 @@ pub mod mapper;
 pub mod mas;
 pub mod pacman;
 
-pub use hooks::{execute_hook, execute_hooks, HookResult};
+pub use hooks::{execute_hooks, HookResult};
 pub use manager::{InstallResult, PackageManager};
 pub use mapper::{map_package_name, PackageManagerType};
 

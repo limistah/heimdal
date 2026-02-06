@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Heimdal state stored in ~/.heimdal/
 #[derive(Debug, Clone, Serialize, Deserialize)]

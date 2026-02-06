@@ -4,11 +4,13 @@ use std::path::PathBuf;
 
 mod cli;
 mod config;
+mod import;
 mod package;
 mod state;
 mod symlink;
 mod sync;
 mod utils;
+mod wizard;
 
 use cli::{AutoSyncAction, Cli, Commands, ConfigAction};
 use utils::{error, header, info, success};
@@ -26,6 +28,12 @@ fn main() -> Result<()> {
 
     // Execute command
     match cli.command {
+        Commands::Wizard => {
+            wizard::run_wizard()?;
+        }
+        Commands::Import { path, from, output } => {
+            cmd_import(path.as_deref(), &from, output.as_deref())?;
+        }
         Commands::Init {
             profile,
             repo,
@@ -642,6 +650,172 @@ fn cmd_history(limit: usize) -> Result<()> {
     println!();
     info("To rollback to a specific commit, run: heimdal rollback <commit-hash>");
     info("To rollback to the previous commit, run: heimdal rollback");
+
+    Ok(())
+}
+
+fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()> {
+    use console::style;
+    use import::{detect_tool, import_from_tool, DotfileTool};
+    use wizard::{ConfigGenerator, DotfileCategory, DetectedPackage, PackageCategory, PackageManager, ScannedDotfile};
+
+    header("Import Dotfiles");
+
+    // Determine path
+    let dotfiles_path = if let Some(p) = path {
+        shellexpand::tilde(p).to_string()
+    } else {
+        shellexpand::tilde("~/dotfiles").to_string()
+    };
+
+    let path_buf = std::path::PathBuf::from(&dotfiles_path);
+    
+    if !path_buf.exists() {
+        error(&format!("Directory not found: {}", dotfiles_path));
+        return Ok(());
+    }
+
+    info(&format!("Importing from: {}", dotfiles_path));
+    println!();
+
+    // Determine tool
+    let tool = if from == "auto" {
+        detect_tool(&path_buf).unwrap_or_else(|| {
+            info("No specific tool detected, using manual scanning");
+            DotfileTool::Manual
+        })
+    } else {
+        match from {
+            "stow" => DotfileTool::Stow,
+            "dotbot" => DotfileTool::Dotbot,
+            _ => {
+                error(&format!("Unknown tool: {}. Use: auto, stow, or dotbot", from));
+                return Ok(());
+            }
+        }
+    };
+
+    println!("{} Detected: {}", style("✓").green(), style(tool.name()).bold());
+    println!();
+
+    // Import
+    println!("{} Importing...", style("→").cyan());
+    let import_result = import_from_tool(&path_buf, &tool)
+        .with_context(|| format!("Failed to import from {}", tool.name()))?;
+
+    println!(
+        "{} Found {} files",
+        style("✓").green(),
+        import_result.dotfiles.len()
+    );
+
+    // Show sample files
+    if !import_result.dotfiles.is_empty() {
+        println!("\n{}:", style("Sample dotfiles").bold());
+        for (i, mapping) in import_result.dotfiles.iter().take(5).enumerate() {
+            let rel_source = mapping.source.strip_prefix(&path_buf).unwrap_or(&mapping.source);
+            println!("  {}. {}", i + 1, style(rel_source.display()).cyan());
+        }
+        if import_result.dotfiles.len() > 5 {
+            println!(
+                "  {} ... and {} more",
+                style("").dim(),
+                import_result.dotfiles.len() - 5
+            );
+        }
+    }
+
+    // Show packages
+    if !import_result.packages.is_empty() {
+        println!("\n{}:", style("Extracted packages").bold());
+        for (i, pkg) in import_result.packages.iter().take(5).enumerate() {
+            println!("  {}. {}", i + 1, style(pkg).cyan());
+        }
+        if import_result.packages.len() > 5 {
+            println!(
+                "  {} ... and {} more",
+                style("").dim(),
+                import_result.packages.len() - 5
+            );
+        }
+    }
+
+    // Generate configuration
+    println!("\n{} Generating heimdal.yaml...", style("→").cyan());
+
+    let mut generator = ConfigGenerator::new("personal");
+    
+    if import_result.stow_compat {
+        generator = generator.with_stow_compat(true);
+    }
+
+    // Add imported dotfiles
+    let dotfile_paths: Vec<ScannedDotfile> = import_result
+        .dotfiles
+        .iter()
+        .map(|mapping| {
+            let category = match mapping.category.as_deref() {
+                Some("shell") => DotfileCategory::Shell,
+                Some("editor") => DotfileCategory::Editor,
+                Some("git") => DotfileCategory::Git,
+                Some("ssh") => DotfileCategory::Ssh,
+                Some("tmux") => DotfileCategory::Tmux,
+                _ => DotfileCategory::Other,
+            };
+            let relative_path = mapping.source
+                .strip_prefix(&path_buf)
+                .unwrap_or(&mapping.source)
+                .to_string_lossy()
+                .to_string();
+            let size = mapping.source
+                .metadata()
+                .map(|m| m.len())
+                .unwrap_or(0);
+            ScannedDotfile {
+                path: mapping.source.clone(),
+                relative_path,
+                category,
+                size,
+            }
+        })
+        .collect();
+
+    generator.add_dotfiles(dotfile_paths);
+
+    // Add packages
+    if !import_result.packages.is_empty() {
+        let detected_packages: Vec<DetectedPackage> = import_result
+            .packages
+            .into_iter()
+            .map(|name| DetectedPackage {
+                name,
+                manager: PackageManager::Homebrew,
+                category: PackageCategory::Other,
+            })
+            .collect();
+        generator.add_packages(detected_packages);
+    }
+
+    // Save
+    let output_path = if let Some(o) = output {
+        std::path::PathBuf::from(shellexpand::tilde(o).to_string())
+    } else {
+        path_buf.join("heimdal.yaml")
+    };
+
+    generator.save(&output_path)
+        .with_context(|| format!("Failed to save configuration to {}", output_path.display()))?;
+
+    println!(
+        "\n{} Saved to {}",
+        style("✓").green().bold(),
+        output_path.display()
+    );
+
+    println!("\n{}", style("Next steps:").bold());
+    println!("  1. Review the generated heimdal.yaml");
+    println!("  2. Run: {} to preview changes", style("heimdal apply --dry-run").cyan());
+    println!("  3. Run: {} to apply configuration", style("heimdal apply").cyan());
 
     Ok(())
 }
