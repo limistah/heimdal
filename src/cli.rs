@@ -322,6 +322,27 @@ pub enum PackagesAction {
         #[arg(short, long)]
         yes: bool,
     },
+
+    /// Show packages with available updates
+    Outdated {
+        /// Check all installed packages (not just profile packages)
+        #[arg(short, long)]
+        all: bool,
+    },
+
+    /// Upgrade packages to latest versions
+    Upgrade {
+        /// Specific package to upgrade (upgrades all profile packages if not specified)
+        package: Option<String>,
+
+        /// Upgrade all installed packages (not just profile packages)
+        #[arg(short, long)]
+        all: bool,
+
+        /// Show what would be upgraded without doing it
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
