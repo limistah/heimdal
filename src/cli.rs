@@ -87,6 +87,42 @@ pub enum Commands {
         interactive: bool,
     },
 
+    /// Commit changes to dotfiles repository
+    Commit {
+        /// Commit message
+        #[arg(short, long)]
+        message: Option<String>,
+
+        /// Auto-generate commit message based on changes
+        #[arg(short, long)]
+        auto: bool,
+
+        /// Push to remote after committing
+        #[arg(short, long)]
+        push: bool,
+
+        /// Specific files to commit (defaults to all changes)
+        files: Vec<String>,
+    },
+
+    /// Push committed changes to remote
+    Push {
+        /// Remote name (defaults to 'origin')
+        #[arg(short, long)]
+        remote: Option<String>,
+
+        /// Branch name (defaults to current branch)
+        #[arg(short, long)]
+        branch: Option<String>,
+    },
+
+    /// Pull changes from remote repository
+    Pull {
+        /// Use rebase instead of merge
+        #[arg(short, long)]
+        rebase: bool,
+    },
+
     /// List available profiles
     Profiles,
 

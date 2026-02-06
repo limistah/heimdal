@@ -1,0 +1,132 @@
+pub mod commit;
+pub mod messages;
+pub mod tracking;
+
+use anyhow::{Context, Result};
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+/// Represents a Git repository
+pub struct GitRepo {
+    path: PathBuf,
+}
+
+impl GitRepo {
+    /// Create a new GitRepo instance
+    pub fn new(path: &Path) -> Result<Self> {
+        if !path.join(".git").exists() {
+            anyhow::bail!("Not a git repository: {}", path.display());
+        }
+        Ok(Self {
+            path: path.to_path_buf(),
+        })
+    }
+
+    /// Check if the repo has uncommitted changes
+    pub fn has_changes(&self) -> Result<bool> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.path)
+            .arg("status")
+            .arg("--porcelain")
+            .output()
+            .context("Failed to run git status")?;
+
+        Ok(!output.stdout.is_empty())
+    }
+
+    /// Get the current branch name
+    pub fn current_branch(&self) -> Result<String> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.path)
+            .arg("branch")
+            .arg("--show-current")
+            .output()
+            .context("Failed to get current branch")?;
+
+        let branch = String::from_utf8(output.stdout)?.trim().to_string();
+
+        Ok(branch)
+    }
+
+    /// Check if we're ahead of remote
+    pub fn is_ahead_of_remote(&self) -> Result<bool> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.path)
+            .arg("rev-list")
+            .arg("@{u}..")
+            .output();
+
+        match output {
+            Ok(out) => Ok(!out.stdout.is_empty()),
+            Err(_) => Ok(false), // No upstream configured
+        }
+    }
+
+    /// Check if we're behind remote
+    pub fn is_behind_remote(&self) -> Result<bool> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.path)
+            .arg("rev-list")
+            .arg("..@{u}")
+            .output();
+
+        match output {
+            Ok(out) => Ok(!out.stdout.is_empty()),
+            Err(_) => Ok(false), // No upstream configured
+        }
+    }
+
+    /// Get repository path
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_new_repo_detection() {
+        let temp = TempDir::new().unwrap();
+        let result = GitRepo::new(temp.path());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_git_repo_initialization() {
+        let temp = TempDir::new().unwrap();
+
+        // Initialize git repo
+        Command::new("git")
+            .arg("init")
+            .current_dir(temp.path())
+            .output()
+            .unwrap();
+
+        Command::new("git")
+            .arg("config")
+            .arg("user.email")
+            .arg("test@example.com")
+            .current_dir(temp.path())
+            .output()
+            .unwrap();
+
+        Command::new("git")
+            .arg("config")
+            .arg("user.name")
+            .arg("Test User")
+            .current_dir(temp.path())
+            .output()
+            .unwrap();
+
+        let repo = GitRepo::new(temp.path()).unwrap();
+        assert!(!repo.has_changes().unwrap());
+    }
+}

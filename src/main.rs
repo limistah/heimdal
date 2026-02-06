@@ -5,6 +5,7 @@ use std::path::PathBuf;
 mod cli;
 mod commands;
 mod config;
+mod git;
 mod import;
 mod package;
 mod state;
@@ -56,6 +57,20 @@ fn main() -> Result<()> {
             interactive,
         } => {
             commands::run_diff(verbose, interactive)?;
+        }
+        Commands::Commit {
+            message,
+            auto,
+            push,
+            files,
+        } => {
+            cmd_commit(message.as_deref(), auto, push, files)?;
+        }
+        Commands::Push { remote, branch } => {
+            cmd_push(remote.as_deref(), branch.as_deref())?;
+        }
+        Commands::Pull { rebase } => {
+            cmd_pull(rebase)?;
         }
         Commands::Profiles => {
             cmd_profiles()?;
@@ -568,6 +583,87 @@ fn cmd_validate(config_path: Option<&str>) -> Result<()> {
             error(&format!("Failed to parse YAML: {}", e));
             return Err(e);
         }
+    }
+
+    Ok(())
+}
+
+fn cmd_commit(message: Option<&str>, auto: bool, push: bool, files: Vec<String>) -> Result<()> {
+    header("Commit Changes");
+
+    // Load state to get dotfiles path
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    // Check if there are changes
+    if !repo.has_changes()? {
+        info("No changes to commit");
+        return Ok(());
+    }
+
+    if auto {
+        // Auto-generate commit message
+        info("Auto-generating commit message...");
+        repo.commit_auto(push, false)?;
+    } else {
+        // Use provided message or prompt for one
+        let commit_message = if let Some(msg) = message {
+            msg.to_string()
+        } else {
+            // Prompt for message
+            use dialoguer::Input;
+            Input::<String>::new()
+                .with_prompt("Commit message")
+                .interact_text()?
+        };
+
+        let options = git::commit::CommitOptions {
+            message: commit_message,
+            files: if files.is_empty() { None } else { Some(files) },
+            push,
+            dry_run: false,
+        };
+
+        repo.commit(&options)?;
+    }
+
+    Ok(())
+}
+
+fn cmd_push(_remote: Option<&str>, _branch: Option<&str>) -> Result<()> {
+    header("Push to Remote");
+
+    // Load state to get dotfiles path
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    // Check if there are local commits to push
+    if !repo.is_ahead_of_remote()? {
+        info("Nothing to push - repository is up to date");
+        return Ok(());
+    }
+
+    info("Pushing changes to remote...");
+    repo.push()?;
+    success("Pushed successfully");
+
+    Ok(())
+}
+
+fn cmd_pull(rebase: bool) -> Result<()> {
+    header("Pull from Remote");
+
+    // Load state to get dotfiles path
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    info("Pulling changes from remote...");
+    repo.pull(rebase)?;
+    success("Pulled successfully");
+
+    // Check if we need to reapply
+    if repo.has_changes()? {
+        info("Changes detected. Run 'heimdal apply' to update your system");
     }
 
     Ok(())
