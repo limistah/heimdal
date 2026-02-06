@@ -5,7 +5,7 @@ use crate::state::conflict::ConflictResolver;
 use crate::state::versioned::HeimdallStateV2;
 
 /// Check for file drift (modifications outside heimdal)
-pub fn cmd_check_drift(all: bool) -> Result<()> {
+pub fn cmd_check_drift(_all: bool) -> Result<()> {
     println!("{}", "Checking for file drift...".cyan());
 
     // Load current state

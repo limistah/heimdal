@@ -90,8 +90,7 @@ pub fn cmd_unlock(force: bool) -> Result<()> {
 
 // Helper functions
 fn get_lock_path() -> Result<PathBuf> {
-    let state_dir = HeimdallStateV2::state_dir()?;
-    Ok(state_dir.join(".heimdal.lock"))
+    LockManager::lock_path()
 }
 
 fn read_lock(path: &PathBuf) -> Result<StateLock> {

@@ -335,7 +335,7 @@ impl ConflictResolver {
         Ok(drifts)
     }
 
-    /// Compute SHA256 checksum of file
+    /// Compute MD5 checksum of file
     fn compute_checksum(path: &std::path::Path) -> Result<String> {
         use std::io::Read;
 
@@ -343,7 +343,7 @@ impl ConflictResolver {
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)?;
 
-        // Simple hash for now (could use SHA256 crate for production)
+        // Using MD5 for file checksums
         Ok(format!("{:x}", md5::compute(&buffer)))
     }
 
