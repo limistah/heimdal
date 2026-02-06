@@ -42,6 +42,26 @@ brew install heimdal
 
 ### APT (Debian/Ubuntu)
 
+**From APT Repository (Recommended):**
+
+```bash
+# One-line setup
+curl -fsSL https://limistah.github.io/apt-repo/setup.sh | sudo bash
+```
+
+Or manually add the repository:
+
+```bash
+# Add repository
+echo "deb [trusted=yes] https://limistah.github.io/apt-repo stable main" | sudo tee /etc/apt/sources.list.d/heimdal.list
+
+# Install
+sudo apt update
+sudo apt install heimdal
+```
+
+**Direct DEB Package:**
+
 ```bash
 # Download and install the latest .deb package
 curl -LO https://github.com/limistah/heimdal/releases/download/v1.0.0/heimdal_1.0.0_amd64.deb
