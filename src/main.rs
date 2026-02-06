@@ -7,6 +7,7 @@ mod cli;
 mod commands;
 mod config;
 mod git;
+mod hooks;
 mod import;
 mod package;
 mod state;
@@ -319,6 +320,28 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
     // Resolve profile
     let resolved = config::resolve_profile(&config, &profile_name)?;
 
+    // Execute global pre_apply hooks
+    if !config.hooks.pre_apply.is_empty() {
+        info("Running global pre_apply hooks...");
+        hooks::execute_hooks(
+            &config.hooks.pre_apply,
+            dry_run,
+            hooks::HookContext::PreApply,
+        )?;
+    }
+
+    // Execute profile pre_apply hooks
+    if let Some(profile) = config.profiles.get(&profile_name) {
+        if !profile.hooks.pre_apply.is_empty() {
+            info("Running profile pre_apply hooks...");
+            hooks::execute_hooks(
+                &profile.hooks.pre_apply,
+                dry_run,
+                hooks::HookContext::PreApply,
+            )?;
+        }
+    }
+
     // Install packages
     let pkg_report = package::install_packages(&resolved, &config.mappings, dry_run)?;
     pkg_report.print_summary();
@@ -326,6 +349,28 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
     // Create symlinks
     let sym_report = symlink::create_symlinks(&resolved, &dotfiles_dir, dry_run, force)?;
     sym_report.print_summary();
+
+    // Execute profile post_apply hooks
+    if let Some(profile) = config.profiles.get(&profile_name) {
+        if !profile.hooks.post_apply.is_empty() {
+            info("Running profile post_apply hooks...");
+            hooks::execute_hooks(
+                &profile.hooks.post_apply,
+                dry_run,
+                hooks::HookContext::PostApply,
+            )?;
+        }
+    }
+
+    // Execute global post_apply hooks
+    if !config.hooks.post_apply.is_empty() {
+        info("Running global post_apply hooks...");
+        hooks::execute_hooks(
+            &config.hooks.post_apply,
+            dry_run,
+            hooks::HookContext::PostApply,
+        )?;
+    }
 
     // Update state with apply time (if not dry-run)
     if !dry_run {
@@ -351,6 +396,32 @@ fn cmd_sync(quiet: bool, dry_run: bool) -> Result<()> {
     if !quiet {
         info(&format!("Dotfiles path: {}", state.dotfiles_path.display()));
         info(&format!("Active profile: {}", state.active_profile));
+    }
+
+    // Load config for hooks
+    let config_path = state.dotfiles_path.join("heimdal.yaml");
+    let config = config::load_config(&config_path)?;
+
+    // Execute global pre_sync hooks
+    if !config.hooks.pre_sync.is_empty() {
+        if !quiet {
+            info("Running global pre_sync hooks...");
+        }
+        hooks::execute_hooks(&config.hooks.pre_sync, dry_run, hooks::HookContext::PreSync)?;
+    }
+
+    // Execute profile pre_sync hooks
+    if let Some(profile) = config.profiles.get(&state.active_profile) {
+        if !profile.hooks.pre_sync.is_empty() {
+            if !quiet {
+                info("Running profile pre_sync hooks...");
+            }
+            hooks::execute_hooks(
+                &profile.hooks.pre_sync,
+                dry_run,
+                hooks::HookContext::PreSync,
+            )?;
+        }
     }
 
     // Initialize git repo
@@ -407,6 +478,32 @@ fn cmd_sync(quiet: bool, dry_run: bool) -> Result<()> {
     }
 
     cmd_apply(dry_run, false)?;
+
+    // Execute profile post_sync hooks
+    if let Some(profile) = config.profiles.get(&state.active_profile) {
+        if !profile.hooks.post_sync.is_empty() {
+            if !quiet {
+                info("Running profile post_sync hooks...");
+            }
+            hooks::execute_hooks(
+                &profile.hooks.post_sync,
+                dry_run,
+                hooks::HookContext::PostSync,
+            )?;
+        }
+    }
+
+    // Execute global post_sync hooks
+    if !config.hooks.post_sync.is_empty() {
+        if !quiet {
+            info("Running global post_sync hooks...");
+        }
+        hooks::execute_hooks(
+            &config.hooks.post_sync,
+            dry_run,
+            hooks::HookContext::PostSync,
+        )?;
+    }
 
     if !quiet {
         success("Sync completed successfully!");
