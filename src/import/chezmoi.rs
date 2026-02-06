@@ -101,13 +101,15 @@ impl ChezmoiImporter {
 
     /// Categorize a dotfile based on its name
     fn categorize_file(name: &str) -> Option<String> {
-        if name.contains("bash") || name.contains("zsh") || name.contains("fish") {
+        let name_lower = name.to_lowercase();
+        if name_lower.contains("bash") || name_lower.contains("zsh") || name_lower.contains("fish")
+        {
             Some("shell".to_string())
-        } else if name.contains("vim") || name.contains("nvim") {
+        } else if name_lower.contains("vim") || name_lower.contains("nvim") {
             Some("editor".to_string())
-        } else if name.contains("git") {
+        } else if name_lower.contains("git") {
             Some("git".to_string())
-        } else if name.contains("tmux") {
+        } else if name_lower.contains("tmux") {
             Some("tmux".to_string())
         } else {
             None
