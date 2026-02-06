@@ -98,7 +98,7 @@ impl GitRepo {
     }
 
     /// Commit staged changes
-    fn commit_staged(&self, message: &str) -> Result<()> {
+    pub(crate) fn commit_staged(&self, message: &str) -> Result<()> {
         let output = Command::new("git")
             .arg("-C")
             .arg(&self.path)

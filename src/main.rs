@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Parser;
+use colored::Colorize;
 use std::path::PathBuf;
 
 mod cli;
@@ -72,6 +73,23 @@ fn main() -> Result<()> {
         Commands::Pull { rebase } => {
             cmd_pull(rebase)?;
         }
+        Commands::Branch { action } => match action {
+            cli::BranchAction::Current => {
+                cmd_branch_current()?;
+            }
+            cli::BranchAction::List => {
+                cmd_branch_list()?;
+            }
+            cli::BranchAction::Create { name } => {
+                cmd_branch_create(&name)?;
+            }
+            cli::BranchAction::Switch { name } => {
+                cmd_branch_switch(&name)?;
+            }
+            cli::BranchAction::Info => {
+                cmd_branch_info()?;
+            }
+        },
         Commands::Profiles => {
             cmd_profiles()?;
         }
@@ -335,31 +353,48 @@ fn cmd_sync(quiet: bool, dry_run: bool) -> Result<()> {
         info(&format!("Active profile: {}", state.active_profile));
     }
 
-    // Pull from git
+    // Initialize git repo
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    // Pull from git using new sync module
     if !quiet {
         info("Pulling latest changes from git...");
     }
 
     if !dry_run {
-        let status = std::process::Command::new("git")
-            .arg("-C")
-            .arg(&state.dotfiles_path)
-            .arg("pull")
-            .arg("--recurse-submodules")
-            .status()
-            .with_context(|| "Failed to execute git pull")?;
+        let options = git::SyncOptions {
+            pull: true,
+            push: false,
+            rebase: false,
+            auto_stash: true,
+            dry_run: false,
+        };
 
-        if !status.success() {
-            anyhow::bail!("Git pull failed. Check your network connection and git status.");
+        match repo.sync(&options)? {
+            git::SyncResult::Success => {
+                if !quiet {
+                    success("Git pull completed successfully!");
+                }
+
+                // Update sync time
+                state.update_sync_time();
+                state.save()?;
+            }
+            git::SyncResult::Conflicts(files) => {
+                error("Merge conflicts detected in:");
+                for file in &files {
+                    println!("  - {}", file);
+                }
+                println!();
+                info("Please resolve conflicts manually and run 'heimdal sync' again");
+                anyhow::bail!("Merge conflicts detected");
+            }
+            git::SyncResult::UpToDate | git::SyncResult::NothingToSync => {
+                if !quiet {
+                    info("Already up to date");
+                }
+            }
         }
-
-        if !quiet {
-            success("Git pull completed successfully!");
-        }
-
-        // Update sync time
-        state.update_sync_time();
-        state.save()?;
     } else {
         if !quiet {
             info("Dry-run: Would pull from git");
@@ -665,6 +700,78 @@ fn cmd_pull(rebase: bool) -> Result<()> {
     if repo.has_changes()? {
         info("Changes detected. Run 'heimdal apply' to update your system");
     }
+
+    Ok(())
+}
+
+fn cmd_branch_current() -> Result<()> {
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    let branch = repo.current_branch()?;
+    println!("{}", branch);
+
+    Ok(())
+}
+
+fn cmd_branch_list() -> Result<()> {
+    header("Git Branches");
+
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    let current = repo.current_branch()?;
+    let branches = repo.list_branches()?;
+
+    for branch in branches {
+        if branch == current {
+            println!("* {}", branch.green());
+        } else {
+            println!("  {}", branch);
+        }
+    }
+
+    Ok(())
+}
+
+fn cmd_branch_create(name: &str) -> Result<()> {
+    header("Create Branch");
+
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    info(&format!("Creating branch '{}'...", name));
+    repo.create_branch(name)?;
+
+    info(&format!("Switching to branch '{}'...", name));
+    repo.switch_branch(name)?;
+
+    success(&format!("Created and switched to branch '{}'", name));
+
+    Ok(())
+}
+
+fn cmd_branch_switch(name: &str) -> Result<()> {
+    header("Switch Branch");
+
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    info(&format!("Switching to branch '{}'...", name));
+    repo.switch_branch(name)?;
+    success(&format!("Switched to branch '{}'", name));
+
+    Ok(())
+}
+
+fn cmd_branch_info() -> Result<()> {
+    header("Branch Information");
+
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    let tracking = repo.get_tracking_info()?;
+    println!("{}", tracking.format());
 
     Ok(())
 }

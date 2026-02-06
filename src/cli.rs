@@ -123,6 +123,12 @@ pub enum Commands {
         rebase: bool,
     },
 
+    /// Manage git branches
+    Branch {
+        #[command(subcommand)]
+        action: BranchAction,
+    },
+
     /// List available profiles
     Profiles,
 
@@ -261,4 +267,28 @@ pub enum ConfigAction {
     },
     /// Show all configuration
     Show,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BranchAction {
+    /// Show current branch
+    Current,
+
+    /// List all branches
+    List,
+
+    /// Create and switch to a new branch
+    Create {
+        /// Branch name
+        name: String,
+    },
+
+    /// Switch to a branch
+    Switch {
+        /// Branch name
+        name: String,
+    },
+
+    /// Show tracking information
+    Info,
 }

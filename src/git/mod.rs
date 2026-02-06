@@ -1,10 +1,14 @@
 pub mod commit;
 pub mod messages;
+pub mod sync;
 pub mod tracking;
 
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+// Re-export sync types
+pub use sync::{SyncOptions, SyncResult};
 
 /// Represents a Git repository
 pub struct GitRepo {
@@ -83,6 +87,65 @@ impl GitRepo {
     /// Get repository path
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// List all branches
+    pub fn list_branches(&self) -> Result<Vec<String>> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.path)
+            .arg("branch")
+            .arg("--list")
+            .arg("--format=%(refname:short)")
+            .output()
+            .context("Failed to list branches")?;
+
+        if !output.status.success() {
+            anyhow::bail!("Failed to list branches");
+        }
+
+        let branches = String::from_utf8(output.stdout)?
+            .lines()
+            .map(|s| s.to_string())
+            .collect();
+
+        Ok(branches)
+    }
+
+    /// Create a new branch
+    pub fn create_branch(&self, name: &str) -> Result<()> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.path)
+            .arg("branch")
+            .arg(name)
+            .output()
+            .context("Failed to create branch")?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("Failed to create branch: {}", err);
+        }
+
+        Ok(())
+    }
+
+    /// Switch to a branch
+    pub fn switch_branch(&self, name: &str) -> Result<()> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.path)
+            .arg("checkout")
+            .arg(name)
+            .output()
+            .context("Failed to switch branch")?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("Failed to switch branch: {}", err);
+        }
+
+        Ok(())
     }
 }
 
