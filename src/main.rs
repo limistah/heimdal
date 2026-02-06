@@ -13,7 +13,7 @@ mod sync;
 mod utils;
 mod wizard;
 
-use cli::{AutoSyncAction, Cli, Commands, ConfigAction};
+use cli::{AutoSyncAction, Cli, Commands, ConfigAction, PackagesAction};
 use utils::{error, header, info, success};
 
 fn main() -> Result<()> {
@@ -85,6 +85,38 @@ fn main() -> Result<()> {
         Commands::History { limit } => {
             cmd_history(limit)?;
         }
+        Commands::Packages { action } => match action {
+            PackagesAction::Add {
+                name,
+                manager,
+                profile,
+                no_install,
+            } => {
+                commands::packages::run_add(
+                    &name,
+                    manager.as_deref(),
+                    profile.as_deref(),
+                    no_install,
+                )?;
+            }
+            PackagesAction::Remove {
+                name,
+                profile,
+                force,
+                no_uninstall,
+            } => {
+                commands::packages::run_remove(&name, profile.as_deref(), force, no_uninstall)?;
+            }
+            PackagesAction::Search { query, category } => {
+                commands::packages::run_search(&query, category.as_deref())?;
+            }
+            PackagesAction::Info { name } => {
+                commands::packages::run_info(&name)?;
+            }
+            PackagesAction::List { installed, profile } => {
+                commands::packages::run_list(installed, profile.as_deref())?;
+            }
+        },
     }
 
     Ok(())
