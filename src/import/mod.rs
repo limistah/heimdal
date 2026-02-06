@@ -5,6 +5,8 @@ pub mod stow;
 pub mod yadm;
 
 use anyhow::Result;
+use dialoguer::Select;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Represents a tool that manages dotfiles
@@ -46,6 +48,35 @@ pub struct DotfileMapping {
     pub source: PathBuf,
     pub destination: PathBuf,
     pub category: Option<String>,
+}
+
+/// Strategies for resolving conflicts during import
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConflictResolution {
+    /// Skip conflicting files
+    Skip,
+    /// Overwrite existing files without backup
+    Overwrite,
+    /// Backup existing files, then overwrite
+    Backup,
+    /// Ask user for each conflicting file
+    Ask,
+}
+
+/// Options for importing dotfiles
+#[derive(Debug, Clone)]
+pub struct ImportOptions {
+    pub conflict_resolution: ConflictResolution,
+    pub dry_run: bool,
+}
+
+impl Default for ImportOptions {
+    fn default() -> Self {
+        Self {
+            conflict_resolution: ConflictResolution::Ask,
+            dry_run: false,
+        }
+    }
 }
 
 /// Trait for importing from different dotfile tools
@@ -98,5 +129,225 @@ pub fn import_from_tool(path: &Path, tool: &DotfileTool) -> Result<ImportResult>
         DotfileTool::Yadm => yadm::YadmImporter::import(path),
         DotfileTool::Homesick => homesick::HomesickImporter::import(path),
         DotfileTool::Manual => anyhow::bail!("Manual import not yet implemented"),
+    }
+}
+
+/// Detect conflicting files (files that already exist at destination)
+pub fn detect_conflicts(result: &ImportResult) -> Vec<DotfileMapping> {
+    result
+        .dotfiles
+        .iter()
+        .filter(|mapping| mapping.destination.exists())
+        .cloned()
+        .collect()
+}
+
+/// Resolve conflicts based on the chosen strategy
+pub fn resolve_conflicts(
+    conflicts: Vec<DotfileMapping>,
+    strategy: &ConflictResolution,
+) -> Result<Vec<DotfileMapping>> {
+    match strategy {
+        ConflictResolution::Skip => {
+            // Skip all conflicting files
+            Ok(Vec::new())
+        }
+        ConflictResolution::Overwrite => {
+            // Proceed with all conflicts (will overwrite)
+            Ok(conflicts)
+        }
+        ConflictResolution::Backup => {
+            // Backup each file before proceeding
+            for conflict in &conflicts {
+                let backup_path = conflict.destination.with_extension(format!(
+                    "{}.backup",
+                    conflict
+                        .destination
+                        .extension()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("")
+                ));
+
+                // Create unique backup name if backup already exists
+                let mut final_backup = backup_path.clone();
+                let mut counter = 1;
+                while final_backup.exists() {
+                    final_backup = conflict.destination.with_extension(format!(
+                        "{}.backup.{}",
+                        conflict
+                            .destination
+                            .extension()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or(""),
+                        counter
+                    ));
+                    counter += 1;
+                }
+
+                fs::copy(&conflict.destination, &final_backup)?;
+                println!(
+                    "  Backed up {} to {}",
+                    conflict.destination.display(),
+                    final_backup.display()
+                );
+            }
+            Ok(conflicts)
+        }
+        ConflictResolution::Ask => {
+            // Ask user for each conflicting file
+            let mut resolved = Vec::new();
+
+            for conflict in conflicts {
+                let choices = vec![
+                    "Skip this file",
+                    "Overwrite (no backup)",
+                    "Backup and overwrite",
+                ];
+
+                let selection = Select::new()
+                    .with_prompt(&format!(
+                        "File exists: {} - What would you like to do?",
+                        conflict.destination.display()
+                    ))
+                    .items(&choices)
+                    .default(0)
+                    .interact()?;
+
+                match selection {
+                    0 => {
+                        // Skip
+                        println!("  Skipping {}", conflict.destination.display());
+                    }
+                    1 => {
+                        // Overwrite
+                        resolved.push(conflict);
+                    }
+                    2 => {
+                        // Backup and overwrite
+                        let backup_path = conflict.destination.with_extension(format!(
+                            "{}.backup",
+                            conflict
+                                .destination
+                                .extension()
+                                .and_then(|s| s.to_str())
+                                .unwrap_or("")
+                        ));
+
+                        fs::copy(&conflict.destination, &backup_path)?;
+                        println!("  Backed up to {}", backup_path.display());
+                        resolved.push(conflict);
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(resolved)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+    use std::io::Write;
+    use tempfile::TempDir;
+
+    fn create_test_import_result(temp_dir: &TempDir, create_files: bool) -> ImportResult {
+        let source1 = temp_dir.path().join("source1.txt");
+        let source2 = temp_dir.path().join("source2.txt");
+        let dest1 = temp_dir.path().join("dest1.txt");
+        let dest2 = temp_dir.path().join("dest2.txt");
+
+        // Create source files
+        File::create(&source1).unwrap();
+        File::create(&source2).unwrap();
+
+        // Optionally create destination files (to simulate conflicts)
+        if create_files {
+            File::create(&dest1)
+                .unwrap()
+                .write_all(b"existing content")
+                .unwrap();
+            File::create(&dest2)
+                .unwrap()
+                .write_all(b"existing content")
+                .unwrap();
+        }
+
+        ImportResult {
+            tool: DotfileTool::Manual,
+            dotfiles: vec![
+                DotfileMapping {
+                    source: source1,
+                    destination: dest1,
+                    category: Some("shell".to_string()),
+                },
+                DotfileMapping {
+                    source: source2,
+                    destination: dest2,
+                    category: Some("editor".to_string()),
+                },
+            ],
+            packages: vec![],
+            stow_compat: false,
+        }
+    }
+
+    #[test]
+    fn test_detect_conflicts_none() {
+        let temp_dir = TempDir::new().unwrap();
+        let import_result = create_test_import_result(&temp_dir, false);
+
+        let conflicts = detect_conflicts(&import_result);
+        assert_eq!(conflicts.len(), 0);
+    }
+
+    #[test]
+    fn test_detect_conflicts_some() {
+        let temp_dir = TempDir::new().unwrap();
+        let import_result = create_test_import_result(&temp_dir, true);
+
+        let conflicts = detect_conflicts(&import_result);
+        assert_eq!(conflicts.len(), 2);
+    }
+
+    #[test]
+    fn test_resolve_conflicts_skip() {
+        let temp_dir = TempDir::new().unwrap();
+        let import_result = create_test_import_result(&temp_dir, true);
+        let conflicts = detect_conflicts(&import_result);
+
+        let resolved = resolve_conflicts(conflicts, &ConflictResolution::Skip).unwrap();
+        assert_eq!(resolved.len(), 0);
+    }
+
+    #[test]
+    fn test_resolve_conflicts_overwrite() {
+        let temp_dir = TempDir::new().unwrap();
+        let import_result = create_test_import_result(&temp_dir, true);
+        let conflicts = detect_conflicts(&import_result);
+
+        let resolved =
+            resolve_conflicts(conflicts.clone(), &ConflictResolution::Overwrite).unwrap();
+        assert_eq!(resolved.len(), 2);
+        assert_eq!(resolved[0].destination, conflicts[0].destination);
+        assert_eq!(resolved[1].destination, conflicts[1].destination);
+    }
+
+    #[test]
+    fn test_resolve_conflicts_backup() {
+        let temp_dir = TempDir::new().unwrap();
+        let import_result = create_test_import_result(&temp_dir, true);
+        let conflicts = detect_conflicts(&import_result);
+
+        let resolved = resolve_conflicts(conflicts.clone(), &ConflictResolution::Backup).unwrap();
+        assert_eq!(resolved.len(), 2);
+
+        // Verify backup files were created
+        let backup1 = conflicts[0].destination.with_extension("txt.backup");
+        let backup2 = conflicts[1].destination.with_extension("txt.backup");
+        assert!(backup1.exists(), "Backup file should exist: {:?}", backup1);
+        assert!(backup2.exists(), "Backup file should exist: {:?}", backup2);
     }
 }

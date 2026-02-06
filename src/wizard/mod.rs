@@ -7,7 +7,9 @@ pub use generator::*;
 pub use package_detector::*;
 pub use scanner::*;
 
-use crate::import::{detect_tool, import_from_tool};
+use crate::import::{
+    detect_conflicts, detect_tool, import_from_tool, resolve_conflicts, ConflictResolution,
+};
 use anyhow::Result;
 use console::{style, Term};
 use dialoguer::{Confirm, Input, MultiSelect, Select};
@@ -641,12 +643,94 @@ fn wizard_import() -> Result<()> {
             println!("\n{} Importing from {}...", style("→").cyan(), tool.name());
 
             match import_from_tool(path, &tool) {
-                Ok(import_result) => {
+                Ok(mut import_result) => {
                     println!(
                         "{} Found {} files",
                         style("✓").green(),
                         import_result.dotfiles.len()
                     );
+
+                    // Check for conflicts
+                    let conflicts = detect_conflicts(&import_result);
+
+                    if !conflicts.is_empty() {
+                        println!(
+                            "\n{} Found {} conflicting files (already exist):",
+                            style("⚠").yellow().bold(),
+                            conflicts.len()
+                        );
+
+                        // Show first few conflicts
+                        for conflict in conflicts.iter().take(5) {
+                            let rel_dest = conflict
+                                .destination
+                                .strip_prefix(dirs::home_dir().unwrap_or_default())
+                                .unwrap_or(&conflict.destination);
+                            println!("  • ~/{}", rel_dest.display());
+                        }
+
+                        if conflicts.len() > 5 {
+                            println!("  ... and {} more", conflicts.len() - 5);
+                        }
+
+                        // Ask user how to handle conflicts
+                        let choices = vec![
+                            "Skip conflicting files",
+                            "Backup and overwrite",
+                            "Overwrite (no backup)",
+                            "Ask for each file",
+                        ];
+
+                        let selection = Select::new()
+                            .with_prompt("How would you like to handle conflicts?")
+                            .items(&choices)
+                            .default(0)
+                            .interact()?;
+
+                        let strategy = match selection {
+                            0 => ConflictResolution::Skip,
+                            1 => ConflictResolution::Backup,
+                            2 => ConflictResolution::Overwrite,
+                            3 => ConflictResolution::Ask,
+                            _ => unreachable!(),
+                        };
+
+                        // Resolve conflicts
+                        match resolve_conflicts(conflicts.clone(), &strategy) {
+                            Ok(resolved) => {
+                                // Remove all conflicts from import_result
+                                import_result.dotfiles.retain(|mapping| {
+                                    !conflicts
+                                        .iter()
+                                        .any(|c| c.destination == mapping.destination)
+                                });
+
+                                // Add back the resolved ones
+                                import_result.dotfiles.extend(resolved);
+
+                                if strategy == ConflictResolution::Skip {
+                                    println!(
+                                        "\n{} Skipped {} conflicting files",
+                                        style("→").cyan(),
+                                        conflicts.len()
+                                    );
+                                } else {
+                                    println!(
+                                        "\n{} Resolved {} conflicts",
+                                        style("✓").green(),
+                                        import_result.dotfiles.len()
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                println!(
+                                    "\n{} Failed to resolve conflicts: {}",
+                                    style("✗").red(),
+                                    e
+                                );
+                            }
+                        }
+                    }
 
                     // Show some of the found files
                     if !import_result.dotfiles.is_empty() {
