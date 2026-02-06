@@ -18,7 +18,8 @@ mod utils;
 mod wizard;
 
 use cli::{
-    AutoSyncAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction, RemoteAction,
+    AutoSyncAction, BranchAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction,
+    RemoteAction,
 };
 use utils::{error, header, info, success};
 
