@@ -14,6 +14,8 @@ pub struct HeimdallConfig {
     pub ignore: Vec<String>,
     #[serde(default)]
     pub mappings: HashMap<String, PackageMapping>,
+    #[serde(default)]
+    pub hooks: GlobalHooks,
 }
 
 /// Metadata section
@@ -171,6 +173,19 @@ pub enum HookCommand {
     },
 }
 
+/// Global lifecycle hooks
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct GlobalHooks {
+    #[serde(default)]
+    pub pre_apply: Vec<HookCommand>,
+    #[serde(default)]
+    pub post_apply: Vec<HookCommand>,
+    #[serde(default)]
+    pub pre_sync: Vec<HookCommand>,
+    #[serde(default)]
+    pub post_sync: Vec<HookCommand>,
+}
+
 /// Machine profile configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Profile {
@@ -233,13 +248,23 @@ pub struct DotfilesConfig {
 pub struct DotfileMapping {
     pub source: String,
     pub target: String,
+    #[serde(default)]
+    pub post_link: Vec<HookCommand>,
+    #[serde(default)]
+    pub pre_unlink: Vec<HookCommand>,
 }
 
 /// Profile-level hooks
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProfileHooks {
     #[serde(default)]
+    pub pre_apply: Vec<HookCommand>,
+    #[serde(default)]
     pub post_apply: Vec<HookCommand>,
+    #[serde(default)]
+    pub pre_sync: Vec<HookCommand>,
+    #[serde(default)]
+    pub post_sync: Vec<HookCommand>,
 }
 
 /// Sync configuration

@@ -9,6 +9,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Week 4: Git Integration & Lifecycle Hooks
+
+- **Git Tracking & Commit System** (Day 1)
+  - File change tracking with 6 change types (Modified, Added, Deleted, Renamed, TypeChanged, Untracked)
+  - `heimdal commit` command with smart commit message generation
+  - Auto-staging of files before commit
+  - Commit message templates based on change patterns
+  - Optional `--push` flag to push after commit
+  - Support for committing specific files
+  - `heimdal push` and `heimdal pull` commands
+  - Push with optional remote/branch specification
+  - Pull with optional rebase
+  - 14 comprehensive tests for git operations
+
+- **Git Sync Improvements & Branch Management** (Day 2)
+  - Advanced sync module with conflict detection
+  - Auto-stash support for uncommitted changes
+  - Tracking info with ahead/behind counts
+  - Dry-run mode for sync operations
+  - Enhanced `heimdal sync` with better error handling
+  - Branch management commands:
+    - `heimdal branch current` - Show current branch
+    - `heimdal branch list` - List all branches with highlight
+    - `heimdal branch create` - Create and switch to new branch
+    - `heimdal branch switch` - Switch to existing branch
+    - `heimdal branch info` - Show tracking information
+  - Beautiful formatted branch info with colors
+  - 3 new tests for sync and branch operations
+
+- **Lifecycle Hooks System** (Day 3)
+  - Shared hooks module with `HookContext` enum
+  - Global lifecycle hooks in `HeimdallConfig`:
+    - `pre_apply`, `post_apply` - Before/after applying configuration
+    - `pre_sync`, `post_sync` - Before/after syncing from remote
+  - Profile-specific hooks:
+    - Override or extend global hooks per profile
+    - Same lifecycle events as global hooks
+  - Dotfile-specific hooks:
+    - `post_link` - Runs after creating symlink
+    - `pre_unlink` - Runs before removing symlink
+  - Hook execution features:
+    - OS filtering (run only on specific operating systems)
+    - Condition checking (file_exists, directory_exists)
+    - Dry-run support
+    - Error handling (continue or fail on error)
+    - Output capture and display
+    - Shell expansion support
+  - Integration with apply and sync workflows
+  - 4 comprehensive tests for hook execution
+  - Refactored package hooks to use shared module
+
+- **Git Remote Management** (Day 4)
+  - Remote management commands:
+    - `heimdal remote list` - List all remotes (with `-v` for URLs)
+    - `heimdal remote add` - Add new remote with validation
+    - `heimdal remote remove` - Remove remote with existence check
+    - `heimdal remote set-url` - Change remote URL
+    - `heimdal remote show` - Display remote details
+    - `heimdal remote setup` - Interactive remote setup wizard
+  - Interactive remote setup features:
+    - Shows existing remotes
+    - Prompts for remote name (default: origin)
+    - Prompts for remote URL (SSH or HTTPS)
+    - Handles replacing existing remotes
+    - Optional first-time push after setup
+    - User-friendly dialoguer-based prompts
+  - Enhanced push method with remote/branch specification
+  - 7 new remote management methods in GitRepo
+
+### Changed
+
+- Enhanced `cmd_sync()` to use new sync module with conflict handling
+- Enhanced `cmd_apply()` to run lifecycle hooks at appropriate stages
+- Package module now uses shared hooks module instead of local implementation
+- All package managers updated to use `HookContext` enum
+
 #### Week 3: Enhanced Status & Package Commands
 
 - **Enhanced Status Command** - Beautiful, informative status display
