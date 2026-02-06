@@ -1,5 +1,8 @@
+pub mod chezmoi;
 pub mod dotbot;
+pub mod homesick;
 pub mod stow;
+pub mod yadm;
 
 use anyhow::Result;
 use std::path::{Path, PathBuf};
@@ -11,6 +14,7 @@ pub enum DotfileTool {
     Dotbot,
     Chezmoi,
     Yadm,
+    Homesick,
     Manual,
 }
 
@@ -21,6 +25,7 @@ impl DotfileTool {
             DotfileTool::Dotbot => "dotbot",
             DotfileTool::Chezmoi => "chezmoi",
             DotfileTool::Yadm => "yadm",
+            DotfileTool::Homesick => "homesick",
             DotfileTool::Manual => "Manual/Custom",
         }
     }
@@ -66,13 +71,18 @@ pub fn detect_tool(path: &Path) -> Option<DotfileTool> {
     }
 
     // Check for chezmoi
-    if path.join(".chezmoi").exists() || path.join(".chezmoiignore").exists() {
+    if chezmoi::ChezmoiImporter::detect(path) {
         return Some(DotfileTool::Chezmoi);
     }
 
     // Check for yadm
-    if path.join(".yadm").exists() {
+    if yadm::YadmImporter::detect(path) {
         return Some(DotfileTool::Yadm);
+    }
+
+    // Check for homesick
+    if homesick::HomesickImporter::detect(path) {
+        return Some(DotfileTool::Homesick);
     }
 
     // Default to manual
@@ -84,6 +94,9 @@ pub fn import_from_tool(path: &Path, tool: &DotfileTool) -> Result<ImportResult>
     match tool {
         DotfileTool::Stow => stow::StowImporter::import(path),
         DotfileTool::Dotbot => dotbot::DotbotImporter::import(path),
-        _ => anyhow::bail!("Import from {} not yet implemented", tool.name()),
+        DotfileTool::Chezmoi => chezmoi::ChezmoiImporter::import(path),
+        DotfileTool::Yadm => yadm::YadmImporter::import(path),
+        DotfileTool::Homesick => homesick::HomesickImporter::import(path),
+        DotfileTool::Manual => anyhow::bail!("Manual import not yet implemented"),
     }
 }
