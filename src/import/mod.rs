@@ -132,12 +132,44 @@ pub fn import_from_tool(path: &Path, tool: &DotfileTool) -> Result<ImportResult>
     }
 }
 
+/// Generate a unique backup path for a file
+/// Handles files with no extension and ensures uniqueness
+fn generate_backup_path(path: &Path) -> PathBuf {
+    // Get the file name
+    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
+
+    // Create initial backup path by appending .backup to the full name
+    let initial_backup = path.with_file_name(format!("{}.backup", file_name));
+
+    // If it doesn't exist, use it
+    if !initial_backup.exists() {
+        return initial_backup;
+    }
+
+    // Otherwise, find a unique name with a counter
+    let mut counter = 1;
+    loop {
+        let backup_with_counter = path.with_file_name(format!("{}.backup.{}", file_name, counter));
+        if !backup_with_counter.exists() {
+            return backup_with_counter;
+        }
+        counter += 1;
+    }
+}
+
 /// Detect conflicting files (files that already exist at destination)
 pub fn detect_conflicts(result: &ImportResult) -> Vec<DotfileMapping> {
     result
         .dotfiles
         .iter()
-        .filter(|mapping| mapping.destination.exists())
+        .filter(|mapping| {
+            let dest = &mapping.destination;
+            dest.exists()
+                && (dest.is_file()
+                    || fs::symlink_metadata(dest)
+                        .map(|m| m.file_type().is_symlink())
+                        .unwrap_or(false))
+        })
         .cloned()
         .collect()
 }
@@ -159,36 +191,13 @@ pub fn resolve_conflicts(
         ConflictResolution::Backup => {
             // Backup each file before proceeding
             for conflict in &conflicts {
-                let backup_path = conflict.destination.with_extension(format!(
-                    "{}.backup",
-                    conflict
-                        .destination
-                        .extension()
-                        .and_then(|s| s.to_str())
-                        .unwrap_or("")
-                ));
+                let backup_path = generate_backup_path(&conflict.destination);
 
-                // Create unique backup name if backup already exists
-                let mut final_backup = backup_path.clone();
-                let mut counter = 1;
-                while final_backup.exists() {
-                    final_backup = conflict.destination.with_extension(format!(
-                        "{}.backup.{}",
-                        conflict
-                            .destination
-                            .extension()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or(""),
-                        counter
-                    ));
-                    counter += 1;
-                }
-
-                fs::copy(&conflict.destination, &final_backup)?;
+                fs::copy(&conflict.destination, &backup_path)?;
                 println!(
                     "  Backed up {} to {}",
                     conflict.destination.display(),
-                    final_backup.display()
+                    backup_path.display()
                 );
             }
             Ok(conflicts)
@@ -224,14 +233,7 @@ pub fn resolve_conflicts(
                     }
                     2 => {
                         // Backup and overwrite
-                        let backup_path = conflict.destination.with_extension(format!(
-                            "{}.backup",
-                            conflict
-                                .destination
-                                .extension()
-                                .and_then(|s| s.to_str())
-                                .unwrap_or("")
-                        ));
+                        let backup_path = generate_backup_path(&conflict.destination);
 
                         fs::copy(&conflict.destination, &backup_path)?;
                         println!("  Backed up to {}", backup_path.display());

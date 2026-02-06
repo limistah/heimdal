@@ -1,6 +1,5 @@
 use super::{DotfileMapping, DotfileTool, ImportResult, Importer};
 use anyhow::Result;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 

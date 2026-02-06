@@ -47,8 +47,8 @@ impl TemplateEngine {
     /// Render a template string
     /// Replaces {{ variable }} with values from the variables map
     pub fn render(&self, template: &str) -> Result<String> {
-        // Track missing variables
-        let mut missing_vars = Vec::new();
+        // Track missing variables (using HashSet to avoid duplicates)
+        let mut missing_vars = std::collections::HashSet::new();
 
         // Single-pass replacement using replace_all with closure
         let result = VARIABLE_REGEX.replace_all(template, |caps: &regex::Captures| {
@@ -57,7 +57,7 @@ impl TemplateEngine {
             if let Some(value) = self.variables.get(var_name) {
                 value.clone()
             } else {
-                missing_vars.push(var_name.to_string());
+                missing_vars.insert(var_name.to_string());
                 // Keep the original placeholder for missing variables
                 caps[0].to_string()
             }
@@ -65,10 +65,12 @@ impl TemplateEngine {
 
         // Warn about missing variables
         if !missing_vars.is_empty() {
+            let mut vars: Vec<_> = missing_vars.into_iter().collect();
+            vars.sort(); // Sort for consistent output
             eprintln!(
                 "{} Template contains undefined variables: {}",
                 "⚠".yellow(),
-                missing_vars.join(", ")
+                vars.join(", ")
             );
         }
 

@@ -698,7 +698,7 @@ fn wizard_import() -> Result<()> {
                                 });
 
                                 // Add back the resolved ones
-                                import_result.dotfiles.extend(resolved);
+                                import_result.dotfiles.extend(resolved.clone());
 
                                 if strategy == ConflictResolution::Skip {
                                     println!(
@@ -710,7 +710,7 @@ fn wizard_import() -> Result<()> {
                                     println!(
                                         "\n{} Resolved {} conflicts",
                                         style("✓").green(),
-                                        import_result.dotfiles.len()
+                                        resolved.len()
                                     );
                                 }
                             }
