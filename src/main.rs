@@ -2005,52 +2005,17 @@ fn cmd_template_variables(profile_name: Option<&str>) -> Result<()> {
 }
 
 fn cmd_packages_update_all(dry_run: bool, yes: bool) -> Result<()> {
-    use crate::utils::{confirm, warning};
+    use crate::utils::{error, header};
 
     header("Update All Packages");
 
-    // Load state to get current profile
-    let state = state::HeimdallState::load()?;
-
-    info(&format!("Profile: {}", state.active_profile));
+    error("The `packages update-all` command is not yet implemented.");
     println!();
+    info("This command will be available in a future release.");
+    info("To update packages manually, use your system's package manager:");
+    info("  macOS:  brew upgrade");
+    info("  Linux:  sudo apt upgrade / sudo dnf upgrade / sudo pacman -Syu");
 
-    if !yes && !dry_run {
-        if !confirm("This will update all packages in the current profile. Continue?") {
-            info("Update cancelled");
-            return Ok(());
-        }
-    }
-
-    if dry_run {
-        warning("DRY RUN - No packages will be updated");
-        println!();
-    }
-
-    // Detect package manager
-    let pm = package::detect_package_manager();
-    if pm.is_none() {
-        error("No supported package manager found on this system");
-        return Ok(());
-    }
-
-    let pm = pm.unwrap();
-    info(&format!("Using package manager: {}", pm.name()));
-    println!();
-
-    // In a real implementation, this would:
-    // 1. Get list of installed packages from current profile
-    // 2. Check for updates using the package manager
-    // 3. Update each package
-
-    if dry_run {
-        info("Would check for updates and upgrade all packages");
-    } else {
-        info("Checking for updates...");
-        // TODO: Implement actual update logic
-        warning("Update functionality not yet fully implemented");
-        info("This will be completed in a future update");
-    }
-
-    Ok(())
+    // Return error to indicate command is not ready
+    anyhow::bail!("Command not implemented")
 }
