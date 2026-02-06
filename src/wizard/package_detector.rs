@@ -61,7 +61,8 @@ impl PackageCategory {
 impl PackageDetector {
     /// Detect all installed packages on the system
     pub fn detect_all() -> Result<Vec<DetectedPackage>> {
-        let mut packages = Vec::new();
+        // Pre-allocate with estimated capacity (most users have 50-100 packages)
+        let mut packages = Vec::with_capacity(100);
 
         // Detect which package managers are available and get their packages
         if Self::has_homebrew() {
@@ -123,7 +124,8 @@ impl PackageDetector {
 
     /// Detect Homebrew packages
     fn detect_homebrew() -> Result<Vec<DetectedPackage>> {
-        let mut packages = Vec::new();
+        // Pre-allocate with estimated capacity
+        let mut packages = Vec::with_capacity(80);
 
         // Get formulae (CLI tools)
         let output = Command::new("brew").arg("list").arg("--formula").output()?;
@@ -164,7 +166,8 @@ impl PackageDetector {
 
     /// Detect APT packages (user-installed only)
     fn detect_apt() -> Result<Vec<DetectedPackage>> {
-        let mut packages = Vec::new();
+        // Pre-allocate with estimated capacity
+        let mut packages = Vec::with_capacity(50);
 
         // Get manually installed packages (not dependencies)
         let output = Command::new("apt-mark").arg("showmanual").output()?;
@@ -269,7 +272,7 @@ impl PackageDetector {
 
     /// Check if a package is likely user-installed (not a system package)
     fn is_user_package(name: &str) -> bool {
-        let system_packages = vec![
+        let system_packages = [
             "base",
             "systemd",
             "kernel",
@@ -292,13 +295,13 @@ impl PackageDetector {
         let lower = name.to_lowercase();
 
         // Check editors first (more specific patterns like neovim before vim)
-        let editors = vec!["neovim", "nvim", "emacs", "vscode", "sublime", "code"];
+        let editors = ["neovim", "nvim", "emacs", "vscode", "sublime", "code"];
         if editors.iter().any(|e| lower.contains(e)) {
             return PackageCategory::Editor;
         }
 
         // Essential tools
-        let essential = vec!["git", "vim", "curl", "wget", "ssh", "rsync"];
+        let essential = ["git", "vim", "curl", "wget", "ssh", "rsync"];
         if essential.iter().any(|e| lower.contains(e)) {
             return PackageCategory::Essential;
         }
@@ -366,7 +369,7 @@ impl PackageDetector {
         for package in packages {
             grouped
                 .entry(package.category.as_str().to_string())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(package);
         }
 

@@ -60,7 +60,8 @@ impl DotfileScanner {
 
     /// Scan for dotfiles in the configured directory
     pub fn scan(&self) -> Result<Vec<ScannedDotfile>> {
-        let mut dotfiles = Vec::new();
+        // Pre-allocate with estimated capacity (most users have 20-50 dotfiles)
+        let mut dotfiles = Vec::with_capacity(50);
 
         // Common dotfiles in home directory
         let common_files = vec![
@@ -135,7 +136,8 @@ impl DotfileScanner {
 
     /// Scan .config directory for application configs
     fn scan_config_dir(&self, config_dir: &Path) -> Result<Vec<ScannedDotfile>> {
-        let mut dotfiles = Vec::new();
+        // Pre-allocate with estimated capacity
+        let mut dotfiles = Vec::with_capacity(15);
 
         // Common applications in .config
         let common_apps = vec![
@@ -210,7 +212,7 @@ impl DotfileScanner {
         for dotfile in dotfiles {
             grouped
                 .entry(dotfile.category.as_str().to_string())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(dotfile);
         }
 

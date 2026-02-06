@@ -19,10 +19,11 @@ heimdal wizard
 ```
 
 The interactive wizard will guide you through:
-- Scanning your existing dotfiles
-- Detecting installed packages
-- Generating configuration
-- Setting up Git sync
+- **Smart scanning** with real-time progress indicators
+- **Interactive selection** - Choose exactly which files and packages to track
+- **Smart profile names** - Auto-generated based on your hostname and OS  
+- **Package detection** with helpful empty state guidance
+- **Git sync setup** with remote configuration
 
 **Done in under 2 minutes!**
 
@@ -35,8 +36,16 @@ heimdal wizard
 
 Heimdal automatically detects and converts:
 - ✅ **GNU Stow** - Maintains Stow compatibility
-- ✅ **dotbot** - Converts `install.conf.yaml` 
+- ✅ **dotbot** - Converts `install.conf.yaml`
+- ✅ **chezmoi** - Parses chezmoi naming conventions
+- ✅ **yadm** - Imports yadm tracked files
+- ✅ **homesick** - Converts castle structures
 - ✅ **Manual setups** - Smart scanning and detection
+
+**Preview before importing:**
+```bash
+heimdal import --path ~/dotfiles --preview
+```
 
 No manual conversion needed!
 
@@ -46,12 +55,28 @@ No manual conversion needed!
 - **Universal Package Management** - Install packages across Homebrew, APT, DNF, Pacman, and Mac App Store from a single configuration
 - **Intelligent Symlinking** - GNU Stow-compatible symlink management with conflict resolution
 - **Template System** - Simple variable substitution for machine-specific configs (user, hostname, email, etc.)
+- **Secret Management** - Secure API keys and tokens using OS-native keychains (never stored in git)
 - **Git-Based Sync** - Keep your configuration in sync across machines using Git
 - **Profile-Based Configuration** - Different configurations for different machines (work, personal, servers)
+- **Interactive Wizard** - Smart setup with progress indicators and interactive selection
 - **Auto-Sync** - Background synchronization via cron jobs
 - **Rollback Support** - Easily revert to previous configurations
 - **Hooks System** - Run custom scripts before/after installation
 - **Dry-Run Mode** - Preview changes before applying them
+
+### ✨ Recent Improvements (v1.3.0)
+- **Enhanced Import System**
+  - Support for 3 additional dotfile managers: chezmoi, yadm, homesick
+  - Intelligent conflict resolution with 4 strategies (Skip, Overwrite, Backup, Ask)
+  - Import preview mode to see what would be imported
+  - Better file categorization and destination mapping
+- **Previous Improvements (v1.2.0)**
+  - Real-time progress indicators for scanning operations
+  - Interactive file/package selection with multi-select support
+  - Smart profile name generation (e.g., "work-mac", "personal-linux")
+  - 30-50% faster template rendering with cached regex
+  - Eliminated critical `.unwrap()` calls with proper error handling
+  - Added logging macros to reduce boilerplate
 
 ### 🎯 Smart Package Intelligence (New in v1.1.0)
 - **Package Profiles** - Pre-configured package sets for common workflows
