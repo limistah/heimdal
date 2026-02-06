@@ -5,7 +5,7 @@ use crate::package::database::{PackageCategory, PackageDatabase};
 use crate::utils::header;
 
 /// Run the packages search command
-pub fn run_search(query: &str, category: Option<&str>) -> Result<()> {
+pub fn run_search(query: &str, category: Option<&str>, tag: Option<&str>) -> Result<()> {
     header(&format!("Searching for: {}", query));
 
     let db = PackageDatabase::new();
@@ -17,33 +17,94 @@ pub fn run_search(query: &str, category: Option<&str>) -> Result<()> {
         None
     };
 
-    // Search packages
-    let results = db.search(query);
+    // Search packages with fuzzy matching
+    let mut results = db.search_fuzzy(query);
+
+    // Update installation status for each result
+    for result in &mut results {
+        result.installed = PackageDatabase::is_package_installed(&result.package.name);
+    }
 
     // Filter by category if specified
     let filtered_results: Vec<_> = if let Some(cat) = category_filter {
-        results.into_iter().filter(|p| p.category == cat).collect()
+        results
+            .into_iter()
+            .filter(|r| r.package.category == cat)
+            .collect()
     } else {
         results
     };
 
-    if filtered_results.is_empty() {
+    // Filter by tag if specified
+    let final_results: Vec<_> = if let Some(tag_filter) = tag {
+        let tag_lower = tag_filter.to_lowercase();
+        filtered_results
+            .into_iter()
+            .filter(|r| {
+                r.package
+                    .tags
+                    .iter()
+                    .any(|t| t.to_lowercase().contains(&tag_lower))
+            })
+            .collect()
+    } else {
+        filtered_results
+    };
+
+    if final_results.is_empty() {
         println!("{}", "No packages found.".yellow());
+        println!();
+        println!("💡 Tips:");
+        println!("  • Try a broader search term");
+        println!("  • Check spelling (fuzzy matching is enabled)");
+        println!("  • Remove category or tag filters");
         return Ok(());
     }
 
     println!();
     println!(
         "Found {} package{}:",
-        filtered_results.len(),
-        if filtered_results.len() == 1 { "" } else { "s" }
+        final_results.len(),
+        if final_results.len() == 1 { "" } else { "s" }
     );
     println!();
 
-    for pkg in filtered_results {
-        println!("  {} {}", "→".cyan(), pkg.name.bold().green());
+    for result in final_results {
+        let pkg = result.package;
+
+        // Installation status indicator
+        let status_icon = if result.installed {
+            "✓".green().bold()
+        } else {
+            "○".bright_black()
+        };
+
+        // Relevance indicator (show for fuzzy matches)
+        let relevance = if result.score > 5000 {
+            "".to_string() // Exact or substring matches don't need indicator
+        } else if result.score > 1000 {
+            format!(" {}", "★".yellow())
+        } else if result.score > 500 {
+            format!(" {}", "☆".bright_black())
+        } else {
+            format!(" {}", "·".bright_black())
+        };
+
+        println!(
+            "  {} {} {}{}",
+            status_icon,
+            "→".cyan(),
+            pkg.name.bold().green(),
+            relevance
+        );
+
         println!("    {}", pkg.description.bright_black());
-        println!("    Category: {}", format!("{:?}", pkg.category).yellow());
+        println!(
+            "    Category: {}  Popularity: {}",
+            pkg.category.as_str().yellow(),
+            format!("{}★", pkg.popularity).bright_black()
+        );
+
         if !pkg.tags.is_empty() {
             println!(
                 "    Tags: {}",
@@ -54,8 +115,36 @@ pub fn run_search(query: &str, category: Option<&str>) -> Result<()> {
                     .join(", ")
             );
         }
+
+        // Show alternatives if available
+        if !pkg.alternatives.is_empty() && pkg.alternatives.len() <= 3 {
+            println!(
+                "    Alternatives: {}",
+                pkg.alternatives
+                    .iter()
+                    .map(|a| a.cyan().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+
         println!();
     }
+
+    // Legend
+    println!("{}", "Legend:".bright_black());
+    println!(
+        "  {} = installed, {} = not installed",
+        "✓".green().bold(),
+        "○".bright_black()
+    );
+    println!(
+        "  {} = highly relevant, {} = relevant, {} = fuzzy match",
+        "★".yellow(),
+        "☆".bright_black(),
+        "·".bright_black()
+    );
+    println!();
 
     Ok(())
 }

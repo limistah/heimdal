@@ -245,6 +245,10 @@ pub enum PackagesAction {
         /// Filter by category
         #[arg(short, long)]
         category: Option<String>,
+
+        /// Filter by tag
+        #[arg(short, long)]
+        tag: Option<String>,
     },
 
     /// Show detailed information about a package

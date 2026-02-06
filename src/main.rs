@@ -207,8 +207,12 @@ fn main() -> Result<()> {
             } => {
                 commands::packages::run_remove(&name, profile.as_deref(), force, no_uninstall)?;
             }
-            PackagesAction::Search { query, category } => {
-                commands::packages::run_search(&query, category.as_deref())?;
+            PackagesAction::Search {
+                query,
+                category,
+                tag,
+            } => {
+                commands::packages::run_search(&query, category.as_deref(), tag.as_deref())?;
             }
             PackagesAction::Info { name } => {
                 commands::packages::run_info(&name)?;
