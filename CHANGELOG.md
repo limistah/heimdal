@@ -9,6 +9,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Week 9: Enhanced Import System
+
+- **Extended Tool Support** (Days 1-2)
+  - **chezmoi Importer**: Parse chezmoi naming conventions
+    - Handles `dot_`, `executable_`, `private_`, `readonly_` prefixes
+    - Removes `.tmpl` suffix for template files
+    - Auto-categorizes files (shell, editor, git, tmux)
+    - Test coverage: 2 passing tests
+  
+  - **yadm Importer**: Import yadm tracked files
+    - Detects `.yadm` directory structure
+    - Uses `yadm list -a` command to get tracked files
+    - Supports in-place tracking (files stay where they are)
+    - Auto-categorization by filename patterns
+    - Test coverage: 2 passing tests
+  
+  - **homesick Importer**: Convert homesick castle structures
+    - Detects "castle" structure with `home/` subdirectory
+    - Recursively scans castle for dotfiles
+    - Maps `castle/home/` → `$HOME`
+    - Stow-compatible structure preservation
+    - Test coverage: 2 passing tests
+
+- **Conflict Resolution** (Day 3)
+  - **Four Resolution Strategies**:
+    - **Skip**: Skip all conflicting files (safest)
+    - **Overwrite**: Overwrite without backup (destructive)
+    - **Backup**: Create `.backup` files before overwriting (recommended)
+    - **Ask**: Interactive prompt for each conflict (most control)
+  
+  - **Conflict Detection**:
+    - Automatically detects files that already exist at destination
+    - Shows list of conflicting files with paths
+    - Displays first 5 conflicts with "... and N more" for larger lists
+  
+  - **Smart Backup Handling**:
+    - Creates unique backup filenames if backup already exists
+    - Example: `.bashrc` → `.bashrc.backup` → `.bashrc.backup.1`
+    - Preserves original file extensions in backup names
+  
+  - **Wizard Integration**:
+    - Seamlessly integrated into wizard import flow
+    - User-friendly prompts with clear options
+    - Visual feedback for resolution actions
+  
+  - **Test Coverage**: 5 new tests (detect, skip, overwrite, backup strategies)
+
+- **Import Preview** (Day 4)
+  - **Dry-Run Mode**: Preview imports without actually importing
+    - `--preview` flag for import command
+    - Shows all dotfiles with source → destination mapping
+    - Displays file categories (shell, editor, git, etc.)
+    - Lists packages that would be tracked
+    - Shows up to 10 items with "... and N more" for larger lists
+  
+  - **Enhanced Display**:
+    - Relative paths for both source and destination
+    - Category labels for each file
+    - Clear instructions for actual import
+  
+  - **Usage Examples**:
+    ```bash
+    heimdal import --path ~/dotfiles --preview
+    heimdal import --from chezmoi --preview
+    heimdal import --from yadm --path ~/.yadm --preview
+    ```
+
+- **Updated Import Command** (Day 4)
+  - Support for all 5 tools: stow, dotbot, chezmoi, yadm, homesick
+  - Better error messages with all available tools listed
+  - Enhanced file display with category information
+
+### Changed
+
+- **Import Module**: Extended to support 5 total dotfile managers (was 2)
+  - All importers follow consistent `Importer` trait
+  - Detection order: Stow → Dotbot → Chezmoi → Yadm → Homesick → Manual
+  - Each importer has dedicated module with tests
+
+- **Wizard Import Flow**: Now includes conflict resolution step
+  - Detects conflicts before proceeding
+  - Offers resolution strategies with clear descriptions
+  - Shows number of conflicts and sample file paths
+  - Applies user-chosen resolution strategy
+
+### Fixed
+
+- **Week 8 PR Review Comments** (addressed 5 review items):
+  1. Replaced `.unwrap()` with `?` in ProgressStyle templates (3 instances)
+  2. Optimized template rendering to single-pass with closure
+  3. Handle empty `clean_hostname` in profile name generation
+  4. Fixed test to use `std::env::consts::OS` for portability
+  5. Restored `Secret` re-export for backward compatibility
+
+### Technical
+
+- **Test Suite**: 174 tests passing (169 original + 5 conflict resolution)
+- **Build Status**: Compiles successfully with 53 warnings (acceptable)
+- **New Imports**: Added `dialoguer::Select` for conflict resolution UI
+- **Import Module Structure**:
+  ```
+  src/import/
+  ├── mod.rs          (main module with conflict resolution)
+  ├── stow.rs         (GNU Stow importer)
+  ├── dotbot.rs       (dotbot importer)
+  ├── chezmoi.rs      (chezmoi importer) ✨ new
+  ├── yadm.rs         (yadm importer)    ✨ new
+  └── homesick.rs     (homesick importer) ✨ new
+  ```
+
 #### Week 8: Wizard UX & Code Quality
 
 - **Enhanced Wizard Experience** (Days 1-3)
