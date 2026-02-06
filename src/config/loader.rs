@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::path::Path;
 
-use super::schema::HeimdallConfig;
+use super::schema::{HeimdallConfig, ProfileTemplateConfig, TemplateConfig};
 
 /// Load configuration from YAML file
 pub fn load_config<P: AsRef<Path>>(path: P) -> Result<HeimdallConfig> {
@@ -89,6 +89,7 @@ mod tests {
                         sources: vec![],
                         dotfiles: DotfilesConfig::default(),
                         hooks: ProfileHooks::default(),
+                        templates: ProfileTemplateConfig::default(),
                     },
                 );
                 map
@@ -97,6 +98,7 @@ mod tests {
             ignore: vec![],
             mappings: HashMap::new(),
             hooks: GlobalHooks::default(),
+            templates: TemplateConfig::default(),
         };
 
         assert!(validate_config(&config).is_err());

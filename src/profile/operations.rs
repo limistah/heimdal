@@ -343,6 +343,7 @@ mod tests {
                 sources: vec![],
                 dotfiles: DotfilesConfig::default(),
                 hooks: ProfileHooks::default(),
+                templates: ProfileTemplateConfig::default(),
             },
         );
         profiles.insert(
@@ -352,6 +353,7 @@ mod tests {
                 sources: vec![],
                 dotfiles: DotfilesConfig::default(),
                 hooks: ProfileHooks::default(),
+                templates: ProfileTemplateConfig::default(),
             },
         );
 
@@ -367,6 +369,7 @@ mod tests {
             ignore: vec![],
             mappings: HashMap::new(),
             hooks: GlobalHooks::default(),
+            templates: TemplateConfig::default(),
         };
 
         let config_path = dotfiles_path.join("heimdal.yaml");

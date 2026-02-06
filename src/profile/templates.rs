@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use crate::config::schema::{
     DotfileMapping, DotfilesConfig, HookCommand, Profile, ProfileHooks, ProfileSource,
+    ProfileTemplateConfig,
 };
 
 /// Built-in profile templates
@@ -81,6 +82,7 @@ impl ProfileTemplates {
                 ],
             },
             hooks: ProfileHooks::default(),
+            templates: ProfileTemplateConfig::default(),
         }
     }
 
@@ -121,6 +123,7 @@ impl ProfileTemplates {
                 ],
             },
             hooks: ProfileHooks::default(),
+            templates: ProfileTemplateConfig::default(),
         }
     }
 
@@ -166,6 +169,7 @@ impl ProfileTemplates {
                 )],
                 ..Default::default()
             },
+            templates: ProfileTemplateConfig::default(),
         }
     }
 
@@ -208,6 +212,7 @@ impl ProfileTemplates {
                 )],
                 ..Default::default()
             },
+            templates: ProfileTemplateConfig::default(),
         }
     }
 
@@ -250,6 +255,7 @@ impl ProfileTemplates {
                 )],
                 ..Default::default()
             },
+            templates: ProfileTemplateConfig::default(),
         }
     }
 
@@ -281,6 +287,7 @@ impl ProfileTemplates {
                 )],
                 ..Default::default()
             },
+            templates: ProfileTemplateConfig::default(),
         }
     }
 }
