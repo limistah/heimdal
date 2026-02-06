@@ -36,8 +36,16 @@ heimdal wizard
 
 Heimdal automatically detects and converts:
 - ✅ **GNU Stow** - Maintains Stow compatibility
-- ✅ **dotbot** - Converts `install.conf.yaml` 
+- ✅ **dotbot** - Converts `install.conf.yaml`
+- ✅ **chezmoi** - Parses chezmoi naming conventions
+- ✅ **yadm** - Imports yadm tracked files
+- ✅ **homesick** - Converts castle structures
 - ✅ **Manual setups** - Smart scanning and detection
+
+**Preview before importing:**
+```bash
+heimdal import --path ~/dotfiles --preview
+```
 
 No manual conversion needed!
 
@@ -56,20 +64,19 @@ No manual conversion needed!
 - **Hooks System** - Run custom scripts before/after installation
 - **Dry-Run Mode** - Preview changes before applying them
 
-### ✨ Recent Improvements (v1.2.0)
-- **Enhanced Wizard UX**
+### ✨ Recent Improvements (v1.3.0)
+- **Enhanced Import System**
+  - Support for 3 additional dotfile managers: chezmoi, yadm, homesick
+  - Intelligent conflict resolution with 4 strategies (Skip, Overwrite, Backup, Ask)
+  - Import preview mode to see what would be imported
+  - Better file categorization and destination mapping
+- **Previous Improvements (v1.2.0)**
   - Real-time progress indicators for scanning operations
   - Interactive file/package selection with multi-select support
   - Smart profile name generation (e.g., "work-mac", "personal-linux")
-  - Helpful guidance for empty scans
-- **Performance Optimizations**
   - 30-50% faster template rendering with cached regex
-  - Pre-allocated vectors for scanning operations
-  - Optimized memory usage
-- **Code Quality**
   - Eliminated critical `.unwrap()` calls with proper error handling
   - Added logging macros to reduce boilerplate
-  - Reduced compiler warnings by 59%
 
 ### 🎯 Smart Package Intelligence (New in v1.1.0)
 - **Package Profiles** - Pre-configured package sets for common workflows
