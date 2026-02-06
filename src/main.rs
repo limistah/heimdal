@@ -1176,12 +1176,12 @@ fn cmd_remote_setup() -> Result<()> {
     Ok(())
 }
 
-fn cmd_config_get(key: &str) -> Result<()> {
+fn cmd_config_get(_key: &str) -> Result<()> {
     error("Not yet implemented - coming in Phase 4");
     Ok(())
 }
 
-fn cmd_config_set(key: &str, value: &str) -> Result<()> {
+fn cmd_config_set(_key: &str, _value: &str) -> Result<()> {
     error("Not yet implemented - coming in Phase 4");
     Ok(())
 }
