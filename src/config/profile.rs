@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
+use std::collections::HashMap;
 
 use super::schema::{
-    DotfilesConfig, HeimdallConfig, Profile, ProfileHooks, ProfileSource, SourceOverride,
-    Sources,
+    DotfilesConfig, HeimdallConfig, Profile, ProfileHooks, ProfileSource, SourceOverride, Sources,
 };
 
 /// Resolve a profile by merging with its parents (additive)
