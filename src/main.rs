@@ -18,7 +18,8 @@ mod utils;
 mod wizard;
 
 use cli::{
-    AutoSyncAction, BranchAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction, RemoteAction,
+    AutoSyncAction, BranchAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction,
+    RemoteAction,
 };
 use utils::{error, header, info, success};
 
@@ -1402,7 +1403,6 @@ fn cmd_profile_list(verbose: bool) -> Result<()> {
     profile::list_profiles(verbose)?;
     Ok(())
 }
-}
 
 fn cmd_profile_diff(profile1: Option<&str>, profile2: &str) -> Result<()> {
     profile::diff_profiles(profile1, profile2)?;
@@ -1528,4 +1528,3 @@ fn cmd_profile_clone(source_name: &str, target_name: &str) -> Result<()> {
 
     Ok(())
 }
-
