@@ -54,6 +54,22 @@ fn print_welcome() {
     println!();
 }
 
+/// Helper function to detect the package manager based on the current OS
+fn detect_package_manager() -> PackageManager {
+    use crate::utils::{detect_os, LinuxDistro, OperatingSystem};
+
+    match detect_os() {
+        OperatingSystem::MacOS => PackageManager::Homebrew,
+        OperatingSystem::Linux(distro) => match distro {
+            LinuxDistro::Debian | LinuxDistro::Ubuntu => PackageManager::Apt,
+            LinuxDistro::Fedora | LinuxDistro::RHEL | LinuxDistro::CentOS => PackageManager::Dnf,
+            LinuxDistro::Arch | LinuxDistro::Manjaro => PackageManager::Pacman,
+            _ => PackageManager::Homebrew, // fallback
+        },
+        _ => PackageManager::Homebrew, // fallback
+    }
+}
+
 fn wizard_start_fresh() -> Result<()> {
     println!("\n{} Starting fresh setup...\n", style("✓").green());
 
@@ -195,25 +211,7 @@ fn wizard_start_fresh() -> Result<()> {
                     }
 
                     // Convert to DetectedPackage format
-                    use crate::utils::detect_os;
-                    use crate::wizard::PackageManager as DetectedManager;
-
-                    // Determine the package manager based on OS
-                    let manager = match detect_os() {
-                        crate::utils::OperatingSystem::MacOS => DetectedManager::Homebrew,
-                        crate::utils::OperatingSystem::Linux(distro) => {
-                            use crate::utils::LinuxDistro;
-                            match distro {
-                                LinuxDistro::Debian | LinuxDistro::Ubuntu => DetectedManager::Apt,
-                                LinuxDistro::Fedora | LinuxDistro::RHEL | LinuxDistro::CentOS => {
-                                    DetectedManager::Dnf
-                                }
-                                LinuxDistro::Arch | LinuxDistro::Manjaro => DetectedManager::Pacman,
-                                _ => DetectedManager::Homebrew, // fallback
-                            }
-                        }
-                        _ => DetectedManager::Homebrew, // fallback
-                    };
+                    let manager = detect_package_manager();
 
                     detected_packages = packages
                         .into_iter()
@@ -292,25 +290,7 @@ fn wizard_start_fresh() -> Result<()> {
                 .default(true)
                 .interact()?
             {
-                use crate::utils::detect_os;
-                use crate::wizard::PackageManager as DetectedManager;
-
-                // Determine the package manager based on OS
-                let manager = match detect_os() {
-                    crate::utils::OperatingSystem::MacOS => DetectedManager::Homebrew,
-                    crate::utils::OperatingSystem::Linux(distro) => {
-                        use crate::utils::LinuxDistro;
-                        match distro {
-                            LinuxDistro::Debian | LinuxDistro::Ubuntu => DetectedManager::Apt,
-                            LinuxDistro::Fedora | LinuxDistro::RHEL | LinuxDistro::CentOS => {
-                                DetectedManager::Dnf
-                            }
-                            LinuxDistro::Arch | LinuxDistro::Manjaro => DetectedManager::Pacman,
-                            _ => DetectedManager::Homebrew, // fallback
-                        }
-                    }
-                    _ => DetectedManager::Homebrew, // fallback
-                };
+                let manager = detect_package_manager();
 
                 for missing in &analysis.required_missing {
                     detected_packages.push(crate::wizard::DetectedPackage {
@@ -364,25 +344,7 @@ fn wizard_start_fresh() -> Result<()> {
                     .default(false)
                     .interact()?
                 {
-                    use crate::utils::detect_os;
-                    use crate::wizard::PackageManager as DetectedManager;
-
-                    // Determine the package manager based on OS
-                    let manager = match detect_os() {
-                        crate::utils::OperatingSystem::MacOS => DetectedManager::Homebrew,
-                        crate::utils::OperatingSystem::Linux(distro) => {
-                            use crate::utils::LinuxDistro;
-                            match distro {
-                                LinuxDistro::Debian | LinuxDistro::Ubuntu => DetectedManager::Apt,
-                                LinuxDistro::Fedora | LinuxDistro::RHEL | LinuxDistro::CentOS => {
-                                    DetectedManager::Dnf
-                                }
-                                LinuxDistro::Arch | LinuxDistro::Manjaro => DetectedManager::Pacman,
-                                _ => DetectedManager::Homebrew, // fallback
-                            }
-                        }
-                        _ => DetectedManager::Homebrew, // fallback
-                    };
+                    let manager = detect_package_manager();
 
                     for (pkg, _) in &all_suggestions {
                         detected_packages.push(crate::wizard::DetectedPackage {
