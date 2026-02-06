@@ -380,13 +380,7 @@ fn add_package_to_config(
     }
 
     // Ensure profile references the source
-    let source_name = match manager {
-        "homebrew" => "homebrew",
-        "apt" => "apt",
-        "dnf" => "dnf",
-        "pacman" => "pacman",
-        _ => manager,
-    };
+    let source_name = manager;
 
     // Check if profile already references this source
     let has_source = profile.sources.iter().any(|s| match s {

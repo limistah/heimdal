@@ -1,5 +1,4 @@
 use anyhow::Result;
-use std::collections::HashMap;
 
 use crate::config::schema::{
     DotfileMapping, DotfilesConfig, HookCommand, Profile, ProfileHooks, ProfileSource,

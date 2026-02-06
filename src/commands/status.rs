@@ -268,7 +268,7 @@ impl StatusInfo {
             println!("  {}    {}", "Branch:".bright_black(), branch_display);
 
             if !self.git_clean && !self.git_changes.is_empty() {
-                println!("  {}   {}", "Changes:".bright_black(), "");
+                println!("  {}   ", "Changes:".bright_black());
                 for change in self.git_changes.iter().take(10) {
                     println!("    {}", change.yellow());
                 }

@@ -210,7 +210,7 @@ impl DotfileScanner {
         for dotfile in dotfiles {
             grouped
                 .entry(dotfile.category.as_str().to_string())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(dotfile);
         }
 

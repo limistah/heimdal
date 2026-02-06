@@ -51,7 +51,7 @@ impl DependencyGraph {
     pub fn add_dependency(&mut self, package: &str, dependency: Dependency) {
         self.dependencies
             .entry(package.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(dependency);
     }
 

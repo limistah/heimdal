@@ -76,7 +76,7 @@ pub fn run_command(cmd: &str, args: &[&str], use_sudo: bool) -> Result<std::proc
         sudo_args.extend(args);
         Command::new("sh")
             .arg("-c")
-            .arg(&sudo_args.join(" "))
+            .arg(sudo_args.join(" "))
             .output()
             .map_err(|e| anyhow::anyhow!("Failed to run command: {}", e))
     } else {

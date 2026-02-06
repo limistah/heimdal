@@ -112,7 +112,7 @@ pub fn generate_detailed_message(changes: &[FileChange]) -> Result<String> {
 
 /// Get just the filename from a path
 fn get_file_name(path: &str) -> String {
-    path.split('/').last().unwrap_or(path).to_string()
+    path.split('/').next_back().unwrap_or(path).to_string()
 }
 
 /// Get plural suffix

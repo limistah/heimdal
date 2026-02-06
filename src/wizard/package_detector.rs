@@ -269,7 +269,7 @@ impl PackageDetector {
 
     /// Check if a package is likely user-installed (not a system package)
     fn is_user_package(name: &str) -> bool {
-        let system_packages = vec![
+        let system_packages = [
             "base",
             "systemd",
             "kernel",
@@ -292,13 +292,13 @@ impl PackageDetector {
         let lower = name.to_lowercase();
 
         // Check editors first (more specific patterns like neovim before vim)
-        let editors = vec!["neovim", "nvim", "emacs", "vscode", "sublime", "code"];
+        let editors = ["neovim", "nvim", "emacs", "vscode", "sublime", "code"];
         if editors.iter().any(|e| lower.contains(e)) {
             return PackageCategory::Editor;
         }
 
         // Essential tools
-        let essential = vec!["git", "vim", "curl", "wget", "ssh", "rsync"];
+        let essential = ["git", "vim", "curl", "wget", "ssh", "rsync"];
         if essential.iter().any(|e| lower.contains(e)) {
             return PackageCategory::Essential;
         }
@@ -366,7 +366,7 @@ impl PackageDetector {
         for package in packages {
             grouped
                 .entry(package.category.as_str().to_string())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(package);
         }
 
