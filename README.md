@@ -770,6 +770,137 @@ The interactive remote setup:
 - Handles replacing existing remotes
 - Optionally pushes after adding remote
 
+### Profile Management
+
+Heimdal's powerful profile system allows you to manage different configurations for different machines or use cases (work laptop, personal desktop, server, etc.).
+
+#### Switch Profiles
+
+Switch between different profiles with automatic configuration reapply:
+
+```bash
+# Switch to a profile (auto-applies configuration)
+heimdal profile switch work
+
+# Switch without auto-applying
+heimdal profile switch work --no-apply
+```
+
+#### View Profile Information
+
+```bash
+# Show currently active profile
+heimdal profile current
+
+# Show details about a specific profile
+heimdal profile show work
+
+# Show resolved configuration (after inheritance)
+heimdal profile show work --resolved
+
+# List all available profiles
+heimdal profile list
+
+# List with details
+heimdal profile list --verbose
+```
+
+#### Compare Profiles
+
+Compare dotfiles and packages between profiles:
+
+```bash
+# Compare current profile with another
+heimdal profile diff work
+
+# Compare two specific profiles
+heimdal profile diff personal work
+```
+
+The diff shows:
+- **Common items** - Shared between both profiles
+- **Only in profile 1** - Unique to first profile
+- **Only in profile 2** - Unique to second profile
+
+#### Profile Templates
+
+Create new profiles from built-in templates:
+
+```bash
+# List available templates
+heimdal profile templates
+```
+
+**Available templates:**
+- `minimal` - Basic shell config only
+- `developer` - Dev tools and editor configs
+- `devops` - Infrastructure and deployment tools
+- `macos-desktop` - macOS GUI and window management
+- `linux-server` - Server configuration
+- `workstation` - Comprehensive setup with all features
+
+**Create from template:**
+
+```bash
+# Create a new profile from a template
+heimdal profile create my-work --template developer
+
+# The new profile will be added to heimdal.yaml
+# Edit it to customize packages and dotfiles
+```
+
+#### Clone Profiles
+
+Duplicate an existing profile for customization:
+
+```bash
+# Clone a profile
+heimdal profile clone work work-laptop
+
+# The cloned profile will have the same configuration
+# Edit heimdal.yaml to customize it
+```
+
+#### Conditional Dotfiles
+
+Apply dotfiles conditionally based on OS, profile, environment, or hostname:
+
+```yaml
+profiles:
+  work:
+    dotfiles:
+      files:
+        - source: vim/.vimrc
+          target: ~/.vimrc
+          # This file will only be linked on macOS or Linux
+          when:
+            os: ["macos", "linux"]
+        
+        - source: work/.ssh/config
+          target: ~/.ssh/config
+          # Only link for work profile
+          when:
+            profile: ["work"]
+        
+        - source: aws/.aws/config
+          target: ~/.aws/config
+          # Only link when WORK_ENV variable is set
+          when:
+            env: "WORK_ENV=true"
+        
+        - source: vpn/vpn.conf
+          target: /etc/vpn.conf
+          # Only link on machines with hostname starting with "work-"
+          when:
+            hostname: "work-*"
+```
+
+**Condition types:**
+- `os`: ["macos", "linux", "windows"] - Operating system
+- `profile`: ["work", "personal"] - Profile names
+- `env`: "VAR=value" or just "VAR" - Environment variables
+- `hostname`: "pattern" - Hostname with glob support
+
 ### List Profiles
 
 View available profiles in your configuration:

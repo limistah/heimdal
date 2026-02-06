@@ -10,13 +10,16 @@ mod git;
 mod hooks;
 mod import;
 mod package;
+mod profile;
 mod state;
 mod symlink;
 mod sync;
 mod utils;
 mod wizard;
 
-use cli::{AutoSyncAction, BranchAction, Cli, Commands, ConfigAction, PackagesAction, RemoteAction};
+use cli::{
+    AutoSyncAction, BranchAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction, RemoteAction,
+};
 use utils::{error, header, info, success};
 
 fn main() -> Result<()> {
@@ -114,6 +117,32 @@ fn main() -> Result<()> {
         Commands::Profiles => {
             cmd_profiles()?;
         }
+        Commands::Profile { action } => match action {
+            ProfileAction::Switch { name, no_apply } => {
+                cmd_profile_switch(&name, !no_apply)?;
+            }
+            ProfileAction::Current => {
+                cmd_profile_current()?;
+            }
+            ProfileAction::Show { name, resolved } => {
+                cmd_profile_show(name.as_deref(), resolved)?;
+            }
+            ProfileAction::List { verbose } => {
+                cmd_profile_list(verbose)?;
+            }
+            ProfileAction::Diff { profile1, profile2 } => {
+                cmd_profile_diff(profile1.as_deref(), &profile2)?;
+            }
+            ProfileAction::Templates => {
+                cmd_profile_templates()?;
+            }
+            ProfileAction::Create { name, template } => {
+                cmd_profile_create(&name, &template)?;
+            }
+            ProfileAction::Clone { source, target } => {
+                cmd_profile_clone(&source, &target)?;
+            }
+        },
         Commands::Rollback { target } => {
             cmd_rollback(target.as_deref())?;
         }
@@ -1337,3 +1366,166 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
 
     Ok(())
 }
+
+// ========== Profile Management ==========
+
+fn cmd_profile_switch(profile_name: &str, auto_apply: bool) -> Result<()> {
+    header("Switch Profile");
+    let (should_apply, _) = profile::switch_profile(profile_name, auto_apply)?;
+
+    if should_apply {
+        println!("\n{} Applying new profile configuration...", "→".blue());
+        cmd_apply(false, false)?;
+    } else {
+        println!(
+            "\n{} Run {} to apply the new profile configuration",
+            "ℹ".blue(),
+            "heimdal apply".cyan()
+        );
+    }
+
+    Ok(())
+}
+
+fn cmd_profile_current() -> Result<()> {
+    let profile_name = profile::get_current_profile()?;
+    println!("{}", profile_name.cyan());
+    Ok(())
+}
+
+fn cmd_profile_show(profile_name: Option<&str>, show_resolved: bool) -> Result<()> {
+    profile::show_profile_info(profile_name, show_resolved)?;
+    Ok(())
+}
+
+fn cmd_profile_list(verbose: bool) -> Result<()> {
+    profile::list_profiles(verbose)?;
+    Ok(())
+}
+}
+
+fn cmd_profile_diff(profile1: Option<&str>, profile2: &str) -> Result<()> {
+    profile::diff_profiles(profile1, profile2)?;
+    Ok(())
+}
+
+fn cmd_profile_templates() -> Result<()> {
+    println!("{}", "Available Profile Templates:".cyan().bold());
+    println!("{}", "─".repeat(50).dimmed());
+
+    for template_name in profile::ProfileTemplates::list() {
+        let desc = profile::ProfileTemplates::description(template_name).unwrap_or("");
+        println!(
+            "  {} {}",
+            template_name.cyan(),
+            format!("- {}", desc).dimmed()
+        );
+    }
+
+    println!(
+        "\n{} Use {} to create a profile from a template",
+        "ℹ".blue(),
+        "heimdal profile create <name> --template <template>".cyan()
+    );
+
+    Ok(())
+}
+
+fn cmd_profile_create(profile_name: &str, template_name: &str) -> Result<()> {
+    header("Create Profile from Template");
+
+    let state = state::HeimdallState::load()?;
+    let config_path = state.dotfiles_path.join("heimdal.yaml");
+
+    // Load existing config
+    let mut config = config::load_config(&state.dotfiles_path)?;
+
+    // Check if profile already exists
+    if config.profiles.contains_key(profile_name) {
+        error(&format!("Profile '{}' already exists", profile_name));
+        anyhow::bail!("Profile already exists");
+    }
+
+    // Create from template
+    let new_profile = profile::create_from_template(profile_name, template_name)?;
+
+    // Add to config
+    config
+        .profiles
+        .insert(profile_name.to_string(), new_profile);
+
+    // Save config
+    let config_str = serde_yaml::to_string(&config)?;
+    std::fs::write(&config_path, config_str)?;
+
+    success(&format!(
+        "Created profile '{}' from template '{}'",
+        profile_name, template_name
+    ));
+
+    println!(
+        "\n{} Edit {} to customize the profile",
+        "ℹ".blue(),
+        config_path.display().to_string().cyan()
+    );
+    println!(
+        "{} Run {} to switch to this profile",
+        "ℹ".blue(),
+        format!("heimdal profile switch {}", profile_name).cyan()
+    );
+
+    Ok(())
+}
+
+fn cmd_profile_clone(source_name: &str, target_name: &str) -> Result<()> {
+    header("Clone Profile");
+
+    let state = state::HeimdallState::load()?;
+    let config_path = state.dotfiles_path.join("heimdal.yaml");
+
+    // Load existing config
+    let mut config = config::load_config(&state.dotfiles_path)?;
+
+    // Check if source profile exists
+    let source_profile = config
+        .profiles
+        .get(source_name)
+        .ok_or_else(|| anyhow::anyhow!("Source profile '{}' not found", source_name))?;
+
+    // Check if target profile already exists
+    if config.profiles.contains_key(target_name) {
+        error(&format!("Profile '{}' already exists", target_name));
+        anyhow::bail!("Profile already exists");
+    }
+
+    // Clone the profile
+    let cloned_profile = profile::clone_profile(source_profile);
+
+    // Add to config
+    config
+        .profiles
+        .insert(target_name.to_string(), cloned_profile);
+
+    // Save config
+    let config_str = serde_yaml::to_string(&config)?;
+    std::fs::write(&config_path, config_str)?;
+
+    success(&format!(
+        "Cloned profile '{}' to '{}'",
+        source_name, target_name
+    ));
+
+    println!(
+        "\n{} Edit {} to customize the cloned profile",
+        "ℹ".blue(),
+        config_path.display().to_string().cyan()
+    );
+    println!(
+        "{} Run {} to switch to this profile",
+        "ℹ".blue(),
+        format!("heimdal profile switch {}", target_name).cyan()
+    );
+
+    Ok(())
+}
+

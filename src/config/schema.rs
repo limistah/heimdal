@@ -252,6 +252,26 @@ pub struct DotfileMapping {
     pub post_link: Vec<HookCommand>,
     #[serde(default)]
     pub pre_unlink: Vec<HookCommand>,
+    /// Optional condition for when to link this file
+    #[serde(default)]
+    pub when: Option<DotfileCondition>,
+}
+
+/// Condition for when to link a dotfile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DotfileCondition {
+    /// Operating system(s) to link on (e.g., ["macos", "linux"])
+    #[serde(default)]
+    pub os: Vec<String>,
+    /// Profile(s) to link for (e.g., ["work", "personal"])
+    #[serde(default)]
+    pub profile: Vec<String>,
+    /// Environment variable condition (e.g., "WORK_ENV=true")
+    #[serde(default)]
+    pub env: Option<String>,
+    /// Hostname pattern (e.g., "work-*")
+    #[serde(default)]
+    pub hostname: Option<String>,
 }
 
 /// Profile-level hooks
