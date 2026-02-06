@@ -3,6 +3,12 @@ name: Build DEB Package
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
 
 permissions:
   contents: write
@@ -25,13 +31,18 @@ jobs:
       
       - name: Download binary
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
           curl -LO "https://github.com/limistah/heimdal/releases/download/v${VERSION}/heimdal-linux-amd64.tar.gz"
           tar xzf heimdal-linux-amd64.tar.gz
       
       - name: Create DEB package structure
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION=${{ env.VERSION }}
           PACKAGE_DIR="heimdal_${VERSION}_${{ matrix.arch }}"
           
           mkdir -p "${PACKAGE_DIR}/DEBIAN"
@@ -67,6 +78,7 @@ jobs:
           echo "PACKAGE_FILE=${PACKAGE_DIR}.deb" >> $GITHUB_ENV
       
       - name: Upload DEB to Release
+        if: github.event_name == 'release'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -75,3 +87,10 @@ jobs:
           asset_path: ./${{ env.PACKAGE_FILE }}
           asset_name: ${{ env.PACKAGE_FILE }}
           asset_content_type: application/vnd.debian.binary-package
+      
+      - name: Upload DEB as Artifact (manual dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.PACKAGE_FILE }}
+          path: ./${{ env.PACKAGE_FILE }}
