@@ -44,8 +44,13 @@ fn main() -> Result<()> {
         Commands::Wizard => {
             wizard::run_wizard()?;
         }
-        Commands::Import { path, from, output } => {
-            cmd_import(path.as_deref(), &from, output.as_deref())?;
+        Commands::Import {
+            path,
+            from,
+            output,
+            preview,
+        } => {
+            cmd_import(path.as_deref(), &from, output.as_deref(), preview)?;
         }
         Commands::Init {
             profile,
@@ -1234,7 +1239,7 @@ fn cmd_history(limit: usize) -> Result<()> {
     Ok(())
 }
 
-fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()> {
+fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>, preview: bool) -> Result<()> {
     use console::style;
     use import::{detect_tool, import_from_tool, DotfileTool};
     use wizard::{
@@ -1242,7 +1247,11 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
         ScannedDotfile,
     };
 
-    header("Import Dotfiles");
+    if preview {
+        header("Import Preview (Dry Run)");
+    } else {
+        header("Import Dotfiles");
+    }
 
     // Determine path
     let dotfiles_path = if let Some(p) = path {
@@ -1271,9 +1280,12 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
         match from {
             "stow" => DotfileTool::Stow,
             "dotbot" => DotfileTool::Dotbot,
+            "chezmoi" => DotfileTool::Chezmoi,
+            "yadm" => DotfileTool::Yadm,
+            "homesick" => DotfileTool::Homesick,
             _ => {
                 error(&format!(
-                    "Unknown tool: {}. Use: auto, stow, or dotbot",
+                    "Unknown tool: {}. Use: auto, stow, dotbot, chezmoi, yadm, or homesick",
                     from
                 ));
                 return Ok(());
@@ -1289,7 +1301,12 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
     println!();
 
     // Import
-    println!("{} Importing...", style("→").cyan());
+    if preview {
+        println!("{} Scanning (preview mode)...", style("→").cyan());
+    } else {
+        println!("{} Importing...", style("→").cyan());
+    }
+
     let import_result = import_from_tool(&path_buf, &tool)
         .with_context(|| format!("Failed to import from {}", tool.name()))?;
 
@@ -1301,36 +1318,62 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
 
     // Show sample files
     if !import_result.dotfiles.is_empty() {
-        println!("\n{}:", style("Sample dotfiles").bold());
-        for (i, mapping) in import_result.dotfiles.iter().take(5).enumerate() {
+        println!("\n{}:", style("Dotfiles to import").bold());
+        for (i, mapping) in import_result.dotfiles.iter().take(10).enumerate() {
             let rel_source = mapping
                 .source
                 .strip_prefix(&path_buf)
                 .unwrap_or(&mapping.source);
-            println!("  {}. {}", i + 1, style(rel_source.display()).cyan());
+            let rel_dest = mapping
+                .destination
+                .strip_prefix(dirs::home_dir().unwrap_or_default())
+                .unwrap_or(&mapping.destination);
+            let category = mapping.category.as_deref().unwrap_or("other");
+            println!(
+                "  {}. {} → ~/{} ({})",
+                i + 1,
+                style(rel_source.display()).cyan(),
+                rel_dest.display(),
+                style(category).dim()
+            );
         }
-        if import_result.dotfiles.len() > 5 {
+        if import_result.dotfiles.len() > 10 {
             println!(
                 "  {} ... and {} more",
                 style("").dim(),
-                import_result.dotfiles.len() - 5
+                import_result.dotfiles.len() - 10
             );
         }
     }
 
     // Show packages
     if !import_result.packages.is_empty() {
-        println!("\n{}:", style("Extracted packages").bold());
-        for (i, pkg) in import_result.packages.iter().take(5).enumerate() {
+        println!("\n{}:", style("Packages to track").bold());
+        for (i, pkg) in import_result.packages.iter().take(10).enumerate() {
             println!("  {}. {}", i + 1, style(pkg).cyan());
         }
-        if import_result.packages.len() > 5 {
+        if import_result.packages.len() > 10 {
             println!(
                 "  {} ... and {} more",
                 style("").dim(),
-                import_result.packages.len() - 5
+                import_result.packages.len() - 10
             );
         }
+    }
+
+    // If preview mode, stop here
+    if preview {
+        println!("\n{}", style("Preview complete!").bold().green());
+        println!("\n{}", style("To actually import:").bold());
+        println!(
+            "  {}",
+            style(format!(
+                "heimdal import --path {} --from {}",
+                dotfiles_path, from
+            ))
+            .cyan()
+        );
+        return Ok(());
     }
 
     // Generate configuration
