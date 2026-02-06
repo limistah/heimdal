@@ -55,6 +55,7 @@ dirs = "5.0"
 
 # String similarity for fuzzy matching
 strsim = "0.11"
+fuzzy-matcher = "0.3"
 
 # System information
 hostname = "0.3"
