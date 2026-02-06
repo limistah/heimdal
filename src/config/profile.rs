@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 
 use super::schema::{
-    DotfilesConfig, HeimdallConfig, Profile, ProfileHooks, ProfileSource, SourceOverride, Sources,
+    DotfilesConfig, HeimdallConfig, Profile, ProfileHooks, ProfileSource, ProfileTemplateConfig,
+    SourceOverride, Sources, TemplateConfig,
 };
 
 /// Resolve a profile by merging with its parents (additive)
@@ -138,6 +139,7 @@ mod tests {
                 sources: vec![ProfileSource::Name("packages".to_string())],
                 dotfiles: DotfilesConfig::default(),
                 hooks: ProfileHooks::default(),
+                templates: ProfileTemplateConfig::default(),
             },
         );
 
@@ -153,6 +155,7 @@ mod tests {
             ignore: vec![],
             mappings: HashMap::new(),
             hooks: GlobalHooks::default(),
+            templates: TemplateConfig::default(),
         };
 
         let resolved = resolve_profile(&config, "base").unwrap();

@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Week 6: Template System
+
+- **Basic Template Engine** (Day 1)
+  - Simple `{{ variable }}` syntax for variable substitution
+  - TemplateEngine module with render capabilities
+  - Support for template files with automatic variable replacement
+  - Validation and error reporting for undefined variables
+  - No complex logic (no conditionals or loops - keeping it simple)
+
+- **System Variables** (Day 2)
+  - Auto-populated system variables:
+    - `os` - Operating system (linux, macos, windows)
+    - `arch` - CPU architecture (x86_64, aarch64, arm)
+    - `family` - OS family (unix, windows)
+    - `hostname` - Machine hostname
+    - `user` - Current username
+    - `home` - Home directory path
+  - Variable merging with priority: profile > config > system
+  - Comprehensive tests for variable merging and system detection
+
+- **Template Integration** (Day 3)
+  - Integrated template rendering into apply workflow
+  - Auto-detection of `.tmpl` files in dotfiles directory
+  - Template configuration in `heimdal.yaml`:
+    - Global `templates.variables` for all profiles
+    - Profile-specific `templates.variables` for overrides
+    - `templates.files` for explicit src/dest mappings
+  - Templates render after hooks, before package installation
+  - Path expansion support (home directory, absolute paths)
+
+- **Template Commands** (Day 4)
+  - `heimdal template preview <file>` - Preview rendered template output
+    - Shows final rendered content
+    - Lists all variables used and their values
+    - Highlights undefined variables
+  - `heimdal template list` - List all template files
+    - Auto-detects `.tmpl` files
+    - Shows src → dest mappings
+    - Optional `--verbose` flag shows variables used in each file
+  - `heimdal template variables` - Show all available variables
+    - System variables (built-in)
+    - Config variables (global)
+    - Profile variables (current profile)
+    - Final merged result with priority explanation
+
 #### Week 5: Profile Switching & Management
 
 - **Profile Switching & Information Commands** (Day 1-2)
