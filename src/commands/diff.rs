@@ -266,7 +266,7 @@ fn get_diff_summary(dotfiles_path: &Path) -> Result<DiffSummary> {
             continue;
         }
 
-        let index_status = line.chars().nth(0).unwrap_or(' ');
+        let index_status = line.chars().next().unwrap_or(' ');
         let worktree_status = line.chars().nth(1).unwrap_or(' ');
         let file_path = line[3..].trim();
 

@@ -31,10 +31,10 @@ impl PackageManager for HomebrewManager {
 
         let output = if is_cask {
             Command::new("brew")
-                .args(&["list", "--cask", pkg_name])
+                .args(["list", "--cask", pkg_name])
                 .output()
         } else {
-            Command::new("brew").args(&["list", pkg_name]).output()
+            Command::new("brew").args(["list", pkg_name]).output()
         };
 
         output.map(|o| o.status.success()).unwrap_or(false)

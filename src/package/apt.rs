@@ -25,7 +25,7 @@ impl PackageManager for AptManager {
 
     fn is_installed(&self, package: &str) -> bool {
         Command::new("dpkg")
-            .args(&["-s", package])
+            .args(["-s", package])
             .output()
             .map(|output| output.status.success())
             .unwrap_or(false)
@@ -45,7 +45,7 @@ impl PackageManager for AptManager {
         }
 
         let output = Command::new("sudo")
-            .args(&["apt-get", "install", "-y", package])
+            .args(["apt-get", "install", "-y", package])
             .output()
             .with_context(|| format!("Failed to install {}", package))?;
 
@@ -127,7 +127,7 @@ impl PackageManager for AptManager {
         }
 
         let output = Command::new("sudo")
-            .args(&["apt-get", "update"])
+            .args(["apt-get", "update"])
             .output()
             .context("Failed to update apt")?;
 

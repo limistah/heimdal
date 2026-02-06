@@ -20,8 +20,8 @@ mod utils;
 mod wizard;
 
 use cli::{
-    AutoSyncAction, BranchAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction,
-    RemoteAction, SecretAction, TemplateAction,
+    AutoSyncAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction, RemoteAction,
+    SecretAction, TemplateAction,
 };
 use utils::{error, header, info, success};
 
@@ -370,7 +370,16 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
 
         // Use first profile as fallback
         let temp_config = config::load_config(&config_path)?;
-        let profile_name = temp_config.profiles.keys().next().unwrap().clone();
+        let profile_name = temp_config
+            .profiles
+            .keys()
+            .next()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No profiles found in configuration. Please run 'heimdal wizard' to create one."
+                )
+            })?
+            .clone();
 
         (config_path, profile_name)
     };
@@ -556,10 +565,8 @@ fn cmd_sync(quiet: bool, dry_run: bool) -> Result<()> {
                 }
             }
         }
-    } else {
-        if !quiet {
-            info("Dry-run: Would pull from git");
-        }
+    } else if !quiet {
+        info("Dry-run: Would pull from git");
     }
 
     // Apply configuration
@@ -724,7 +731,7 @@ fn cmd_auto_sync_enable(interval: &str) -> Result<()> {
 
     success("Auto-sync enabled successfully!");
     info("Your dotfiles will now sync automatically in the background");
-    info(&format!("To check status, run: heimdal auto-sync status"));
+    info("To check status, run: heimdal auto-sync status");
 
     Ok(())
 }

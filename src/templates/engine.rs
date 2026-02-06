@@ -1,9 +1,14 @@
 use anyhow::{Context, Result};
 use colored::Colorize;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+
+// Compile regex once at startup for better performance
+static VARIABLE_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\{\{\s*(\w+)\s*\}\}").expect("Invalid variable regex pattern"));
 
 /// Simple template engine for variable substitution
 /// Supports {{ variable }} syntax only - NO complex logic
@@ -43,20 +48,24 @@ impl TemplateEngine {
     /// Replaces {{ variable }} with values from the variables map
     pub fn render(&self, template: &str) -> Result<String> {
         let mut result = template.to_string();
-        let re = Regex::new(r"\{\{\s*(\w+)\s*\}\}").unwrap();
 
         // Track missing variables
         let mut missing_vars = Vec::new();
 
         // Find all template variables
-        for cap in re.captures_iter(template) {
+        for cap in VARIABLE_REGEX.captures_iter(template) {
             let var_name = &cap[1];
 
             if let Some(value) = self.variables.get(var_name) {
                 // Replace all occurrences of this variable
-                // Note: Pattern uses escaped braces for regex: \{\{ matches literal {{
-                let pattern = format!(r"\{{\{{\s*{}\s*\}}\}}", var_name);
-                let var_re = Regex::new(&pattern).unwrap();
+                // Use a simple string replace since we know the exact pattern
+                let pattern = format!("{{{{ {} }}}}", var_name);
+                result = result.replace(&pattern, value);
+
+                // Also handle patterns with extra whitespace
+                let pattern_with_spaces = format!(r"{{{{ {} }}}}", var_name);
+                let var_re = Regex::new(&format!(r"\{{\{{\s*{}\s*\}}\}}", regex::escape(var_name)))
+                    .expect("Invalid pattern regex");
                 result = var_re.replace_all(&result, value).to_string();
             } else {
                 missing_vars.push(var_name.to_string());
@@ -96,8 +105,8 @@ impl TemplateEngine {
 
     /// Find all variables used in a template
     pub fn find_variables(template: &str) -> Vec<String> {
-        let re = Regex::new(r"\{\{\s*(\w+)\s*\}\}").unwrap();
-        re.captures_iter(template)
+        VARIABLE_REGEX
+            .captures_iter(template)
             .map(|cap| cap[1].to_string())
             .collect()
     }

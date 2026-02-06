@@ -23,7 +23,7 @@ impl PackageManager for MasManager {
 
     fn is_installed(&self, package: &str) -> bool {
         // Package format is the App Store ID (e.g., "497799835")
-        let output = Command::new("mas").args(&["list"]).output();
+        let output = Command::new("mas").args(["list"]).output();
 
         if let Ok(out) = output {
             if out.status.success() {
@@ -49,7 +49,7 @@ impl PackageManager for MasManager {
         }
 
         let output = Command::new("mas")
-            .args(&["install", package])
+            .args(["install", package])
             .output()
             .with_context(|| format!("Failed to install app {}", package))?;
 
@@ -80,7 +80,7 @@ impl PackageManager for MasManager {
                 continue;
             }
 
-            let output = Command::new("mas").args(&["install", package]).output();
+            let output = Command::new("mas").args(["install", package]).output();
 
             match output {
                 Ok(out) if out.status.success() => {
