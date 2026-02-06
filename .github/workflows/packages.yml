@@ -1,0 +1,270 @@
+name: Build Packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-deb:
+    name: Build DEB Package
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+      
+      - name: Download binary
+        run: |
+          curl -LO "https://github.com/limistah/heimdal/releases/download/v${VERSION}/heimdal-linux-amd64.tar.gz"
+          tar xzf heimdal-linux-amd64.tar.gz
+      
+      - name: Build DEB package
+        run: |
+          PACKAGE_DIR="heimdal_${VERSION}_amd64"
+          
+          mkdir -p "${PACKAGE_DIR}/DEBIAN"
+          mkdir -p "${PACKAGE_DIR}/usr/local/bin"
+          mkdir -p "${PACKAGE_DIR}/usr/share/doc/heimdal"
+          
+          cp heimdal "${PACKAGE_DIR}/usr/local/bin/"
+          chmod +x "${PACKAGE_DIR}/usr/local/bin/heimdal"
+          
+          cp README.md LICENSE "${PACKAGE_DIR}/usr/share/doc/heimdal/" 2>/dev/null || true
+          
+          cat > "${PACKAGE_DIR}/DEBIAN/control" <<EOF
+          Package: heimdal
+          Version: ${VERSION}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Aleem Isiaka <limistah@github.com>
+          Description: Universal dotfile and system configuration manager
+           Heimdal is a powerful, cross-platform tool that automatically manages
+           your dotfiles, installs packages, and keeps your development environment
+           in sync across multiple machines.
+          Homepage: https://github.com/limistah/heimdal
+          EOF
+          
+          dpkg-deb --build "${PACKAGE_DIR}"
+          echo "PACKAGE_FILE=${PACKAGE_DIR}.deb" >> $GITHUB_ENV
+      
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./${{ env.PACKAGE_FILE }}
+          asset_name: ${{ env.PACKAGE_FILE }}
+          asset_content_type: application/vnd.debian.binary-package
+      
+      - name: Upload as Artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-package
+          path: ./${{ env.PACKAGE_FILE }}
+
+  build-rpm:
+    name: Build RPM Package
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+      
+      - name: Install RPM build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+      
+      - name: Download binary
+        run: |
+          curl -LO "https://github.com/limistah/heimdal/releases/download/v${VERSION}/heimdal-linux-amd64.tar.gz"
+          tar xzf heimdal-linux-amd64.tar.gz
+      
+      - name: Create RPM structure
+        run: |
+          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          mkdir -p ~/rpmbuild/BUILD/heimdal-${VERSION}/usr/local/bin
+          mkdir -p ~/rpmbuild/BUILD/heimdal-${VERSION}/usr/share/doc/heimdal
+          
+          cp heimdal ~/rpmbuild/BUILD/heimdal-${VERSION}/usr/local/bin/
+          chmod +x ~/rpmbuild/BUILD/heimdal-${VERSION}/usr/local/bin/heimdal
+          cp README.md LICENSE ~/rpmbuild/BUILD/heimdal-${VERSION}/usr/share/doc/heimdal/ 2>/dev/null || true
+      
+      - name: Create RPM spec file
+        run: |
+          cat > ~/rpmbuild/SPECS/heimdal.spec <<EOF
+          Name:           heimdal
+          Version:        ${VERSION}
+          Release:        1%{?dist}
+          Summary:        Universal dotfile and system configuration manager
+          License:        MIT
+          URL:            https://github.com/limistah/heimdal
+          BuildArch:      x86_64
+          
+          %description
+          Heimdal is a powerful, cross-platform tool that automatically manages
+          your dotfiles, installs packages, and keeps your development environment
+          in sync across multiple machines.
+          
+          %prep
+          # No prep needed
+          
+          %build
+          # No build needed
+          
+          %install
+          mkdir -p %{buildroot}/usr/local/bin
+          mkdir -p %{buildroot}/usr/share/doc/heimdal
+          cp %{_builddir}/heimdal-${VERSION}/usr/local/bin/heimdal %{buildroot}/usr/local/bin/
+          cp %{_builddir}/heimdal-${VERSION}/usr/share/doc/heimdal/* %{buildroot}/usr/share/doc/heimdal/ 2>/dev/null || true
+          
+          %files
+          /usr/local/bin/heimdal
+          /usr/share/doc/heimdal/*
+          
+          %changelog
+          * $(date '+%a %b %d %Y') Aleem Isiaka <limistah@github.com> - ${VERSION}-1
+          - Release ${VERSION}
+          EOF
+      
+      - name: Build RPM
+        run: |
+          rpmbuild -bb ~/rpmbuild/SPECS/heimdal.spec
+          find ~/rpmbuild/RPMS -name "*.rpm" -exec cp {} . \;
+          RPM_FILE=$(ls heimdal-*.rpm)
+          echo "RPM_FILE=${RPM_FILE}" >> $GITHUB_ENV
+      
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./${{ env.RPM_FILE }}
+          asset_name: ${{ env.RPM_FILE }}
+          asset_content_type: application/x-rpm
+      
+      - name: Upload as Artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-package
+          path: ./${{ env.RPM_FILE }}
+
+  build-apk:
+    name: Build APK Package
+    runs-on: ubuntu-latest
+    container: alpine:latest
+    
+    steps:
+      - name: Install dependencies
+        run: |
+          apk add --no-cache git curl tar abuild sudo build-base
+      
+      - uses: actions/checkout@v3
+      
+      - name: Set version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+      
+      - name: Download binary
+        run: |
+          curl -LO "https://github.com/limistah/heimdal/releases/download/v${VERSION}/heimdal-linux-amd64-musl.tar.gz"
+          tar xzf heimdal-linux-amd64-musl.tar.gz
+      
+      - name: Create APK build user
+        run: |
+          adduser -D builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
+          addgroup builder abuild
+      
+      - name: Setup abuild
+        run: |
+          sudo -u builder abuild-keygen -a -i -n
+      
+      - name: Create APKBUILD
+        run: |
+          mkdir -p /home/builder/package
+          cd /home/builder/package
+          
+          cat > APKBUILD <<EOF
+          # Maintainer: Aleem Isiaka <limistah@github.com>
+          pkgname=heimdal
+          pkgver=${VERSION}
+          pkgrel=0
+          pkgdesc="Universal dotfile and system configuration manager"
+          url="https://github.com/limistah/heimdal"
+          arch="x86_64"
+          license="MIT"
+          options="!check"
+          source=""
+          
+          package() {
+              mkdir -p "\$pkgdir/usr/local/bin"
+              install -Dm755 "$GITHUB_WORKSPACE/heimdal" "\$pkgdir/usr/local/bin/heimdal"
+          }
+          EOF
+          
+          chown -R builder:builder /home/builder/package
+      
+      - name: Build APK
+        run: |
+          cd /home/builder/package
+          sudo -u builder abuild -F -r
+          find /home/builder/packages -name "*.apk" -exec cp {} $GITHUB_WORKSPACE/ \;
+          cd $GITHUB_WORKSPACE
+          APK_FILE=$(ls heimdal-*.apk)
+          echo "APK_FILE=${APK_FILE}" >> $GITHUB_ENV
+      
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./${{ env.APK_FILE }}
+          asset_name: ${{ env.APK_FILE }}
+          asset_content_type: application/x-apk
+      
+      - name: Upload as Artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-package
+          path: ./${{ env.APK_FILE }}

@@ -31,6 +31,8 @@ Heimdal is a powerful, cross-platform tool that automatically manages your dotfi
 
 ## Installation
 
+Choose your preferred installation method based on your operating system and package manager:
+
 ### Homebrew (macOS)
 
 ```bash
@@ -52,15 +54,63 @@ Or use the automated script:
 curl -fsSL https://raw.githubusercontent.com/limistah/heimdal/master/.github/debian/install-deb.sh | bash
 ```
 
+### DNF/YUM (Fedora/RHEL/CentOS)
+
+```bash
+# Download and install the latest RPM package
+curl -LO https://github.com/limistah/heimdal/releases/download/v1.0.0/heimdal-1.0.0-1.x86_64.rpm
+sudo rpm -i heimdal-1.0.0-1.x86_64.rpm
+
+# Or using DNF
+sudo dnf install https://github.com/limistah/heimdal/releases/download/v1.0.0/heimdal-1.0.0-1.x86_64.rpm
+```
+
+Or use the automated script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/limistah/heimdal/master/.github/rpm/install-rpm.sh | bash
+```
+
+### Pacman (Arch Linux)
+
+Install from AUR:
+
+```bash
+# Using yay
+yay -S heimdal-bin
+
+# Using paru
+paru -S heimdal-bin
+
+# Manual installation
+git clone https://aur.archlinux.org/heimdal-bin.git
+cd heimdal-bin
+makepkg -si
+```
+
+### APK (Alpine Linux)
+
+```bash
+# Download and install the latest APK package
+wget https://github.com/limistah/heimdal/releases/download/v1.0.0/heimdal-1.0.0-r0.apk
+apk add --allow-untrusted heimdal-1.0.0-r0.apk
+```
+
+Or use the automated script:
+
+```bash
+wget -O - https://raw.githubusercontent.com/limistah/heimdal/master/.github/apk/install-apk.sh | sh
+```
+
 ### Cargo (All Platforms)
 
 ```bash
 cargo install heimdal
 ```
 
-### Quick Install Script
+### Universal Install Script
 
-Works on macOS and Linux, automatically detects your platform:
+Works on macOS and Linux, automatically detects your platform and package manager:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/limistah/heimdal/master/install.sh | bash
@@ -79,6 +129,9 @@ sudo mv target/release/heimdal /usr/local/bin/
 
 Download pre-built binaries from the [releases page](https://github.com/limistah/heimdal/releases/latest):
 
+- **DEB Package** (Debian/Ubuntu): `heimdal_1.0.0_amd64.deb`
+- **RPM Package** (Fedora/RHEL/CentOS): `heimdal-1.0.0-1.x86_64.rpm`
+- **APK Package** (Alpine): `heimdal-1.0.0-r0.apk`
 - **Linux (GNU)**: `heimdal-linux-amd64.tar.gz`
 - **Linux (MUSL)**: `heimdal-linux-amd64-musl.tar.gz`
 - **macOS (Intel)**: `heimdal-darwin-amd64.tar.gz`

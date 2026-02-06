@@ -1,4 +1,4 @@
-# Maintainer: Aleem Isiaka <your-email@example.com>
+# Maintainer: Aleem Isiaka <limistah@github.com>
 pkgname=heimdal
 pkgver=1.0.0
 pkgrel=1
@@ -9,7 +9,7 @@ license=('MIT')
 depends=('gcc-libs')
 makedepends=('rust' 'cargo')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/limistah/$pkgname/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('REPLACE_WITH_ACTUAL_SHA256')
+sha256sums=('f4fb469e774fca6d319918e3718bec7bd9034fe50f2f883d03399feda40e702d')
 
 build() {
     cd "$pkgname-$pkgver"
