@@ -3,7 +3,6 @@ pub mod database;
 pub mod dependencies;
 pub mod dnf;
 pub mod homebrew;
-pub mod hooks;
 pub mod manager;
 pub mod mapper;
 pub mod mas;
@@ -12,7 +11,6 @@ pub mod profiles;
 
 pub use database::PackageDatabase;
 pub use dependencies::DependencyAnalyzer;
-pub use hooks::{execute_hooks, HookResult};
 pub use manager::{InstallResult, PackageManager};
 pub use mapper::{map_package_name, PackageManagerType};
 pub use profiles::{PackageProfile, ProfileSelector};
@@ -22,6 +20,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::config::{PackageMapping, ResolvedProfile};
+use crate::hooks::HookResult;
 use crate::utils::{detect_os, header, info, warning, OperatingSystem};
 
 /// Detect and return the appropriate package manager for the current OS
@@ -140,8 +139,11 @@ pub fn install_packages(
                 // Execute pre-install hooks
                 if !brew_source.hooks.pre_install.is_empty() {
                     info("Running Homebrew pre-install hooks...");
-                    let hook_results =
-                        execute_hooks(&brew_source.hooks.pre_install, dry_run, "pre-install")?;
+                    let hook_results = crate::hooks::execute_hooks(
+                        &brew_source.hooks.pre_install,
+                        dry_run,
+                        crate::hooks::HookContext::PreInstall,
+                    )?;
                     report.hook_results.extend(hook_results);
                 }
 
@@ -173,8 +175,11 @@ pub fn install_packages(
                 // Execute post-install hooks
                 if !brew_source.hooks.post_install.is_empty() {
                     info("Running Homebrew post-install hooks...");
-                    let hook_results =
-                        execute_hooks(&brew_source.hooks.post_install, dry_run, "post-install")?;
+                    let hook_results = crate::hooks::execute_hooks(
+                        &brew_source.hooks.post_install,
+                        dry_run,
+                        crate::hooks::HookContext::PostInstall,
+                    )?;
                     report.hook_results.extend(hook_results);
                 }
             }
@@ -186,8 +191,11 @@ pub fn install_packages(
                     // Execute pre-install hooks
                     if !mas_source.hooks.pre_install.is_empty() {
                         info("Running MAS pre-install hooks...");
-                        let hook_results =
-                            execute_hooks(&mas_source.hooks.pre_install, dry_run, "pre-install")?;
+                        let hook_results = crate::hooks::execute_hooks(
+                            &mas_source.hooks.pre_install,
+                            dry_run,
+                            crate::hooks::HookContext::PreInstall,
+                        )?;
                         report.hook_results.extend(hook_results);
                     }
 
@@ -209,8 +217,11 @@ pub fn install_packages(
                     // Execute post-install hooks
                     if !mas_source.hooks.post_install.is_empty() {
                         info("Running MAS post-install hooks...");
-                        let hook_results =
-                            execute_hooks(&mas_source.hooks.post_install, dry_run, "post-install")?;
+                        let hook_results = crate::hooks::execute_hooks(
+                            &mas_source.hooks.post_install,
+                            dry_run,
+                            crate::hooks::HookContext::PostInstall,
+                        )?;
                         report.hook_results.extend(hook_results);
                     }
                 } else {
@@ -223,8 +234,11 @@ pub fn install_packages(
                 // Execute pre-install hooks
                 if !apt_source.hooks.pre_install.is_empty() {
                     info("Running APT pre-install hooks...");
-                    let hook_results =
-                        execute_hooks(&apt_source.hooks.pre_install, dry_run, "pre-install")?;
+                    let hook_results = crate::hooks::execute_hooks(
+                        &apt_source.hooks.pre_install,
+                        dry_run,
+                        crate::hooks::HookContext::PreInstall,
+                    )?;
                     report.hook_results.extend(hook_results);
                 }
 
@@ -241,8 +255,11 @@ pub fn install_packages(
                 // Execute post-install hooks
                 if !apt_source.hooks.post_install.is_empty() {
                     info("Running APT post-install hooks...");
-                    let hook_results =
-                        execute_hooks(&apt_source.hooks.post_install, dry_run, "post-install")?;
+                    let hook_results = crate::hooks::execute_hooks(
+                        &apt_source.hooks.post_install,
+                        dry_run,
+                        crate::hooks::HookContext::PostInstall,
+                    )?;
                     report.hook_results.extend(hook_results);
                 }
             }
@@ -252,8 +269,11 @@ pub fn install_packages(
                 // Execute pre-install hooks
                 if !dnf_source.hooks.pre_install.is_empty() {
                     info("Running DNF pre-install hooks...");
-                    let hook_results =
-                        execute_hooks(&dnf_source.hooks.pre_install, dry_run, "pre-install")?;
+                    let hook_results = crate::hooks::execute_hooks(
+                        &dnf_source.hooks.pre_install,
+                        dry_run,
+                        crate::hooks::HookContext::PreInstall,
+                    )?;
                     report.hook_results.extend(hook_results);
                 }
 
@@ -270,8 +290,11 @@ pub fn install_packages(
                 // Execute post-install hooks
                 if !dnf_source.hooks.post_install.is_empty() {
                     info("Running DNF post-install hooks...");
-                    let hook_results =
-                        execute_hooks(&dnf_source.hooks.post_install, dry_run, "post-install")?;
+                    let hook_results = crate::hooks::execute_hooks(
+                        &dnf_source.hooks.post_install,
+                        dry_run,
+                        crate::hooks::HookContext::PostInstall,
+                    )?;
                     report.hook_results.extend(hook_results);
                 }
             }
@@ -281,8 +304,11 @@ pub fn install_packages(
                 // Execute pre-install hooks
                 if !pacman_source.hooks.pre_install.is_empty() {
                     info("Running Pacman pre-install hooks...");
-                    let hook_results =
-                        execute_hooks(&pacman_source.hooks.pre_install, dry_run, "pre-install")?;
+                    let hook_results = crate::hooks::execute_hooks(
+                        &pacman_source.hooks.pre_install,
+                        dry_run,
+                        crate::hooks::HookContext::PreInstall,
+                    )?;
                     report.hook_results.extend(hook_results);
                 }
 
@@ -299,8 +325,11 @@ pub fn install_packages(
                 // Execute post-install hooks
                 if !pacman_source.hooks.post_install.is_empty() {
                     info("Running Pacman post-install hooks...");
-                    let hook_results =
-                        execute_hooks(&pacman_source.hooks.post_install, dry_run, "post-install")?;
+                    let hook_results = crate::hooks::execute_hooks(
+                        &pacman_source.hooks.post_install,
+                        dry_run,
+                        crate::hooks::HookContext::PostInstall,
+                    )?;
                     report.hook_results.extend(hook_results);
                 }
             }

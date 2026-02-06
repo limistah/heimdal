@@ -96,6 +96,7 @@ mod tests {
             sync: SyncConfig::default(),
             ignore: vec![],
             mappings: HashMap::new(),
+            hooks: GlobalHooks::default(),
         };
 
         assert!(validate_config(&config).is_err());
