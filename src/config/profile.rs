@@ -152,6 +152,7 @@ mod tests {
             sync: SyncConfig::default(),
             ignore: vec![],
             mappings: HashMap::new(),
+            hooks: GlobalHooks::default(),
         };
 
         let resolved = resolve_profile(&config, "base").unwrap();

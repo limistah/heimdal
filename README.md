@@ -670,6 +670,106 @@ heimdal history
 heimdal history 20
 ```
 
+### Git Operations
+
+Heimdal provides comprehensive git workflow management for your dotfiles:
+
+#### Commit Changes
+
+```bash
+# Commit with auto-generated message
+heimdal commit --auto
+
+# Commit with custom message
+heimdal commit -m "Add nvim config"
+
+# Commit and push
+heimdal commit -m "Update zshrc" --push
+
+# Commit specific files
+heimdal commit -m "Update vim config" vim/.vimrc
+```
+
+The commit command:
+- Auto-stages files before committing
+- Generates smart commit messages based on changes
+- Optional push to remote after commit
+- Shows git status before committing
+
+#### Push and Pull
+
+```bash
+# Push to default remote
+heimdal push
+
+# Push to specific remote
+heimdal push --remote upstream
+
+# Push specific branch
+heimdal push --branch main
+
+# Pull from remote
+heimdal pull
+
+# Pull with rebase
+heimdal pull --rebase
+```
+
+#### Branch Management
+
+```bash
+# Show current branch
+heimdal branch current
+
+# List all branches
+heimdal branch list
+
+# Create and switch to new branch
+heimdal branch create feature-branch
+
+# Switch to existing branch
+heimdal branch switch main
+
+# Show tracking information
+heimdal branch info
+```
+
+The branch info shows:
+- Current branch name
+- Upstream tracking branch
+- Commits ahead/behind remote
+- Sync status
+
+#### Remote Management
+
+```bash
+# List remotes
+heimdal remote list
+heimdal remote list -v  # Show URLs
+
+# Add new remote
+heimdal remote add origin git@github.com:user/dotfiles.git
+
+# Remove remote
+heimdal remote remove upstream
+
+# Change remote URL
+heimdal remote set-url origin https://github.com/user/dotfiles.git
+
+# Show remote details
+heimdal remote show origin
+
+# Interactive remote setup (recommended for first-time setup)
+heimdal remote setup
+```
+
+The interactive remote setup:
+- Shows existing remotes if any
+- Prompts for remote name (default: origin)
+- Prompts for remote URL (SSH or HTTPS)
+- Handles replacing existing remotes
+- Optionally pushes after adding remote
+
 ### List Profiles
 
 View available profiles in your configuration:
