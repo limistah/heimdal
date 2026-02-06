@@ -64,13 +64,23 @@ No manual conversion needed!
 - **Hooks System** - Run custom scripts before/after installation
 - **Dry-Run Mode** - Preview changes before applying them
 
-### ✨ Recent Improvements (v1.3.0)
-- **Enhanced Import System**
+### ✨ Recent Improvements (v1.4.0 - Week 10)
+- **Smart Package Management**
+  - Fuzzy search with typo tolerance and intelligent scoring
+  - Installation status detection across all package managers
+  - Tag-based filtering for refined searches
+  - Automatic package suggestions based on detected project technologies
+  - 15 curated package groups for common workflows (web-dev, rust-dev, python-dev, etc.)
+  - Package version management with outdated detection and bulk upgrades
+  - Rich terminal output with relevance indicators and metadata
+
+### Previous Improvements
+- **v1.3.0 - Enhanced Import System**
   - Support for 3 additional dotfile managers: chezmoi, yadm, homesick
   - Intelligent conflict resolution with 4 strategies (Skip, Overwrite, Backup, Ask)
   - Import preview mode to see what would be imported
   - Better file categorization and destination mapping
-- **Previous Improvements (v1.2.0)**
+- **v1.2.0 - Wizard UX & Performance**
   - Real-time progress indicators for scanning operations
   - Interactive file/package selection with multi-select support
   - Smart profile name generation (e.g., "work-mac", "personal-linux")
@@ -612,11 +622,118 @@ The remove command:
 #### Search Packages
 
 ```bash
-# Search by name or description
+# Fuzzy search by name or description
 heimdal packages search neovim
 
 # Filter by category
 heimdal packages search editor --category editor
+
+# Filter by tag
+heimdal packages search docker --tag container
+```
+
+The search command features:
+- **Fuzzy matching** - Finds packages even with typos
+- **Smart scoring** - Prioritizes exact matches over fuzzy matches
+- **Installation status** - Shows which packages are already installed (✓/○)
+- **Relevance indicators** - ★ highly relevant / ☆ relevant / · fuzzy match
+- **Rich metadata** - Displays descriptions, popularity, alternatives
+
+Available categories: development, editor, terminal, language, container, infrastructure, database, network, application
+
+#### Smart Package Suggestions
+
+```bash
+# Suggest packages for current directory
+heimdal packages suggest
+
+# Suggest for specific directory
+heimdal packages suggest --directory ~/projects/my-app
+```
+
+The suggest command:
+- **Auto-detects technologies** - Scans for `package.json`, `Cargo.toml`, `requirements.txt`, etc.
+- **Context-aware recommendations** - Suggests tools based on detected project types
+- **Relevance scoring** - Prioritizes essential tools for detected technologies
+- **Installation status** - Shows which suggested packages are already installed
+
+Supports 15+ tool patterns: Node.js, Python, Rust, Go, Docker, Kubernetes, and more.
+
+#### Package Groups
+
+```bash
+# List all package groups
+heimdal packages list-groups
+
+# List groups by category
+heimdal packages list-groups --category development
+
+# Show group details
+heimdal packages show-group web-dev
+
+# Search for groups
+heimdal packages search-groups rust
+
+# Install a package group
+heimdal packages add-group web-dev
+
+# Include optional packages
+heimdal packages add-group web-dev --include-optional
+
+# Dry-run to preview
+heimdal packages add-group rust-dev --dry-run
+```
+
+**Available Groups** (15 curated collections):
+- `essential` - Core system utilities
+- `web-dev` - Web development stack (Node.js, TypeScript, etc.)
+- `rust-dev` - Rust development tools
+- `python-dev` - Python environment
+- `go-dev` - Go development
+- `docker` - Container ecosystem
+- `editors` - Modern text editors
+- `shells` - Shell enhancements
+- `terminal-tools` - CLI productivity tools
+- `network` - Network debugging
+- `monitoring` - System monitoring
+- `security` - Security and encryption tools
+- `cloud` - Cloud provider CLIs
+- `database` - Database management tools
+- `media` - Media processing tools
+
+#### Package Version Management
+
+```bash
+# Check for outdated packages
+heimdal packages outdated
+
+# Check all packages (not just profile)
+heimdal packages outdated --all
+
+# Upgrade specific package
+heimdal packages upgrade docker
+
+# Upgrade all outdated packages
+heimdal packages upgrade --all
+
+# Dry-run upgrade
+heimdal packages upgrade --all --dry-run
+```
+
+The version management system:
+- **Cross-platform** - Works with Homebrew, APT, DNF, Pacman
+- **Version comparison** - Shows installed vs. available versions
+- **Colored output** - Red for outdated, green for up-to-date
+- **Bulk operations** - Upgrade multiple packages at once
+
+#### List Packages
+
+```bash
+# List packages in current profile
+heimdal packages list
+
+# List packages in specific profile
+heimdal packages list --profile work-laptop
 ```
 
 Available categories: development, editor, terminal, language, container, infrastructure, database, network, application

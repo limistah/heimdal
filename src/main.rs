@@ -207,14 +207,51 @@ fn main() -> Result<()> {
             } => {
                 commands::packages::run_remove(&name, profile.as_deref(), force, no_uninstall)?;
             }
-            PackagesAction::Search { query, category } => {
-                commands::packages::run_search(&query, category.as_deref())?;
+            PackagesAction::Search {
+                query,
+                category,
+                tag,
+            } => {
+                commands::packages::run_search(&query, category.as_deref(), tag.as_deref())?;
+            }
+            PackagesAction::Suggest { directory } => {
+                commands::packages::run_suggest(directory.as_deref())?;
             }
             PackagesAction::Info { name } => {
                 commands::packages::run_info(&name)?;
             }
             PackagesAction::List { installed, profile } => {
                 commands::packages::run_list(installed, profile.as_deref())?;
+            }
+            PackagesAction::ListGroups { category } => {
+                commands::packages::list_groups(category)?;
+            }
+            PackagesAction::ShowGroup { id } => {
+                commands::packages::show_group(&id)?;
+            }
+            PackagesAction::AddGroup {
+                id,
+                include_optional,
+                dry_run,
+                no_install,
+            } => {
+                commands::packages::add_group(&id, include_optional, dry_run, no_install)?;
+            }
+            PackagesAction::SearchGroups { query } => {
+                commands::packages::search_groups(&query)?;
+            }
+            PackagesAction::UpdateAll { dry_run, yes } => {
+                cmd_packages_update_all(dry_run, yes)?;
+            }
+            PackagesAction::Outdated { all } => {
+                commands::packages::run_outdated(all)?;
+            }
+            PackagesAction::Upgrade {
+                package,
+                all,
+                dry_run,
+            } => {
+                commands::packages::run_upgrade(package, all, dry_run)?;
             }
         },
 
@@ -1965,4 +2002,20 @@ fn cmd_template_variables(profile_name: Option<&str>) -> Result<()> {
     );
 
     Ok(())
+}
+
+fn cmd_packages_update_all(dry_run: bool, yes: bool) -> Result<()> {
+    use crate::utils::{error, header};
+
+    header("Update All Packages");
+
+    error("The `packages update-all` command is not yet implemented.");
+    println!();
+    info("This command will be available in a future release.");
+    info("To update packages manually, use your system's package manager:");
+    info("  macOS:  brew upgrade");
+    info("  Linux:  sudo apt upgrade / sudo dnf upgrade / sudo pacman -Syu");
+
+    // Return error to indicate command is not ready
+    anyhow::bail!("Command not implemented")
 }

@@ -2,18 +2,24 @@ pub mod apt;
 pub mod database;
 pub mod dependencies;
 pub mod dnf;
+pub mod groups;
 pub mod homebrew;
 pub mod manager;
 pub mod mapper;
 pub mod mas;
 pub mod pacman;
 pub mod profiles;
+pub mod suggestions;
+pub mod versions;
 
 pub use database::PackageDatabase;
 pub use dependencies::DependencyAnalyzer;
+pub use groups::{GroupRegistry, PackageGroup};
 pub use manager::{InstallResult, PackageManager};
 pub use mapper::{map_package_name, PackageManagerType};
 pub use profiles::{PackageProfile, ProfileSelector};
+pub use suggestions::{DetectedTool, PackageSuggestion, SuggestionEngine};
+pub use versions::{PackageVersion, VersionChecker};
 
 use anyhow::Result;
 use std::collections::HashMap;

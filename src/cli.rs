@@ -245,6 +245,17 @@ pub enum PackagesAction {
         /// Filter by category
         #[arg(short, long)]
         category: Option<String>,
+
+        /// Filter by tag
+        #[arg(short, long)]
+        tag: Option<String>,
+    },
+
+    /// Suggest packages based on detected project files
+    Suggest {
+        /// Directory to analyze (defaults to current directory)
+        #[arg(short, long)]
+        directory: Option<String>,
     },
 
     /// Show detailed information about a package
@@ -262,6 +273,75 @@ pub enum PackagesAction {
         /// Profile to list (defaults to current profile)
         #[arg(short, long)]
         profile: Option<String>,
+    },
+
+    /// List available package groups
+    ListGroups {
+        /// Filter by category (development, devops, productivity, etc.)
+        #[arg(short, long)]
+        category: Option<String>,
+    },
+
+    /// Show detailed information about a package group
+    ShowGroup {
+        /// Group ID (e.g., web-dev, rust-dev, terminal)
+        id: String,
+    },
+
+    /// Install all packages from a group
+    AddGroup {
+        /// Group ID to install
+        id: String,
+
+        /// Include optional packages
+        #[arg(short = 'o', long)]
+        include_optional: bool,
+
+        /// Show what would be done without doing it
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+
+        /// Skip installation, just add to config
+        #[arg(long)]
+        no_install: bool,
+    },
+
+    /// Search for package groups
+    SearchGroups {
+        /// Search query
+        query: String,
+    },
+
+    /// Update all packages in the current profile
+    UpdateAll {
+        /// Show what would be updated without doing it
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+
+        /// Skip confirmation prompt
+        #[arg(short, long)]
+        yes: bool,
+    },
+
+    /// Show packages with available updates
+    Outdated {
+        /// Check all installed packages (not just profile packages)
+        #[arg(short, long)]
+        all: bool,
+    },
+
+    /// Upgrade packages to latest versions
+    Upgrade {
+        /// Specific package to upgrade (upgrades all profile packages if not specified)
+        package: Option<String>,
+
+        /// Upgrade all installed packages (not just profile packages)
+        #[arg(short, long)]
+        all: bool,
+
+        /// Show what would be upgraded without doing it
+        #[arg(short = 'n', long)]
+        dry_run: bool,
     },
 }
 
