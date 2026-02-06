@@ -6,10 +6,12 @@ pub mod manager;
 pub mod mapper;
 pub mod mas;
 pub mod pacman;
+pub mod profiles;
 
 pub use hooks::{execute_hooks, HookResult};
 pub use manager::{InstallResult, PackageManager};
 pub use mapper::{map_package_name, PackageManagerType};
+pub use profiles::{PackageProfile, ProfileSelector, ProfileType};
 
 use anyhow::Result;
 use std::collections::HashMap;
