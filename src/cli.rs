@@ -30,6 +30,10 @@ pub enum Commands {
         /// Output path for generated heimdal.yaml
         #[arg(short, long)]
         output: Option<String>,
+
+        /// Preview what would be imported without actually importing
+        #[arg(long)]
+        preview: bool,
     },
 
     /// Initialize Heimdal on a new machine
