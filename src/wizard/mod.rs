@@ -261,6 +261,151 @@ fn wizard_start_fresh() -> Result<()> {
         _ => unreachable!(),
     }
 
+    // Analyze dependencies
+    if !detected_packages.is_empty() {
+        use crate::package::DependencyAnalyzer;
+
+        println!("\n{} Analyzing package dependencies...", style("→").cyan());
+
+        let analyzer = DependencyAnalyzer::new();
+        let package_names: Vec<String> = detected_packages.iter().map(|p| p.name.clone()).collect();
+
+        let analysis = analyzer.analyze(&package_names);
+
+        // Show required missing dependencies
+        if analysis.has_required_missing() {
+            println!("\n{} Required dependencies:", style("⚠").yellow().bold());
+            for missing in &analysis.required_missing {
+                println!("  {}", missing.format_message());
+            }
+
+            // Ask if user wants to add them
+            if Confirm::new()
+                .with_prompt("Add required dependencies?")
+                .default(true)
+                .interact()?
+            {
+                use crate::utils::detect_os;
+                use crate::wizard::PackageManager as DetectedManager;
+
+                // Determine the package manager based on OS
+                let manager = match detect_os() {
+                    crate::utils::OperatingSystem::MacOS => DetectedManager::Homebrew,
+                    crate::utils::OperatingSystem::Linux(distro) => {
+                        use crate::utils::LinuxDistro;
+                        match distro {
+                            LinuxDistro::Debian | LinuxDistro::Ubuntu => DetectedManager::Apt,
+                            LinuxDistro::Fedora | LinuxDistro::RHEL | LinuxDistro::CentOS => {
+                                DetectedManager::Dnf
+                            }
+                            LinuxDistro::Arch | LinuxDistro::Manjaro => DetectedManager::Pacman,
+                            _ => DetectedManager::Homebrew, // fallback
+                        }
+                    }
+                    _ => DetectedManager::Homebrew, // fallback
+                };
+
+                for missing in &analysis.required_missing {
+                    detected_packages.push(crate::wizard::DetectedPackage {
+                        name: missing.dependency.package.clone(),
+                        manager: manager.clone(),
+                        category: crate::wizard::PackageCategory::Essential,
+                    });
+                }
+
+                println!(
+                    "{} Added {} required dependencies",
+                    style("✓").green(),
+                    analysis.required_missing.len()
+                );
+            }
+        }
+
+        // Show optional suggestions
+        if analysis.has_optional_missing() || analysis.has_suggestions() {
+            let mut all_suggestions = Vec::new();
+
+            // Add optional missing as suggestions
+            for missing in &analysis.optional_missing {
+                all_suggestions.push((
+                    missing.dependency.package.clone(),
+                    format!(
+                        "Works with {} - {}",
+                        missing.for_package, missing.dependency.reason
+                    ),
+                ));
+            }
+
+            // Deduplicate
+            all_suggestions.sort_by(|a, b| a.0.cmp(&b.0));
+            all_suggestions.dedup_by(|a, b| a.0 == b.0);
+
+            if !all_suggestions.is_empty() {
+                println!("\n{} Package suggestions:", style("💡").blue().bold());
+
+                // Show first 5 suggestions
+                for (pkg, reason) in all_suggestions.iter().take(5) {
+                    println!("  • {} - {}", style(pkg).cyan(), reason);
+                }
+
+                if all_suggestions.len() > 5 {
+                    println!("  ... and {} more", all_suggestions.len() - 5);
+                }
+
+                if Confirm::new()
+                    .with_prompt("Add suggested packages?")
+                    .default(false)
+                    .interact()?
+                {
+                    use crate::utils::detect_os;
+                    use crate::wizard::PackageManager as DetectedManager;
+
+                    // Determine the package manager based on OS
+                    let manager = match detect_os() {
+                        crate::utils::OperatingSystem::MacOS => DetectedManager::Homebrew,
+                        crate::utils::OperatingSystem::Linux(distro) => {
+                            use crate::utils::LinuxDistro;
+                            match distro {
+                                LinuxDistro::Debian | LinuxDistro::Ubuntu => DetectedManager::Apt,
+                                LinuxDistro::Fedora | LinuxDistro::RHEL | LinuxDistro::CentOS => {
+                                    DetectedManager::Dnf
+                                }
+                                LinuxDistro::Arch | LinuxDistro::Manjaro => DetectedManager::Pacman,
+                                _ => DetectedManager::Homebrew, // fallback
+                            }
+                        }
+                        _ => DetectedManager::Homebrew, // fallback
+                    };
+
+                    for (pkg, _) in &all_suggestions {
+                        detected_packages.push(crate::wizard::DetectedPackage {
+                            name: pkg.clone(),
+                            manager: manager.clone(),
+                            category: crate::wizard::PackageCategory::Development,
+                        });
+                    }
+
+                    println!(
+                        "{} Added {} suggested packages",
+                        style("✓").green(),
+                        all_suggestions.len()
+                    );
+                }
+            }
+        }
+
+        // Show summary if all good
+        if !analysis.has_required_missing()
+            && !analysis.has_optional_missing()
+            && !analysis.has_suggestions()
+        {
+            println!(
+                "\n{} All dependencies satisfied!",
+                style("✓").green().bold()
+            );
+        }
+    }
+
     // Generate configuration
     if !scanned_dotfiles.is_empty() || !detected_packages.is_empty() {
         let generate = Confirm::new()
