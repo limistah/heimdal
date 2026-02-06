@@ -45,6 +45,7 @@ No manual conversion needed!
 ### Core Features
 - **Universal Package Management** - Install packages across Homebrew, APT, DNF, Pacman, and Mac App Store from a single configuration
 - **Intelligent Symlinking** - GNU Stow-compatible symlink management with conflict resolution
+- **Template System** - Simple variable substitution for machine-specific configs (user, hostname, email, etc.)
 - **Git-Based Sync** - Keep your configuration in sync across machines using Git
 - **Profile-Based Configuration** - Different configurations for different machines (work, personal, servers)
 - **Auto-Sync** - Background synchronization via cron jobs
@@ -1150,6 +1151,85 @@ mappings:
     dnf: "mytool-rpm"
     pacman: "mytool-arch"
 ```
+
+### Template System
+
+Heimdal includes a simple template system for machine-specific configurations. Use `{{ variable }}` syntax to substitute values based on the current machine and profile.
+
+**Built-in System Variables:**
+- `{{ os }}` - Operating system (linux, macos, windows)
+- `{{ arch }}` - Architecture (x86_64, aarch64, arm)
+- `{{ family }}` - OS family (unix, windows)
+- `{{ hostname }}` - Machine hostname
+- `{{ user }}` - Current user
+- `{{ home }}` - Home directory path
+
+**Example `.gitconfig.tmpl`:**
+```ini
+[user]
+    name = {{ name }}
+    email = {{ email }}
+
+[core]
+    editor = vim
+
+# Machine-specific settings
+[http]
+    proxy = {{ http_proxy }}
+```
+
+**Configuration in `heimdal.yaml`:**
+```yaml
+# Global variables
+templates:
+  variables:
+    name: "John Doe"
+    http_proxy: ""
+
+profiles:
+  work-laptop:
+    templates:
+      variables:
+        email: "john@company.com"      # Override for work
+        http_proxy: "proxy.company.com"
+      files:
+        - src: .gitconfig.tmpl
+          dest: .gitconfig
+
+  personal:
+    templates:
+      variables:
+        email: "john@personal.com"     # Override for personal
+      files:
+        - src: .gitconfig.tmpl
+          dest: .gitconfig
+```
+
+**Auto-Detection:**
+Heimdal automatically detects `.tmpl` files in your dotfiles directory:
+```bash
+~/.dotfiles/
+├── .gitconfig.tmpl   # Auto-detected
+├── .zshrc.tmpl       # Auto-detected
+└── heimdal.yaml
+```
+
+**Template Commands:**
+```bash
+# Preview how a template will be rendered
+heimdal template preview .gitconfig.tmpl
+
+# List all template files
+heimdal template list -v
+
+# Show all available variables
+heimdal template variables
+```
+
+**Variable Priority:**
+Profile variables > Config variables > System variables
+
+This means profile-specific variables override global config variables, which override built-in system variables.
 
 ### Conflict Resolution
 
