@@ -76,6 +76,17 @@ pub enum Commands {
         verbose: bool,
     },
 
+    /// Show local changes compared to repository
+    Diff {
+        /// Show detailed information (line counts)
+        #[arg(short, long)]
+        verbose: bool,
+
+        /// Interactive mode to commit or discard changes
+        #[arg(short, long)]
+        interactive: bool,
+    },
+
     /// List available profiles
     Profiles,
 
@@ -109,6 +120,78 @@ pub enum Commands {
         /// Number of entries to show
         #[arg(short, long, default_value = "10")]
         limit: usize,
+    },
+
+    /// Manage packages
+    Packages {
+        #[command(subcommand)]
+        action: PackagesAction,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum PackagesAction {
+    /// Add a package to the configuration
+    Add {
+        /// Package name
+        name: String,
+
+        /// Package manager (homebrew, apt, dnf, pacman)
+        #[arg(short, long)]
+        manager: Option<String>,
+
+        /// Profile to add to (defaults to current profile)
+        #[arg(short, long)]
+        profile: Option<String>,
+
+        /// Skip installation, just add to config
+        #[arg(long)]
+        no_install: bool,
+    },
+
+    /// Remove a package from the configuration
+    Remove {
+        /// Package name
+        name: String,
+
+        /// Profile to remove from (defaults to current profile)
+        #[arg(short, long)]
+        profile: Option<String>,
+
+        /// Force removal even if other packages depend on it
+        #[arg(short, long)]
+        force: bool,
+
+        /// Skip uninstallation, just remove from config
+        #[arg(long)]
+        no_uninstall: bool,
+    },
+
+    /// Search for packages in the database
+    Search {
+        /// Search query
+        query: String,
+
+        /// Filter by category
+        #[arg(short, long)]
+        category: Option<String>,
+    },
+
+    /// Show detailed information about a package
+    Info {
+        /// Package name
+        name: String,
+    },
+
+    /// List all packages in current profile
+    List {
+        /// Show only installed packages
+        #[arg(short, long)]
+        installed: bool,
+
+        /// Profile to list (defaults to current profile)
+        #[arg(short, long)]
+        profile: Option<String>,
     },
 }
 

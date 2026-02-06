@@ -506,6 +506,122 @@ heimdal status
 heimdal status --verbose
 ```
 
+### View Local Changes
+
+Show differences between local dotfiles and repository:
+
+```bash
+# Show summary of changes
+heimdal diff
+
+# Show detailed changes (line counts)
+heimdal diff --verbose
+
+# Interactive mode (commit or discard changes)
+heimdal diff --interactive
+```
+
+The diff command shows:
+- **Modified files** - Files with content changes
+- **Added files** - New files staged for commit
+- **Deleted files** - Files that were removed
+- **Renamed files** - Files that were moved
+- **Untracked files** - New files not yet in git
+
+**Interactive mode** offers actions:
+- View detailed git diff
+- Commit all or specific files
+- Discard all or specific changes
+- Push to remote after commit
+
+### Manage Packages
+
+Heimdal provides powerful package management commands that work across all package managers:
+
+#### Add Packages
+
+```bash
+# Add package with auto-detection
+heimdal packages add git
+
+# Specify package manager
+heimdal packages add docker --manager homebrew
+
+# Add to specific profile
+heimdal packages add python --profile work-laptop
+
+# Add without installing (just update config)
+heimdal packages add nodejs --no-install
+```
+
+The add command:
+- Auto-detects available package managers
+- Shows package metadata from database
+- Detects and suggests dependencies
+- Updates `heimdal.yaml` configuration
+- Optionally installs immediately
+
+#### Remove Packages
+
+```bash
+# Remove package
+heimdal packages remove docker
+
+# Remove from specific profile
+heimdal packages remove python --profile work-laptop
+
+# Force removal (skip dependency warnings)
+heimdal packages remove nodejs --force
+
+# Remove without uninstalling
+heimdal packages remove vim --no-uninstall
+```
+
+The remove command:
+- Finds package in configuration
+- Checks for dependent packages
+- Updates `heimdal.yaml` configuration
+- Optionally uninstalls from system
+
+#### Search Packages
+
+```bash
+# Search by name or description
+heimdal packages search neovim
+
+# Filter by category
+heimdal packages search editor --category editor
+```
+
+Available categories: development, editor, terminal, language, container, infrastructure, database, network, application
+
+#### Get Package Info
+
+```bash
+# Show detailed package information
+heimdal packages info neovim
+```
+
+Shows:
+- Description and category
+- Alternative packages
+- Related packages
+- Dependencies (required and optional)
+- Tags and popularity
+
+#### List Packages
+
+```bash
+# List all packages in current profile
+heimdal packages list
+
+# Show only installed packages
+heimdal packages list --installed
+
+# List packages in specific profile
+heimdal packages list --profile work-laptop
+```
+
 ### Auto-Sync
 
 Enable automatic background synchronization:
