@@ -411,21 +411,11 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
 
     // Acquire state lock (unless dry-run)
     let _guard = if !dry_run {
-        // Load state V2 to get machine ID and serial
+        // Load state V2
         let state_v2 = state::HeimdallStateV2::load().unwrap_or_else(|_| {
-            // If V2 doesn't exist, try V1 migration
-            state::HeimdallState::load()
-                .ok()
-                .and_then(|v1| state::HeimdallStateV2::migrate_from_v1(v1).ok())
-                .unwrap_or_else(|| {
-                    // Create new V2 state as fallback
-                    state::HeimdallStateV2::new(
-                        "default".to_string(),
-                        PathBuf::from("."),
-                        "".to_string(),
-                    )
-                    .unwrap()
-                })
+            // Create new V2 state as fallback
+            state::HeimdallStateV2::new("default".to_string(), PathBuf::from("."), "".to_string())
+                .unwrap()
         });
 
         let lock_config = state::lock::LockConfig::default();
@@ -596,14 +586,8 @@ fn cmd_sync(quiet: bool, dry_run: bool) -> Result<()> {
 
     // Acquire state lock (unless dry-run)
     let _guard = if !dry_run {
-        // Load state V2 to get machine ID and serial
-        let state_v2 = state::HeimdallStateV2::load().or_else(|_| {
-            // Try V1 migration
-            state::HeimdallState::load()
-                .ok()
-                .and_then(|v1| state::HeimdallStateV2::migrate_from_v1(v1).ok())
-                .ok_or_else(|| anyhow::anyhow!("Failed to load state"))
-        })?;
+        // Load state V2
+        let state_v2 = state::HeimdallStateV2::load()?;
 
         let lock_config = state::lock::LockConfig::default();
         let guard = state::lock::StateGuard::acquire(
@@ -1016,19 +1000,14 @@ fn cmd_commit(message: Option<&str>, auto: bool, push: bool, files: Vec<String>)
     header("Commit Changes");
 
     // Load state to get dotfiles path
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdallStateV2::load()?;
 
     // Acquire state lock
-    let state_v2 = state::HeimdallStateV2::load().or_else(|_| {
-        // Try V1 migration
-        state::HeimdallStateV2::migrate_from_v1(state.clone())
-    })?;
-
     let lock_config = state::lock::LockConfig::default();
     let _guard = state::lock::StateGuard::acquire(
         "commit",
-        state_v2.machine.id.clone(),
-        state_v2.lineage.serial,
+        state.machine.id.clone(),
+        state.lineage.serial,
         Some("Committing changes".to_string()),
         lock_config,
     )?;
@@ -1074,19 +1053,14 @@ fn cmd_push(_remote: Option<&str>, _branch: Option<&str>) -> Result<()> {
     header("Push to Remote");
 
     // Load state to get dotfiles path
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdallStateV2::load()?;
 
     // Acquire state lock
-    let state_v2 = state::HeimdallStateV2::load().or_else(|_| {
-        // Try V1 migration
-        state::HeimdallStateV2::migrate_from_v1(state.clone())
-    })?;
-
     let lock_config = state::lock::LockConfig::default();
     let _guard = state::lock::StateGuard::acquire(
         "push",
-        state_v2.machine.id.clone(),
-        state_v2.lineage.serial,
+        state.machine.id.clone(),
+        state.lineage.serial,
         Some("Pushing to remote".to_string()),
         lock_config,
     )?;
@@ -1110,19 +1084,14 @@ fn cmd_pull(rebase: bool) -> Result<()> {
     header("Pull from Remote");
 
     // Load state to get dotfiles path
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdallStateV2::load()?;
 
     // Acquire state lock
-    let state_v2 = state::HeimdallStateV2::load().or_else(|_| {
-        // Try V1 migration
-        state::HeimdallStateV2::migrate_from_v1(state.clone())
-    })?;
-
     let lock_config = state::lock::LockConfig::default();
     let _guard = state::lock::StateGuard::acquire(
         "pull",
-        state_v2.machine.id.clone(),
-        state_v2.lineage.serial,
+        state.machine.id.clone(),
+        state.lineage.serial,
         Some("Pulling from remote".to_string()),
         lock_config,
     )?;

@@ -24,9 +24,6 @@ pub struct LockConfig {
 
     /// Enable automatic stale lock detection
     pub detect_stale: bool,
-
-    /// Retry configuration
-    pub retry: RetryConfig,
 }
 
 impl Default for LockConfig {
@@ -35,7 +32,6 @@ impl Default for LockConfig {
             lock_type: LockType::Hybrid,
             timeout: 300, // 5 minutes
             detect_stale: true,
-            retry: RetryConfig::default(),
         }
     }
 }
@@ -50,23 +46,6 @@ pub enum LockType {
 
     /// No locking (dangerous!)
     Disabled,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RetryConfig {
-    pub attempts: u32,
-    pub delay_seconds: u64,
-    pub exponential_backoff: bool,
-}
-
-impl Default for RetryConfig {
-    fn default() -> Self {
-        Self {
-            attempts: 3,
-            delay_seconds: 2,
-            exponential_backoff: true,
-        }
-    }
 }
 
 /// Lock information
@@ -143,7 +122,14 @@ impl StateLock {
 
         let now = Utc::now();
         let elapsed = now.signed_duration_since(self.created_at);
-        elapsed.num_seconds() as u64 > timeout_seconds
+        let elapsed_secs = elapsed.num_seconds();
+
+        // Handle clock skew: if lock appears to be from the future, treat as not expired
+        if elapsed_secs < 0 {
+            return false;
+        }
+
+        elapsed_secs as u64 > timeout_seconds
     }
 
     /// Check if the lock is stale (process no longer exists)
@@ -571,9 +557,9 @@ impl LockManager {
         Ok(())
     }
 
-    fn lock_path() -> Result<PathBuf> {
+    pub fn lock_path() -> Result<PathBuf> {
         let state_dir = crate::state::versioned::HeimdallStateV2::state_dir()?;
-        Ok(state_dir.join("state.lock"))
+        Ok(state_dir.join("heimdal.state.lock"))
     }
 }
 

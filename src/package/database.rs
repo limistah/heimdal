@@ -330,9 +330,18 @@ impl PackageDatabase {
             {
                 if output.status.success() {
                     let result = String::from_utf8_lossy(&output.stdout);
-                    // Check for "install ok installed" status and exact package name
-                    if result.contains("install ok installed") && result.contains(package_name) {
-                        return true;
+                    // Parse each line: "install ok installed <package_name>"
+                    for line in result.lines() {
+                        let tokens: Vec<&str> = line.split_whitespace().collect();
+                        // Check for "install ok installed" status and exact package name match
+                        if tokens.len() >= 4
+                            && tokens[0] == "install"
+                            && tokens[1] == "ok"
+                            && tokens[2] == "installed"
+                            && tokens.last() == Some(&package_name)
+                        {
+                            return true;
+                        }
                     }
                 }
             }
