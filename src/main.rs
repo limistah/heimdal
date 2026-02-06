@@ -11,6 +11,7 @@ mod hooks;
 mod import;
 mod package;
 mod profile;
+mod secrets;
 mod state;
 mod symlink;
 mod sync;
@@ -20,7 +21,7 @@ mod wizard;
 
 use cli::{
     AutoSyncAction, BranchAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction,
-    RemoteAction, TemplateAction,
+    RemoteAction, SecretAction, TemplateAction,
 };
 use utils::{error, header, info, success};
 
@@ -208,6 +209,7 @@ fn main() -> Result<()> {
                 commands::packages::run_list(installed, profile.as_deref())?;
             }
         },
+
         Commands::Template { action } => match action {
             TemplateAction::Preview { file, profile } => {
                 cmd_template_preview(&file, profile.as_deref())?;
@@ -217,6 +219,21 @@ fn main() -> Result<()> {
             }
             TemplateAction::Variables { profile } => {
                 cmd_template_variables(profile.as_deref())?;
+            }
+        },
+
+        Commands::Secret { action } => match action {
+            SecretAction::Add { name, value } => {
+                cmd_secret_add(name.as_str(), value.as_deref())?;
+            }
+            SecretAction::Get { name } => {
+                cmd_secret_get(name.as_str())?;
+            }
+            SecretAction::Remove { name, force } => {
+                cmd_secret_remove(name.as_str(), force)?;
+            }
+            SecretAction::List { verbose } => {
+                cmd_secret_list(verbose)?;
             }
         },
     }
@@ -1551,6 +1568,140 @@ fn cmd_profile_clone(source_name: &str, target_name: &str) -> Result<()> {
 
     Ok(())
 }
+
+// ========== Secret Management ==========
+
+fn cmd_secret_add(name: &str, value: Option<&str>) -> Result<()> {
+    use secrets::SecretStore;
+
+    header("Add Secret");
+
+    let store = SecretStore::new()?;
+
+    // Get the secret value (either from argument or prompt)
+    let secret_value = if let Some(v) = value {
+        v.to_string()
+    } else {
+        // Prompt for secret securely
+        use dialoguer::Password;
+        Password::new()
+            .with_prompt(format!("Enter value for '{}' (input hidden)", name))
+            .interact()?
+    };
+
+    // Set the secret
+    store.set(name, &secret_value)?;
+
+    success(&format!("Secret '{}' saved successfully", name));
+    println!(
+        "\n{} Use it in templates with {}",
+        "ℹ".blue(),
+        format!("{{{{ secrets.{} }}}}", name).cyan()
+    );
+
+    Ok(())
+}
+
+fn cmd_secret_get(name: &str) -> Result<()> {
+    use secrets::SecretStore;
+
+    let store = SecretStore::new()?;
+
+    // Confirm before showing secret
+    use dialoguer::Confirm;
+    let confirmed = Confirm::new()
+        .with_prompt(format!(
+            "Show secret value for '{}'? (This will be visible on screen)",
+            name
+        ))
+        .default(false)
+        .interact()?;
+
+    if !confirmed {
+        info("Cancelled");
+        return Ok(());
+    }
+
+    let value = store.get(name)?;
+
+    println!("\n{}: {}", name.cyan().bold(), value);
+
+    Ok(())
+}
+
+fn cmd_secret_remove(name: &str, force: bool) -> Result<()> {
+    use secrets::SecretStore;
+
+    header("Remove Secret");
+
+    let store = SecretStore::new()?;
+
+    // Check if secret exists
+    if !store.exists(name) {
+        error(&format!("Secret '{}' not found", name));
+        anyhow::bail!("Secret not found");
+    }
+
+    // Confirm unless force flag is set
+    if !force {
+        use dialoguer::Confirm;
+        let confirmed = Confirm::new()
+            .with_prompt(format!("Remove secret '{}'?", name))
+            .default(false)
+            .interact()?;
+
+        if !confirmed {
+            info("Cancelled");
+            return Ok(());
+        }
+    }
+
+    store.remove(name)?;
+
+    success(&format!("Secret '{}' removed", name));
+
+    Ok(())
+}
+
+fn cmd_secret_list(verbose: bool) -> Result<()> {
+    use secrets::SecretStore;
+
+    header("Secrets");
+
+    let store = SecretStore::new()?;
+    let secrets = store.list()?;
+
+    if secrets.is_empty() {
+        println!("{}", "No secrets stored".dimmed());
+        println!(
+            "\n{} Add a secret with: {}",
+            "ℹ".blue(),
+            "heimdal secret add <name>".cyan()
+        );
+        return Ok(());
+    }
+
+    println!("{} secret(s) stored:\n", secrets.len());
+
+    for secret in secrets {
+        if verbose {
+            println!("  {} {}", "•".blue(), secret.name.cyan().bold());
+            println!("    Created: {}", secret.created_at.dimmed());
+        } else {
+            println!("  {} {}", "•".blue(), secret.name.cyan());
+        }
+    }
+
+    println!(
+        "\n{} Use secrets in templates with {}",
+        "ℹ".blue(),
+        "{{ secrets.<name> }}".cyan()
+    );
+
+    Ok(())
+}
+
+// ========== Template Management ==========
 
 fn cmd_template_preview(file_path: &str, profile_name: Option<&str>) -> Result<()> {
     header("Template Preview");

@@ -187,6 +187,12 @@ pub enum Commands {
         #[command(subcommand)]
         action: TemplateAction,
     },
+
+    /// Manage secrets (API keys, tokens, passwords)
+    Secret {
+        #[command(subcommand)]
+        action: SecretAction,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -440,5 +446,41 @@ pub enum TemplateAction {
         /// Profile to show variables for (defaults to current)
         #[arg(short, long)]
         profile: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SecretAction {
+    /// Add or update a secret
+    Add {
+        /// Secret name (e.g., github_token, api_key)
+        name: String,
+
+        /// Secret value (will prompt securely if not provided)
+        #[arg(long)]
+        value: Option<String>,
+    },
+
+    /// Get a secret value
+    Get {
+        /// Secret name
+        name: String,
+    },
+
+    /// Remove a secret
+    Remove {
+        /// Secret name
+        name: String,
+
+        /// Skip confirmation prompt
+        #[arg(short, long)]
+        force: bool,
+    },
+
+    /// List all secret names (not values)
+    List {
+        /// Show creation dates
+        #[arg(short, long)]
+        verbose: bool,
     },
 }
