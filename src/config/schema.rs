@@ -16,6 +16,8 @@ pub struct HeimdallConfig {
     pub mappings: HashMap<String, PackageMapping>,
     #[serde(default)]
     pub hooks: GlobalHooks,
+    #[serde(default)]
+    pub templates: TemplateConfig,
 }
 
 /// Metadata section
@@ -197,6 +199,8 @@ pub struct Profile {
     pub dotfiles: DotfilesConfig,
     #[serde(default)]
     pub hooks: ProfileHooks,
+    #[serde(default)]
+    pub templates: ProfileTemplateConfig,
 }
 
 /// Profile-specific source (for overrides)
@@ -347,4 +351,49 @@ fn default_true() -> bool {
 
 fn default_interval() -> String {
     "1h".to_string()
+}
+
+/// Template configuration for the entire config
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TemplateConfig {
+    /// Variables available for all profiles
+    #[serde(default)]
+    pub variables: HashMap<String, String>,
+    /// Template files to render
+    #[serde(default)]
+    pub files: Vec<TemplateFile>,
+}
+
+impl TemplateConfig {
+    /// Check if this config has any template configuration
+    pub fn has_configuration(&self) -> bool {
+        !self.variables.is_empty() || !self.files.is_empty()
+    }
+}
+
+/// Template file configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateFile {
+    /// Source template file (e.g., .gitconfig.tmpl)
+    pub src: String,
+    /// Destination file (e.g., .gitconfig)
+    pub dest: String,
+}
+
+/// Profile-specific template configuration
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProfileTemplateConfig {
+    /// Profile-specific variables (override global)
+    #[serde(default)]
+    pub variables: HashMap<String, String>,
+    /// Profile-specific template files
+    #[serde(default)]
+    pub files: Vec<TemplateFile>,
+}
+
+impl ProfileTemplateConfig {
+    /// Check if this profile has any template configuration
+    pub fn has_configuration(&self) -> bool {
+        !self.variables.is_empty() || !self.files.is_empty()
+    }
 }
