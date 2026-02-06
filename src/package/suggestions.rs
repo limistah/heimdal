@@ -1,7 +1,6 @@
 use anyhow::Result;
 use std::collections::{HashMap, HashSet};
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use walkdir::WalkDir;
 
 use super::database::{PackageDatabase, PackageInfo};
