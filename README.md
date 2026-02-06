@@ -31,6 +31,41 @@ Heimdal is a powerful, cross-platform tool that automatically manages your dotfi
 
 ## Installation
 
+### Homebrew (macOS)
+
+```bash
+brew tap limistah/tap
+brew install heimdal
+```
+
+### APT (Debian/Ubuntu)
+
+```bash
+# Download and install the latest .deb package
+curl -LO https://github.com/limistah/heimdal/releases/download/v1.0.0/heimdal_1.0.0_amd64.deb
+sudo dpkg -i heimdal_1.0.0_amd64.deb
+```
+
+Or use the automated script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/limistah/heimdal/master/.github/debian/install-deb.sh | bash
+```
+
+### Cargo (All Platforms)
+
+```bash
+cargo install heimdal
+```
+
+### Quick Install Script
+
+Works on macOS and Linux, automatically detects your platform:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/limistah/heimdal/master/install.sh | bash
+```
+
 ### From Source
 
 ```bash
@@ -40,10 +75,19 @@ cargo build --release
 sudo mv target/release/heimdal /usr/local/bin/
 ```
 
-### Quick Install Script
+### Manual Download
+
+Download pre-built binaries from the [releases page](https://github.com/limistah/heimdal/releases/latest):
+
+- **Linux (GNU)**: `heimdal-linux-amd64.tar.gz`
+- **Linux (MUSL)**: `heimdal-linux-amd64-musl.tar.gz`
+- **macOS (Intel)**: `heimdal-darwin-amd64.tar.gz`
+- **macOS (Apple Silicon)**: `heimdal-darwin-arm64.tar.gz`
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/limistah/heimdal/main/install.sh | bash
+# Example for Linux
+curl -L https://github.com/limistah/heimdal/releases/download/v1.0.0/heimdal-linux-amd64.tar.gz | tar xz
+sudo mv heimdal /usr/local/bin/
 ```
 
 ## Quick Start
