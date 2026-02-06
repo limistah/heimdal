@@ -129,6 +129,12 @@ pub enum Commands {
         action: BranchAction,
     },
 
+    /// Manage git remotes
+    Remote {
+        #[command(subcommand)]
+        action: RemoteAction,
+    },
+
     /// List available profiles
     Profiles,
 
@@ -291,4 +297,45 @@ pub enum BranchAction {
 
     /// Show tracking information
     Info,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RemoteAction {
+    /// List all remotes
+    List {
+        /// Show URLs
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// Add a new remote
+    Add {
+        /// Remote name (e.g., origin, upstream)
+        name: String,
+        /// Remote URL
+        url: String,
+    },
+
+    /// Remove a remote
+    Remove {
+        /// Remote name
+        name: String,
+    },
+
+    /// Change remote URL
+    SetUrl {
+        /// Remote name
+        name: String,
+        /// New URL
+        url: String,
+    },
+
+    /// Show remote details
+    Show {
+        /// Remote name
+        name: String,
+    },
+
+    /// Interactive remote setup
+    Setup,
 }

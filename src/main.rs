@@ -16,7 +16,7 @@ mod sync;
 mod utils;
 mod wizard;
 
-use cli::{AutoSyncAction, Cli, Commands, ConfigAction, PackagesAction};
+use cli::{AutoSyncAction, Cli, Commands, ConfigAction, PackagesAction, RemoteAction};
 use utils::{error, header, info, success};
 
 fn main() -> Result<()> {
@@ -89,6 +89,26 @@ fn main() -> Result<()> {
             }
             cli::BranchAction::Info => {
                 cmd_branch_info()?;
+            }
+        },
+        Commands::Remote { action } => match action {
+            RemoteAction::List { verbose } => {
+                cmd_remote_list(verbose)?;
+            }
+            RemoteAction::Add { name, url } => {
+                cmd_remote_add(&name, &url)?;
+            }
+            RemoteAction::Remove { name } => {
+                cmd_remote_remove(&name)?;
+            }
+            RemoteAction::SetUrl { name, url } => {
+                cmd_remote_set_url(&name, &url)?;
+            }
+            RemoteAction::Show { name } => {
+                cmd_remote_show(&name)?;
+            }
+            RemoteAction::Setup => {
+                cmd_remote_setup()?;
             }
         },
         Commands::Profiles => {
@@ -869,6 +889,212 @@ fn cmd_branch_info() -> Result<()> {
 
     let tracking = repo.get_tracking_info()?;
     println!("{}", tracking.format());
+
+    Ok(())
+}
+
+fn cmd_remote_list(verbose: bool) -> Result<()> {
+    if verbose {
+        header("Git Remotes (with URLs)");
+    } else {
+        header("Git Remotes");
+    }
+
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    let remotes = repo.list_remotes()?;
+
+    if remotes.is_empty() {
+        info("No remotes configured");
+        println!();
+        info("Add a remote with: heimdal remote add <name> <url>");
+        return Ok(());
+    }
+
+    for remote in remotes {
+        if verbose {
+            match repo.get_remote_url(&remote) {
+                Ok(url) => println!("{}\t{}", remote, url),
+                Err(_) => println!("{}\t<error getting URL>", remote),
+            }
+        } else {
+            println!("{}", remote);
+        }
+    }
+
+    Ok(())
+}
+
+fn cmd_remote_add(name: &str, url: &str) -> Result<()> {
+    header("Add Remote");
+
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    // Check if remote already exists
+    if repo.has_remote(name)? {
+        error(&format!("Remote '{}' already exists", name));
+        info(&format!(
+            "Use 'heimdal remote set-url {} <url>' to change the URL",
+            name
+        ));
+        anyhow::bail!("Remote already exists");
+    }
+
+    info(&format!("Adding remote '{}' -> {}", name, url));
+    repo.add_remote(name, url)?;
+    success(&format!("Added remote '{}'", name));
+
+    Ok(())
+}
+
+fn cmd_remote_remove(name: &str) -> Result<()> {
+    header("Remove Remote");
+
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    // Check if remote exists
+    if !repo.has_remote(name)? {
+        error(&format!("Remote '{}' does not exist", name));
+        anyhow::bail!("Remote not found");
+    }
+
+    info(&format!("Removing remote '{}'...", name));
+    repo.remove_remote(name)?;
+    success(&format!("Removed remote '{}'", name));
+
+    Ok(())
+}
+
+fn cmd_remote_set_url(name: &str, url: &str) -> Result<()> {
+    header("Set Remote URL");
+
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    // Check if remote exists
+    if !repo.has_remote(name)? {
+        error(&format!("Remote '{}' does not exist", name));
+        info(&format!(
+            "Use 'heimdal remote add {} <url>' to add it",
+            name
+        ));
+        anyhow::bail!("Remote not found");
+    }
+
+    info(&format!("Setting URL for remote '{}' to: {}", name, url));
+    repo.set_remote_url(name, url)?;
+    success(&format!("Updated remote '{}'", name));
+
+    Ok(())
+}
+
+fn cmd_remote_show(name: &str) -> Result<()> {
+    header(&format!("Remote: {}", name));
+
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    // Check if remote exists
+    if !repo.has_remote(name)? {
+        error(&format!("Remote '{}' does not exist", name));
+        anyhow::bail!("Remote not found");
+    }
+
+    let url = repo.get_remote_url(name)?;
+    println!("URL: {}", url);
+
+    Ok(())
+}
+
+fn cmd_remote_setup() -> Result<()> {
+    use dialoguer::{Confirm, Input};
+
+    header("Interactive Remote Setup");
+
+    let state = state::HeimdallState::load()?;
+    let repo = git::GitRepo::new(&state.dotfiles_path)?;
+
+    // Check current remotes
+    let remotes = repo.list_remotes()?;
+
+    if !remotes.is_empty() {
+        info("Current remotes:");
+        for remote in &remotes {
+            if let Ok(url) = repo.get_remote_url(remote) {
+                println!("  {} -> {}", remote, url);
+            }
+        }
+        println!();
+
+        let proceed = Confirm::new()
+            .with_prompt("Do you want to add another remote?")
+            .default(false)
+            .interact()?;
+
+        if !proceed {
+            info("Setup cancelled");
+            return Ok(());
+        }
+    }
+
+    // Get remote name
+    let name: String = Input::new()
+        .with_prompt("Remote name (e.g., origin, upstream)")
+        .default("origin".to_string())
+        .interact_text()?;
+
+    // Check if it exists
+    if repo.has_remote(&name)? {
+        let replace = Confirm::new()
+            .with_prompt(format!("Remote '{}' already exists. Replace it?", name))
+            .default(false)
+            .interact()?;
+
+        if !replace {
+            info("Setup cancelled");
+            return Ok(());
+        }
+
+        info(&format!("Removing existing remote '{}'...", name));
+        repo.remove_remote(&name)?;
+    }
+
+    // Get remote URL
+    let url: String = Input::new()
+        .with_prompt("Remote URL (SSH or HTTPS)")
+        .interact_text()?;
+
+    // Add the remote
+    info(&format!("Adding remote '{}' -> {}", name, url));
+    repo.add_remote(&name, &url)?;
+    success(&format!("Added remote '{}'", name));
+
+    // Ask if they want to push
+    let should_push = Confirm::new()
+        .with_prompt("Do you want to push your current branch to this remote?")
+        .default(true)
+        .interact()?;
+
+    if should_push {
+        let branch = repo.current_branch()?;
+        info(&format!(
+            "Pushing branch '{}' to '{}/{}'...",
+            branch, name, branch
+        ));
+
+        match repo.push_to(Some(&name), Some(&branch)) {
+            Ok(_) => {
+                success("Push successful!");
+            }
+            Err(e) => {
+                error(&format!("Push failed: {}", e));
+                info("You can push manually later with: heimdal push");
+            }
+        }
+    }
 
     Ok(())
 }

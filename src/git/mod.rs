@@ -147,6 +147,133 @@ impl GitRepo {
 
         Ok(())
     }
+
+    /// List all remotes
+    pub fn list_remotes(&self) -> Result<Vec<String>> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.path)
+            .arg("remote")
+            .output()
+            .context("Failed to list remotes")?;
+
+        if !output.status.success() {
+            anyhow::bail!("Failed to list remotes");
+        }
+
+        let remotes = String::from_utf8(output.stdout)?
+            .lines()
+            .map(|s| s.to_string())
+            .collect();
+
+        Ok(remotes)
+    }
+
+    /// Get remote URL
+    pub fn get_remote_url(&self, remote: &str) -> Result<String> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.path)
+            .arg("remote")
+            .arg("get-url")
+            .arg(remote)
+            .output()
+            .context("Failed to get remote URL")?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("Failed to get remote URL: {}", err);
+        }
+
+        Ok(String::from_utf8(output.stdout)?.trim().to_string())
+    }
+
+    /// Add a remote
+    pub fn add_remote(&self, name: &str, url: &str) -> Result<()> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.path)
+            .arg("remote")
+            .arg("add")
+            .arg(name)
+            .arg(url)
+            .output()
+            .context("Failed to add remote")?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("Failed to add remote: {}", err);
+        }
+
+        Ok(())
+    }
+
+    /// Remove a remote
+    pub fn remove_remote(&self, name: &str) -> Result<()> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.path)
+            .arg("remote")
+            .arg("remove")
+            .arg(name)
+            .output()
+            .context("Failed to remove remote")?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("Failed to remove remote: {}", err);
+        }
+
+        Ok(())
+    }
+
+    /// Set remote URL
+    pub fn set_remote_url(&self, name: &str, url: &str) -> Result<()> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.path)
+            .arg("remote")
+            .arg("set-url")
+            .arg(name)
+            .arg(url)
+            .output()
+            .context("Failed to set remote URL")?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("Failed to set remote URL: {}", err);
+        }
+
+        Ok(())
+    }
+
+    /// Check if a remote exists
+    pub fn has_remote(&self, name: &str) -> Result<bool> {
+        let remotes = self.list_remotes()?;
+        Ok(remotes.contains(&name.to_string()))
+    }
+
+    /// Push to remote with optional remote and branch specification
+    pub fn push_to(&self, remote: Option<&str>, branch: Option<&str>) -> Result<()> {
+        let mut cmd = Command::new("git");
+        cmd.arg("-C").arg(&self.path).arg("push");
+
+        if let Some(r) = remote {
+            cmd.arg(r);
+            if let Some(b) = branch {
+                cmd.arg(b);
+            }
+        }
+
+        let output = cmd.output().context("Failed to push to remote")?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("Push failed: {}", stderr);
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
