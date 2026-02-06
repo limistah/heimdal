@@ -20,9 +20,12 @@ pub fn run_search(query: &str, category: Option<&str>, tag: Option<&str>) -> Res
     // Search packages with fuzzy matching
     let mut results = db.search_fuzzy(query);
 
+    // Get all installed packages once for efficient lookups
+    let installed_packages = PackageDatabase::get_installed_packages();
+
     // Update installation status for each result
     for result in &mut results {
-        result.installed = PackageDatabase::is_package_installed(&result.package.name);
+        result.installed = installed_packages.contains(&result.package.name);
     }
 
     // Filter by category if specified
@@ -79,15 +82,21 @@ pub fn run_search(query: &str, category: Option<&str>, tag: Option<&str>) -> Res
             "○".bright_black()
         };
 
-        // Relevance indicator (show for fuzzy matches)
-        let relevance = if result.score > 5000 {
-            "".to_string() // Exact or substring matches don't need indicator
-        } else if result.score > 1000 {
-            format!(" {}", "★".yellow())
-        } else if result.score > 500 {
-            format!(" {}", "☆".bright_black())
-        } else {
-            format!(" {}", "·".bright_black())
+        // Relevance indicator based on match type
+        let relevance = match result.match_kind {
+            crate::package::database::MatchKind::Exact
+            | crate::package::database::MatchKind::NameContains => {
+                "".to_string() // Exact or name matches don't need indicator
+            }
+            crate::package::database::MatchKind::DescriptionContains => {
+                format!(" {}", "★".yellow())
+            }
+            crate::package::database::MatchKind::TagContains => {
+                format!(" {}", "☆".bright_black())
+            }
+            crate::package::database::MatchKind::Fuzzy => {
+                format!(" {}", "·".bright_black())
+            }
         };
 
         println!(
