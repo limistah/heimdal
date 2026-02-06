@@ -8,12 +8,14 @@ pub mod mapper;
 pub mod mas;
 pub mod pacman;
 pub mod profiles;
+pub mod suggestions;
 
 pub use database::PackageDatabase;
 pub use dependencies::DependencyAnalyzer;
 pub use manager::{InstallResult, PackageManager};
 pub use mapper::{map_package_name, PackageManagerType};
 pub use profiles::{PackageProfile, ProfileSelector};
+pub use suggestions::{DetectedTool, PackageSuggestion, SuggestionEngine};
 
 use anyhow::Result;
 use std::collections::HashMap;

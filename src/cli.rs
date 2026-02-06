@@ -251,6 +251,13 @@ pub enum PackagesAction {
         tag: Option<String>,
     },
 
+    /// Suggest packages based on detected project files
+    Suggest {
+        /// Directory to analyze (defaults to current directory)
+        #[arg(short, long)]
+        directory: Option<String>,
+    },
+
     /// Show detailed information about a package
     Info {
         /// Package name
