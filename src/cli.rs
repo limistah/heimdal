@@ -274,6 +274,54 @@ pub enum PackagesAction {
         #[arg(short, long)]
         profile: Option<String>,
     },
+
+    /// List available package groups
+    ListGroups {
+        /// Filter by category (development, devops, productivity, etc.)
+        #[arg(short, long)]
+        category: Option<String>,
+    },
+
+    /// Show detailed information about a package group
+    ShowGroup {
+        /// Group ID (e.g., web-dev, rust-dev, terminal)
+        id: String,
+    },
+
+    /// Install all packages from a group
+    AddGroup {
+        /// Group ID to install
+        id: String,
+
+        /// Include optional packages
+        #[arg(short = 'o', long)]
+        include_optional: bool,
+
+        /// Show what would be done without doing it
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+
+        /// Skip installation, just add to config
+        #[arg(long)]
+        no_install: bool,
+    },
+
+    /// Search for package groups
+    SearchGroups {
+        /// Search query
+        query: String,
+    },
+
+    /// Update all packages in the current profile
+    UpdateAll {
+        /// Show what would be updated without doing it
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+
+        /// Skip confirmation prompt
+        #[arg(short, long)]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
