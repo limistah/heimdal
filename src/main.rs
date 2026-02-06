@@ -393,6 +393,22 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
         }
     }
 
+    // Render templates
+    if let Some(profile) = config.profiles.get(&profile_name) {
+        let has_templates = !config.templates.files.is_empty()
+            || !profile.templates.files.is_empty()
+            || !config.templates.variables.is_empty()
+            || !profile.templates.variables.is_empty();
+
+        if has_templates {
+            info("Rendering templates...");
+            let rendered = templates::render_templates(&config, profile, &dotfiles_dir, dry_run)?;
+            if !rendered.is_empty() {
+                success(&format!("Rendered {} template(s)", rendered.len()));
+            }
+        }
+    }
+
     // Install packages
     let pkg_report = package::install_packages(&resolved, &config.mappings, dry_run)?;
     pkg_report.print_summary();
