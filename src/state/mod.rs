@@ -1,9 +1,17 @@
+pub mod conflict;
+pub mod lock;
+pub mod versioned;
+
+// Re-export for backwards compatibility
+pub use versioned::HeimdallStateV2;
+
+// Original V1 state (kept for migration)
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-/// Heimdal state stored in ~/.heimdal/
+/// Heimdal state stored in ~/.heimdal/ (V1 - Legacy)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeimdallState {
     /// Currently active profile

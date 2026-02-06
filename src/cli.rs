@@ -197,6 +197,12 @@ pub enum Commands {
         #[command(subcommand)]
         action: SecretAction,
     },
+
+    /// Manage state (locks, conflicts, migrations, drift detection)
+    State {
+        #[command(subcommand)]
+        action: StateAction,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -566,5 +572,60 @@ pub enum SecretAction {
         /// Show creation dates
         #[arg(short, long)]
         verbose: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum StateAction {
+    /// Show current lock status
+    LockInfo,
+
+    /// Force remove an active lock
+    Unlock {
+        /// Skip confirmation prompt
+        #[arg(short, long)]
+        force: bool,
+    },
+
+    /// Check for state conflicts between local and remote
+    CheckConflicts,
+
+    /// Resolve detected conflicts
+    Resolve {
+        /// Resolution strategy (local, remote, merge)
+        #[arg(short, long)]
+        strategy: String,
+
+        /// Don't prompt for confirmation
+        #[arg(short = 'y', long)]
+        yes: bool,
+    },
+
+    /// Check for file drift (modifications outside heimdal)
+    CheckDrift {
+        /// Show all files, not just drifted ones
+        #[arg(short, long)]
+        all: bool,
+    },
+
+    /// Show operation history
+    History {
+        /// Number of operations to show
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+    },
+
+    /// Show state version information
+    Version,
+
+    /// Migrate from V1 to V2 state format
+    Migrate {
+        /// Skip backup creation
+        #[arg(long)]
+        no_backup: bool,
+
+        /// Force migration even if already V2
+        #[arg(short, long)]
+        force: bool,
     },
 }
