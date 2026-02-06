@@ -10,14 +10,12 @@ pub mod mas;
 pub mod pacman;
 pub mod profiles;
 
-pub use database::{PackageCategory as DbPackageCategory, PackageDatabase, PackageInfo};
-pub use dependencies::{
-    AnalysisResult, Dependency, DependencyAnalyzer, MissingDependency, Suggestion,
-};
+pub use database::PackageDatabase;
+pub use dependencies::DependencyAnalyzer;
 pub use hooks::{execute_hooks, HookResult};
 pub use manager::{InstallResult, PackageManager};
 pub use mapper::{map_package_name, PackageManagerType};
-pub use profiles::{PackageProfile, ProfileSelector, ProfileType};
+pub use profiles::{PackageProfile, ProfileSelector};
 
 use anyhow::Result;
 use std::collections::HashMap;
