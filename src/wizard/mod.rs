@@ -133,46 +133,132 @@ fn wizard_start_fresh() -> Result<()> {
         }
     }
 
-    // Ask about package detection
-    let detect_packages = Confirm::new()
-        .with_prompt("Detect installed packages on your system?")
-        .default(true)
+    // Ask how to handle packages
+    let package_choice = Select::new()
+        .with_prompt("How would you like to set up packages?")
+        .items(&[
+            "Use a package profile (recommended for new setups)",
+            "Detect installed packages on my system",
+            "Skip packages for now",
+        ])
+        .default(0)
         .interact()?;
 
     let mut detected_packages = Vec::new();
-    if detect_packages {
-        println!("\n{} Detecting packages...", style("→").cyan());
 
-        match PackageDetector::detect_all() {
-            Ok(packages) => {
-                let filtered = PackageDetector::filter_common(packages);
+    match package_choice {
+        // Use profile
+        0 => {
+            use crate::package::{PackageProfile, ProfileSelector};
 
-                if filtered.is_empty() {
-                    println!("{} No packages found", style("ℹ").blue());
-                } else {
-                    println!("{} Found {} packages\n", style("✓").green(), filtered.len());
+            let selector = ProfileSelector::new();
+            let options = selector.options();
 
-                    // Group by category
-                    let grouped = PackageDetector::group_by_category(&filtered);
+            // Build display items with name and description
+            let items: Vec<String> = options
+                .iter()
+                .map(|(name, desc)| format!("{} - {}", name, desc))
+                .collect();
 
-                    for (category, pkgs) in grouped {
-                        println!("  {} ({}):", style(category.as_str()).bold(), pkgs.len());
-                        for pkg in pkgs.iter().take(8) {
-                            println!("    • {} (via {})", pkg.name, pkg.manager.as_str());
-                        }
-                        if pkgs.len() > 8 {
-                            println!("    ... and {} more", pkgs.len() - 8);
-                        }
-                        println!();
+            println!("\n{} Select a package profile:", style("→").cyan());
+            let selected_idx = Select::new()
+                .with_prompt("Choose a profile")
+                .items(&items)
+                .default(1) // Default to Developer
+                .interact()?;
+
+            if let Some((name, _)) = options.get(selected_idx) {
+                if let Some(profile_type) = selector.get_by_name(name) {
+                    let profile = PackageProfile::from_type(profile_type.clone());
+                    let packages = profile.resolve_packages();
+
+                    println!(
+                        "\n{} Profile '{}' includes {} packages:",
+                        style("✓").green(),
+                        profile_type.display_name(),
+                        packages.len()
+                    );
+
+                    // Show first 10 packages
+                    for pkg in packages.iter().take(10) {
+                        println!("    • {}", pkg);
+                    }
+                    if packages.len() > 10 {
+                        println!("    ... and {} more", packages.len() - 10);
                     }
 
-                    detected_packages = filtered;
+                    // Convert to DetectedPackage format
+                    use crate::utils::detect_os;
+                    use crate::wizard::PackageManager as DetectedManager;
+
+                    // Determine the package manager based on OS
+                    let manager = match detect_os() {
+                        crate::utils::OperatingSystem::MacOS => DetectedManager::Homebrew,
+                        crate::utils::OperatingSystem::Linux(distro) => {
+                            use crate::utils::LinuxDistro;
+                            match distro {
+                                LinuxDistro::Debian | LinuxDistro::Ubuntu => DetectedManager::Apt,
+                                LinuxDistro::Fedora | LinuxDistro::RHEL | LinuxDistro::CentOS => {
+                                    DetectedManager::Dnf
+                                }
+                                LinuxDistro::Arch | LinuxDistro::Manjaro => DetectedManager::Pacman,
+                                _ => DetectedManager::Homebrew, // fallback
+                            }
+                        }
+                        _ => DetectedManager::Homebrew, // fallback
+                    };
+
+                    detected_packages = packages
+                        .into_iter()
+                        .map(|name| crate::wizard::DetectedPackage {
+                            name,
+                            manager: manager.clone(),
+                            category: crate::wizard::PackageCategory::Development, // Default category
+                        })
+                        .collect();
                 }
             }
-            Err(e) => {
-                println!("{} Failed to detect packages: {}", style("⚠").yellow(), e);
+        }
+        // Detect packages
+        1 => {
+            println!("\n{} Detecting packages...", style("→").cyan());
+
+            match PackageDetector::detect_all() {
+                Ok(packages) => {
+                    let filtered = PackageDetector::filter_common(packages);
+
+                    if filtered.is_empty() {
+                        println!("{} No packages found", style("ℹ").blue());
+                    } else {
+                        println!("{} Found {} packages\n", style("✓").green(), filtered.len());
+
+                        // Group by category
+                        let grouped = PackageDetector::group_by_category(&filtered);
+
+                        for (category, pkgs) in grouped {
+                            println!("  {} ({}):", style(category.as_str()).bold(), pkgs.len());
+                            for pkg in pkgs.iter().take(8) {
+                                println!("    • {} (via {})", pkg.name, pkg.manager.as_str());
+                            }
+                            if pkgs.len() > 8 {
+                                println!("    ... and {} more", pkgs.len() - 8);
+                            }
+                            println!();
+                        }
+
+                        detected_packages = filtered;
+                    }
+                }
+                Err(e) => {
+                    println!("{} Failed to detect packages: {}", style("⚠").yellow(), e);
+                }
             }
         }
+        // Skip packages
+        2 => {
+            println!("\n{} Skipping package detection", style("→").cyan());
+        }
+        _ => unreachable!(),
     }
 
     // Generate configuration
