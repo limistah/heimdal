@@ -214,6 +214,9 @@ fn main() -> Result<()> {
             } => {
                 commands::packages::run_search(&query, category.as_deref(), tag.as_deref())?;
             }
+            PackagesAction::Suggest { directory } => {
+                commands::packages::run_suggest(directory.as_deref())?;
+            }
             PackagesAction::Info { name } => {
                 commands::packages::run_info(&name)?;
             }
