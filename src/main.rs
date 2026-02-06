@@ -24,7 +24,7 @@ mod wizard;
 
 use cli::{
     AutoSyncAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction, RemoteAction,
-    SecretAction, TemplateAction,
+    SecretAction, StateAction, TemplateAction,
 };
 use utils::{error, header, info, success};
 
@@ -279,6 +279,32 @@ fn main() -> Result<()> {
             }
             SecretAction::List { verbose } => {
                 cmd_secret_list(verbose)?;
+            }
+        },
+        Commands::State { action } => match action {
+            StateAction::LockInfo => {
+                commands::state::cmd_lock_info()?;
+            }
+            StateAction::Unlock { force } => {
+                commands::state::cmd_unlock(force)?;
+            }
+            StateAction::CheckConflicts => {
+                commands::state::cmd_check_conflicts()?;
+            }
+            StateAction::Resolve { strategy, yes } => {
+                commands::state::cmd_resolve(strategy.clone(), yes)?;
+            }
+            StateAction::CheckDrift { all } => {
+                commands::state::cmd_check_drift(all)?;
+            }
+            StateAction::History { limit } => {
+                commands::state::cmd_history(limit)?;
+            }
+            StateAction::Version => {
+                commands::state::cmd_version()?;
+            }
+            StateAction::Migrate { no_backup, force } => {
+                commands::state::cmd_migrate(no_backup, force)?;
             }
         },
     }
