@@ -38,7 +38,7 @@ pub fn create_symlinks(
         let stowrc_path = dotfiles_dir.join(".stowrc");
 
         if stowrc_path.exists() {
-            info(&format!("Reading .stowrc: {}", stowrc_path.display()));
+            info_fmt!("Reading .stowrc: {}", stowrc_path.display());
 
             let stow_config = StowConfig::parse(&stowrc_path)?;
 
@@ -56,9 +56,9 @@ pub fn create_symlinks(
             let mut ignore_patterns = stow_config.ignore.clone();
             ignore_patterns.extend(profile.dotfiles.ignore.clone());
 
-            info(&format!("Target directory: {}", target_dir.display()));
-            info(&format!("Backup directory: {}", backup_dir.display()));
-            info(&format!("Ignoring {} patterns", ignore_patterns.len()));
+            info_fmt!("Target directory: {}", target_dir.display());
+            info_fmt!("Backup directory: {}", backup_dir.display());
+            info_fmt!("Ignoring {} patterns", ignore_patterns.len());
 
             // Create linker
             let linker = Linker::new(dotfiles_dir.to_path_buf(), target_dir, backup_dir)

@@ -1,5 +1,7 @@
 pub mod error;
 pub mod logger;
+#[macro_use]
+pub mod macros;
 pub mod os;
 pub mod prompt;
 

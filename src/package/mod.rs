@@ -100,7 +100,7 @@ pub fn install_packages(
     }
 
     let pm = pm.unwrap();
-    info(&format!("Using package manager: {}", pm.name()));
+    info_fmt!("Using package manager: {}", pm.name());
 
     // Determine package manager type
     let pm_type = match pm.name() {
