@@ -9,6 +9,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Week 5: Profile Switching & Management
+
+- **Profile Switching & Information Commands** (Day 1-2)
+  - `heimdal profile switch <name>` - Switch to a different profile
+    - Validates profile exists before switching
+    - Updates state with new active profile
+    - Auto-reapply configuration after switch (optional `--no-apply` flag)
+    - Shows clear feedback about profile change
+  - `heimdal profile current` - Display currently active profile
+  - `heimdal profile show [name]` - Show detailed profile information
+    - Shows inheritance chain
+    - Lists sources and dotfiles
+    - Shows hooks configuration
+    - Optional `--resolved` flag to show final resolved config
+  - `heimdal profile list` - List all available profiles
+    - Highlights current profile with marker
+    - Shows inheritance relationships
+    - Optional `--verbose` for detailed info
+  - `heimdal profile diff <profile1> <profile2>` - Compare two profiles
+    - Compares dotfiles (common, unique to each)
+    - Compares packages (common, unique to each)
+    - Uses current profile as default for profile1
+
+- **Conditional Dotfiles** (Day 3)
+  - Added `DotfileCondition` struct with comprehensive filtering:
+    - `os` - Operating system filter (["macos", "linux", "windows"])
+    - `profile` - Profile name filter (["work", "personal"])
+    - `env` - Environment variable condition ("VAR=value" or "VAR")
+    - `hostname` - Hostname pattern matching ("work-*" with glob support)
+  - Condition evaluation module with comprehensive tests
+  - Integration into symlink operations
+  - Files skipped when conditions not met
+  - Smart reporting of skipped files
+  - 7 comprehensive tests for conditions
+
+- **Profile Templates & Cloning** (Day 4)
+  - Built-in profile templates system with 6 templates:
+    - `minimal` - Basic shell configuration
+    - `developer` - Common development tools and editor configs
+    - `devops` - Infrastructure and deployment tools
+    - `macos-desktop` - macOS GUI apps and window management
+    - `linux-server` - Server configuration and system tools
+    - `workstation` - Comprehensive full setup
+  - `heimdal profile templates` - List available templates with descriptions
+  - `heimdal profile create <name> --template <template>` - Create profile from template
+    - Validates template exists
+    - Adds new profile to heimdal.yaml
+    - Shows next steps for customization
+  - `heimdal profile clone <source> <target>` - Clone existing profile
+    - Validates source profile exists
+    - Creates exact duplicate with new name
+    - Adds to heimdal.yaml for customization
+  - All templates support inheritance chains
+  - 7 comprehensive tests for templates
+
+### Changed
+
+- Profile resolution now supports conditional dotfiles
+- Symlink operations check conditions before creating links
+- State management updated to track active profile
+- Added hostname dependency for hostname pattern matching
+
 #### Week 4: Git Integration & Lifecycle Hooks
 
 - **Git Tracking & Commit System** (Day 1)
