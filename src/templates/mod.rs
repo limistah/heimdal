@@ -6,7 +6,6 @@ pub use variables::{get_system_variables, merge_variables};
 
 use anyhow::{Context, Result};
 use colored::Colorize;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::config::schema::{HeimdallConfig, Profile};

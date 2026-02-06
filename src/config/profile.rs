@@ -1,13 +1,12 @@
 use anyhow::{Context, Result};
 
 use super::schema::{
-    DotfilesConfig, HeimdallConfig, Profile, ProfileHooks, ProfileSource, ProfileTemplateConfig,
-    SourceOverride, Sources, TemplateConfig,
+    DotfilesConfig, HeimdallConfig, Profile, ProfileHooks, ProfileSource, SourceOverride, Sources,
 };
 
 /// Resolve a profile by merging with its parents (additive)
 pub fn resolve_profile(config: &HeimdallConfig, profile_name: &str) -> Result<ResolvedProfile> {
-    let profile = config
+    let _profile = config
         .profiles
         .get(profile_name)
         .with_context(|| format!("Profile '{}' not found", profile_name))?;
@@ -58,7 +57,7 @@ fn merge_profile(resolved: &mut ResolvedProfile, profile: &Profile) -> Result<()
     // Merge sources (additive)
     for source in &profile.sources {
         match source {
-            ProfileSource::Name(name) => {
+            ProfileSource::Name(_name) => {
                 // Just marks that this source should be used
                 // The actual sources come from the root config
             }

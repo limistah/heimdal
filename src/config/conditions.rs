@@ -14,10 +14,8 @@ pub fn evaluate_condition(condition: &DotfileCondition, current_profile: &str) -
     }
 
     // Check profile condition
-    if !condition.profile.is_empty() {
-        if !condition.profile.iter().any(|p| p == current_profile) {
-            return Ok(false);
-        }
+    if !condition.profile.is_empty() && !condition.profile.iter().any(|p| p == current_profile) {
+        return Ok(false);
     }
 
     // Check environment variable condition

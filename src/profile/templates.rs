@@ -1,5 +1,4 @@
 use anyhow::Result;
-use std::collections::HashMap;
 
 use crate::config::schema::{
     DotfileMapping, DotfilesConfig, HookCommand, Profile, ProfileHooks, ProfileSource,
@@ -293,7 +292,7 @@ impl ProfileTemplates {
 }
 
 /// Create a new profile from a template
-pub fn create_from_template(name: &str, template_name: &str) -> Result<Profile> {
+pub fn create_from_template(_name: &str, template_name: &str) -> Result<Profile> {
     let template = ProfileTemplates::get(template_name)
         .ok_or_else(|| anyhow::anyhow!("Template '{}' not found", template_name))?;
 

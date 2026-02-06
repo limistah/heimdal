@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::path::Path;
 
-use super::schema::{HeimdallConfig, ProfileTemplateConfig, TemplateConfig};
+use super::schema::HeimdallConfig;
 
 /// Load configuration from YAML file
 pub fn load_config<P: AsRef<Path>>(path: P) -> Result<HeimdallConfig> {

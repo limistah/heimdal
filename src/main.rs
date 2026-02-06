@@ -3,6 +3,10 @@ use clap::Parser;
 use colored::Colorize;
 use std::path::PathBuf;
 
+// Import macros first
+#[macro_use]
+mod utils;
+
 mod cli;
 mod commands;
 mod config;
@@ -16,12 +20,11 @@ mod state;
 mod symlink;
 mod sync;
 mod templates;
-mod utils;
 mod wizard;
 
 use cli::{
-    AutoSyncAction, BranchAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction,
-    RemoteAction, SecretAction, TemplateAction,
+    AutoSyncAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction, RemoteAction,
+    SecretAction, TemplateAction,
 };
 use utils::{error, header, info, success};
 
@@ -41,8 +44,13 @@ fn main() -> Result<()> {
         Commands::Wizard => {
             wizard::run_wizard()?;
         }
-        Commands::Import { path, from, output } => {
-            cmd_import(path.as_deref(), &from, output.as_deref())?;
+        Commands::Import {
+            path,
+            from,
+            output,
+            preview,
+        } => {
+            cmd_import(path.as_deref(), &from, output.as_deref(), preview)?;
         }
         Commands::Init {
             profile,
@@ -251,9 +259,9 @@ fn cmd_init(profile: &str, repo: &str, path: Option<&str>) -> Result<()> {
         PathBuf::from(shellexpand::tilde("~/.dotfiles").as_ref())
     };
 
-    info(&format!("Profile: {}", profile));
-    info(&format!("Repository: {}", repo));
-    info(&format!("Dotfiles path: {}", dotfiles_path.display()));
+    info_fmt!("Profile: {}", profile);
+    info_fmt!("Repository: {}", repo);
+    info_fmt!("Dotfiles path: {}", dotfiles_path.display());
 
     // Check if dotfiles directory already exists
     if dotfiles_path.exists() {
@@ -264,7 +272,7 @@ fn cmd_init(profile: &str, repo: &str, path: Option<&str>) -> Result<()> {
     }
 
     // Clone the repository
-    info(&format!("Cloning repository: {}", repo));
+    info_fmt!("Cloning repository: {}", repo);
     let status = std::process::Command::new("git")
         .arg("clone")
         .arg("--recurse-submodules")
@@ -370,7 +378,16 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
 
         // Use first profile as fallback
         let temp_config = config::load_config(&config_path)?;
-        let profile_name = temp_config.profiles.keys().next().unwrap().clone();
+        let profile_name = temp_config
+            .profiles
+            .keys()
+            .next()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No profiles found in configuration. Please run 'heimdal wizard' to create one."
+                )
+            })?
+            .clone();
 
         (config_path, profile_name)
     };
@@ -383,8 +400,8 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
         )
     })?;
 
-    info(&format!("Loading config: {}", config_path.display()));
-    info(&format!("Using profile: {}", profile_name));
+    info_fmt!("Loading config: {}", config_path.display());
+    info_fmt!("Using profile: {}", profile_name);
 
     // Determine dotfiles directory (parent of heimdal.yaml)
     let dotfiles_dir = config_path
@@ -556,10 +573,8 @@ fn cmd_sync(quiet: bool, dry_run: bool) -> Result<()> {
                 }
             }
         }
-    } else {
-        if !quiet {
-            info("Dry-run: Would pull from git");
-        }
+    } else if !quiet {
+        info("Dry-run: Would pull from git");
     }
 
     // Apply configuration
@@ -724,7 +739,7 @@ fn cmd_auto_sync_enable(interval: &str) -> Result<()> {
 
     success("Auto-sync enabled successfully!");
     info("Your dotfiles will now sync automatically in the background");
-    info(&format!("To check status, run: heimdal auto-sync status"));
+    info("To check status, run: heimdal auto-sync status");
 
     Ok(())
 }
@@ -1169,12 +1184,12 @@ fn cmd_remote_setup() -> Result<()> {
     Ok(())
 }
 
-fn cmd_config_get(key: &str) -> Result<()> {
+fn cmd_config_get(_key: &str) -> Result<()> {
     error("Not yet implemented - coming in Phase 4");
     Ok(())
 }
 
-fn cmd_config_set(key: &str, value: &str) -> Result<()> {
+fn cmd_config_set(_key: &str, _value: &str) -> Result<()> {
     error("Not yet implemented - coming in Phase 4");
     Ok(())
 }
@@ -1224,7 +1239,7 @@ fn cmd_history(limit: usize) -> Result<()> {
     Ok(())
 }
 
-fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()> {
+fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>, preview: bool) -> Result<()> {
     use console::style;
     use import::{detect_tool, import_from_tool, DotfileTool};
     use wizard::{
@@ -1232,7 +1247,11 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
         ScannedDotfile,
     };
 
-    header("Import Dotfiles");
+    if preview {
+        header("Import Preview (Dry Run)");
+    } else {
+        header("Import Dotfiles");
+    }
 
     // Determine path
     let dotfiles_path = if let Some(p) = path {
@@ -1261,9 +1280,12 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
         match from {
             "stow" => DotfileTool::Stow,
             "dotbot" => DotfileTool::Dotbot,
+            "chezmoi" => DotfileTool::Chezmoi,
+            "yadm" => DotfileTool::Yadm,
+            "homesick" => DotfileTool::Homesick,
             _ => {
                 error(&format!(
-                    "Unknown tool: {}. Use: auto, stow, or dotbot",
+                    "Unknown tool: {}. Use: auto, stow, dotbot, chezmoi, yadm, or homesick",
                     from
                 ));
                 return Ok(());
@@ -1279,7 +1301,12 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
     println!();
 
     // Import
-    println!("{} Importing...", style("→").cyan());
+    if preview {
+        println!("{} Scanning (preview mode)...", style("→").cyan());
+    } else {
+        println!("{} Importing...", style("→").cyan());
+    }
+
     let import_result = import_from_tool(&path_buf, &tool)
         .with_context(|| format!("Failed to import from {}", tool.name()))?;
 
@@ -1291,36 +1318,62 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
 
     // Show sample files
     if !import_result.dotfiles.is_empty() {
-        println!("\n{}:", style("Sample dotfiles").bold());
-        for (i, mapping) in import_result.dotfiles.iter().take(5).enumerate() {
+        println!("\n{}:", style("Dotfiles to import").bold());
+        for (i, mapping) in import_result.dotfiles.iter().take(10).enumerate() {
             let rel_source = mapping
                 .source
                 .strip_prefix(&path_buf)
                 .unwrap_or(&mapping.source);
-            println!("  {}. {}", i + 1, style(rel_source.display()).cyan());
+            let rel_dest = mapping
+                .destination
+                .strip_prefix(dirs::home_dir().unwrap_or_default())
+                .unwrap_or(&mapping.destination);
+            let category = mapping.category.as_deref().unwrap_or("other");
+            println!(
+                "  {}. {} → ~/{} ({})",
+                i + 1,
+                style(rel_source.display()).cyan(),
+                rel_dest.display(),
+                style(category).dim()
+            );
         }
-        if import_result.dotfiles.len() > 5 {
+        if import_result.dotfiles.len() > 10 {
             println!(
                 "  {} ... and {} more",
                 style("").dim(),
-                import_result.dotfiles.len() - 5
+                import_result.dotfiles.len() - 10
             );
         }
     }
 
     // Show packages
     if !import_result.packages.is_empty() {
-        println!("\n{}:", style("Extracted packages").bold());
-        for (i, pkg) in import_result.packages.iter().take(5).enumerate() {
+        println!("\n{}:", style("Packages to track").bold());
+        for (i, pkg) in import_result.packages.iter().take(10).enumerate() {
             println!("  {}. {}", i + 1, style(pkg).cyan());
         }
-        if import_result.packages.len() > 5 {
+        if import_result.packages.len() > 10 {
             println!(
                 "  {} ... and {} more",
                 style("").dim(),
-                import_result.packages.len() - 5
+                import_result.packages.len() - 10
             );
         }
+    }
+
+    // If preview mode, stop here
+    if preview {
+        println!("\n{}", style("Preview complete!").bold().green());
+        println!("\n{}", style("To actually import:").bold());
+        println!(
+            "  {}",
+            style(format!(
+                "heimdal import --path {} --from {}",
+                dotfiles_path, from
+            ))
+            .cyan()
+        );
+        return Ok(());
     }
 
     // Generate configuration

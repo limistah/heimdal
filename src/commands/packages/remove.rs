@@ -239,7 +239,7 @@ fn find_dependents(
 /// Remove package from configuration
 fn remove_package_from_config(
     config: &mut HeimdallConfig,
-    profile_name: &str,
+    _profile_name: &str,
     package_name: &str,
     manager: &str,
 ) -> Result<()> {

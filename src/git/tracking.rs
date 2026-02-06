@@ -176,7 +176,7 @@ fn parse_status_line(line: &str) -> Result<FileChange> {
         anyhow::bail!("Invalid status line: {}", line);
     }
 
-    let index_status = line.chars().nth(0).unwrap_or(' ');
+    let index_status = line.chars().next().unwrap_or(' ');
     let worktree_status = line.chars().nth(1).unwrap_or(' ');
     let path = line[3..].trim();
 

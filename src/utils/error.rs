@@ -13,7 +13,7 @@ pub fn format_error_with_help(error: &str, causes: Vec<String>, solutions: Vec<S
         for cause in causes {
             output.push_str(&format!("    {} {}\n", "•".dimmed(), cause.dimmed()));
         }
-        output.push_str("\n");
+        output.push('\n');
     }
 
     // Solutions
@@ -26,7 +26,7 @@ pub fn format_error_with_help(error: &str, causes: Vec<String>, solutions: Vec<S
                 solution
             ));
         }
-        output.push_str("\n");
+        output.push('\n');
     }
 
     output.push_str(&format!(

@@ -171,22 +171,20 @@ fn execute_simple_hook(
             },
             skipped: false,
         })
-    } else {
-        if fail_on_error {
-            error(&format!("Hook failed: {}", cmd));
-            if !combined.is_empty() {
-                error(&format!("Output: {}", combined));
-            }
-            anyhow::bail!("Hook execution failed: {}", cmd);
-        } else {
-            warning(&format!("Hook failed (continuing): {}", cmd));
-            Ok(HookResult {
-                command: cmd.to_string(),
-                success: false,
-                output: Some(combined),
-                skipped: false,
-            })
+    } else if fail_on_error {
+        error(&format!("Hook failed: {}", cmd));
+        if !combined.is_empty() {
+            error(&format!("Output: {}", combined));
         }
+        anyhow::bail!("Hook execution failed: {}", cmd);
+    } else {
+        warning(&format!("Hook failed (continuing): {}", cmd));
+        Ok(HookResult {
+            command: cmd.to_string(),
+            success: false,
+            output: Some(combined),
+            skipped: false,
+        })
     }
 }
 
