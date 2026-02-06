@@ -16,6 +16,17 @@ pub struct ConfigGenerator {
 }
 
 impl ConfigGenerator {
+    /// Create a new config generator with default smart profile name
+    pub fn new_smart() -> Self {
+        Self {
+            profile_name: Self::generate_smart_profile_name(),
+            repo_url: None,
+            dotfiles: Vec::new(),
+            packages: HashMap::new(),
+            stow_compat: true,
+        }
+    }
+
     /// Create a new config generator
     pub fn new(profile_name: &str) -> Self {
         Self {
@@ -25,6 +36,28 @@ impl ConfigGenerator {
             packages: HashMap::new(),
             stow_compat: true,
         }
+    }
+
+    /// Generate a smart profile name based on hostname and OS
+    /// Examples: "work-mac", "personal-linux", "server-ubuntu"
+    pub fn generate_smart_profile_name() -> String {
+        let hostname = hostname::get()
+            .ok()
+            .and_then(|h| h.into_string().ok())
+            .unwrap_or_else(|| "default".to_string());
+
+        let os = std::env::consts::OS;
+
+        // Clean hostname: lowercase, replace dots with hyphens, keep only alphanumeric and hyphens
+        let clean_hostname = hostname
+            .to_lowercase()
+            .replace('.', "-")
+            .chars()
+            .filter(|c| c.is_alphanumeric() || *c == '-')
+            .take(20) // Limit length
+            .collect::<String>();
+
+        format!("{}-{}", clean_hostname, os)
     }
 
     /// Set the Git repository URL
@@ -331,5 +364,38 @@ mod tests {
         let lines: Vec<&str> = preview.lines().collect();
         assert_eq!(lines.len(), 5);
         assert!(lines[0].starts_with("# Heimdal Configuration"));
+    }
+
+    #[test]
+    fn test_generate_smart_profile_name() {
+        let profile_name = ConfigGenerator::generate_smart_profile_name();
+
+        // Should contain hostname and OS separated by dash
+        assert!(profile_name.contains('-'));
+        assert!(
+            profile_name.contains("mac")
+                || profile_name.contains("linux")
+                || profile_name.contains("windows")
+        );
+
+        // Should be lowercase
+        assert_eq!(profile_name, profile_name.to_lowercase());
+
+        // Should only contain alphanumeric and hyphens
+        assert!(profile_name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-'));
+
+        // Should not be too long
+        assert!(profile_name.len() <= 30);
+    }
+
+    #[test]
+    fn test_new_smart() {
+        let generator = ConfigGenerator::new_smart();
+
+        // Should have a smart profile name
+        assert!(generator.profile_name.contains('-'));
+        assert!(!generator.profile_name.is_empty());
     }
 }
