@@ -14,6 +14,7 @@ mod profile;
 mod state;
 mod symlink;
 mod sync;
+mod templates;
 mod utils;
 mod wizard;
 
