@@ -8,6 +8,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+#### Week 2: Package Intelligence & Smart Defaults
+
+- **Package Profiles System** - Pre-configured package sets for common workflows
+  - 10 built-in profiles: Minimal, Developer, Web Dev, Rust Dev, Python Dev, Go Dev, DevOps, Data Science, Designer, Writer
+  - Platform-aware package resolution (macOS, Debian, Arch, Fedora)
+  - Interactive profile selector in wizard
+  - Base packages + platform-specific additions for each profile
+  - Comprehensive test coverage (14 tests)
+
+- **Dependency Detection & Analysis** - Automatic dependency management
+  - Dependency graph with 50+ package relationships
+  - Required vs. optional dependency tracking
+  - Missing dependency detection with analysis results
+  - Smart suggestions based on installed packages
+  - Integrated into wizard with automatic prompts
+  - Examples:
+    - neovim requires git (for plugin management)
+    - docker suggests docker-compose and kubectl
+    - kubectl suggests helm and k9s
+  - Comprehensive test coverage (13 tests)
+
+- **Package Intelligence Database** - Rich metadata for 60+ popular packages
+  - Package descriptions and categories (13 categories)
+  - Popularity scores for better recommendations
+  - Alternative package suggestions (e.g., vim vs neovim vs emacs)
+  - Related package recommendations
+  - Tag-based filtering and search
+  - Category-based browsing
+  - Comprehensive test coverage (13 tests)
+
+- **Enhanced Package Mapper** - Intelligent cross-platform package handling
+  - Expanded from 20 to 60+ package mappings
+  - All database packages now have proper mappings across platforms
+  - Added packages: helm, k9s, terraform, ansible, postgresql, redis, yarn, pipenv, zsh, starship, pandoc, and 40+ more
+  - **Fuzzy Matching** using Jaro-Winkler distance algorithm
+    - Detects typos: 'ripgrap' → suggests 'ripgrep'
+    - Handles misspellings: 'dokcer' → suggests 'docker'
+    - 0.85 similarity threshold for suggestions
+  - **Name Normalization** for common aliases
+    - nodejs/node.js → node
+    - golang/go-lang → go
+    - postgres/pg/psql → postgresql
+    - k8s/kubernetes → kubectl
+    - rg → ripgrep, nvim → neovim
+  - Platform-specific mappings handled correctly:
+    - docker.io (APT) ↔ docker (Homebrew/DNF/Pacman)
+    - nodejs (APT/DNF) ↔ node (Homebrew)
+    - fd-find (APT) ↔ fd (Homebrew/Pacman)
+    - kubernetes-client (DNF) ↔ kubectl (others)
+    - build-essential (APT) ↔ gcc (others)
+  - Comprehensive test coverage (23 tests, up from 3)
+
+#### Week 1: Interactive Wizard & Import System
+
 - **Interactive Setup Wizard** (`heimdal wizard`) - Onboarding in under 2 minutes
   - Three setup flows: Start fresh, Import existing, Clone repo
   - Automatic dotfile scanning in home directory
@@ -47,13 +102,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configuration error details
 
 ### Changed
-- Updated README with wizard quick start guide
-- Added import examples and migration documentation
-- Enhanced installation instructions
+- Updated README with Week 2 package intelligence features
+- Added package profiles documentation
+- Enhanced package name mapping documentation with examples
+- Updated wizard documentation with profile selection flow
+- Test suite expanded from 70 to 90 tests (29% increase)
 
-### Fixed
-- Package categorization now checks editors before essential tools (fixes neovim classification)
-- All tests passing (30/30)
+### Technical Details
+- Added `strsim` dependency for fuzzy matching (v0.11)
+- Total new code: 2,709+ lines across 4 new modules
+- Modules: `profiles.rs` (576 lines), `dependencies.rs` (652 lines), `database.rs` (738 lines), `mapper.rs` (expanded to 726 lines)
+- All 90 tests passing
 
 ## [1.0.0] - 2026-02-06
 
