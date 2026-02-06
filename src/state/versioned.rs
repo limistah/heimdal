@@ -303,6 +303,7 @@ impl HeimdallStateV2 {
     }
 
     /// Save state to disk with atomic write
+    /// Save state to disk (in dotfiles repository)
     pub fn save(&mut self) -> Result<()> {
         // Increment lineage
         self.lineage.increment(&self.machine.id);
@@ -312,14 +313,16 @@ impl HeimdallStateV2 {
         self.machine.last_seen = Utc::now();
 
         // Get current git commit
-        self.lineage.git_commit = Self::get_git_commit().ok();
+        self.lineage.git_commit = Self::get_git_commit_at(&self.dotfiles_path).ok();
 
-        let state_dir = Self::state_dir()?;
+        // Save to dotfiles repo for Git synchronization
+        let state_path = self.dotfiles_path.join("state.json");
+        let state_dir = self.dotfiles_path.as_path();
+
         fs::create_dir_all(&state_dir).with_context(|| {
             format!("Failed to create state directory: {}", state_dir.display())
         })?;
 
-        let state_path = Self::state_path()?;
         let content =
             serde_json::to_string_pretty(self).with_context(|| "Failed to serialize state")?;
 
@@ -354,8 +357,10 @@ impl HeimdallStateV2 {
     }
 
     /// Get current git commit hash
-    fn get_git_commit() -> Result<String> {
+    /// Get current git commit hash for the given repository
+    fn get_git_commit_at(repo_path: &PathBuf) -> Result<String> {
         let output = std::process::Command::new("git")
+            .current_dir(repo_path)
             .args(["rev-parse", "HEAD"])
             .output()?;
 
@@ -414,21 +419,53 @@ impl HeimdallStateV2 {
         Ok((parts[0].parse()?, parts[1].parse()?, parts[2].parse()?))
     }
 
-    /// Get the state directory path (~/.heimdal)
+    /// Get the state directory path
+    ///
+    /// Checks multiple locations in order:
+    /// 1. Legacy: ~/.heimdal/state.json (for backward compatibility)
+    /// 2. If legacy state exists, reads it to get dotfiles_path
+    /// 3. Common: ~/.dotfiles/state.json
+    /// 4. Fallback: ~/.heimdal (for bootstrap)
     pub fn state_dir() -> Result<PathBuf> {
         let home = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("Failed to determine home directory"))?;
+
+        // Check legacy location first
+        let legacy_path = home.join(".heimdal/state.json");
+        if legacy_path.exists() {
+            if let Ok(content) = fs::read_to_string(&legacy_path) {
+                // Try V2
+                if let Ok(state) = serde_json::from_str::<HeimdallStateV2>(&content) {
+                    return Ok(state.dotfiles_path);
+                }
+                // Try V1
+                if let Ok(v1_state) = serde_json::from_str::<crate::state::HeimdallState>(&content)
+                {
+                    return Ok(v1_state.dotfiles_path);
+                }
+            }
+        }
+
+        // Check common dotfiles location
+        let common_path = home.join(".dotfiles/state.json");
+        if common_path.exists() {
+            return Ok(home.join(".dotfiles"));
+        }
+
+        // Fallback to legacy dir for bootstrap
         Ok(home.join(".heimdal"))
     }
 
-    /// Get the state file path (~/.heimdal/state.json)
+    /// Get the state file path
     pub fn state_path() -> Result<PathBuf> {
         Ok(Self::state_dir()?.join("state.json"))
     }
 
-    /// Get the backup directory path (~/.heimdal/backups)
+    /// Get the backup directory path (always in ~/.heimdal)
     pub fn backup_dir() -> Result<PathBuf> {
-        Ok(Self::state_dir()?.join("backups"))
+        let home = dirs::home_dir()
+            .ok_or_else(|| anyhow::anyhow!("Failed to determine home directory"))?;
+        Ok(home.join(".heimdal").join("backups"))
     }
 
     /// Update last sync timestamp
