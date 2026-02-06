@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use colored::*;
 
 use crate::config;
@@ -162,10 +162,9 @@ pub fn run_list(installed_only: bool, profile: Option<&str>) -> Result<()> {
     }
 
     println!();
-    let filter_text = if installed_only { " installed" } else { "" };
     println!(
         "{}",
-        format!("Total:{} packages", total_count).bright_black()
+        format!("Total: {} packages", total_count).bright_black()
     );
     println!();
 
