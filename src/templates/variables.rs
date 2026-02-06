@@ -24,9 +24,21 @@ pub fn get_system_variables() -> HashMap<String, String> {
     }
 
     // Hostname
-    if let Ok(hostname) = hostname::get() {
-        if let Some(hostname_str) = hostname.to_str() {
-            vars.insert("hostname".to_string(), hostname_str.to_string());
+    match hostname::get() {
+        Ok(hostname) => {
+            if let Some(hostname_str) = hostname.to_str() {
+                vars.insert("hostname".to_string(), hostname_str.to_string());
+            } else {
+                eprintln!(
+                    "Warning: Failed to convert hostname to UTF-8 string; 'hostname' variable will not be set."
+                );
+            }
+        }
+        Err(err) => {
+            eprintln!(
+                "Warning: Failed to retrieve hostname: {}; 'hostname' variable will not be set.",
+                err
+            );
         }
     }
 
