@@ -53,5 +53,8 @@ chrono = "0.4"
 # Directory utilities
 dirs = "5.0"
 
+# String similarity for fuzzy matching
+strsim = "0.11"
+
 [dev-dependencies]
 tempfile = "3.8"

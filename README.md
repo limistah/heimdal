@@ -42,6 +42,7 @@ No manual conversion needed!
 
 ## Features
 
+### Core Features
 - **Universal Package Management** - Install packages across Homebrew, APT, DNF, Pacman, and Mac App Store from a single configuration
 - **Intelligent Symlinking** - GNU Stow-compatible symlink management with conflict resolution
 - **Git-Based Sync** - Keep your configuration in sync across machines using Git
@@ -49,8 +50,25 @@ No manual conversion needed!
 - **Auto-Sync** - Background synchronization via cron jobs
 - **Rollback Support** - Easily revert to previous configurations
 - **Hooks System** - Run custom scripts before/after installation
-- **Package Name Mapping** - Automatic translation of package names across different package managers
 - **Dry-Run Mode** - Preview changes before applying them
+
+### 🎯 Smart Package Intelligence (New in v1.1.0)
+- **Package Profiles** - Pre-configured package sets for common workflows
+  - 10 built-in profiles: Minimal, Developer, Web Dev, Rust Dev, Python Dev, Go Dev, DevOps, Data Science, Designer, Writer
+  - Automatic platform-aware package selection
+- **Dependency Detection** - Automatically detects and suggests missing dependencies
+  - Required dependencies (e.g., neovim needs git)
+  - Optional enhancements (e.g., neovim works better with ripgrep, fzf)
+  - 50+ package relationships mapped
+- **Package Database** - Rich metadata for 60+ popular packages
+  - Descriptions, categories, popularity scores
+  - Alternative package suggestions
+  - Related package recommendations
+- **Enhanced Package Mapper** - Intelligent cross-platform package name handling
+  - Fuzzy matching for typos (e.g., 'ripgrap' → suggests 'ripgrep')
+  - Name normalization (e.g., 'nodejs' → 'node', 'golang' → 'go')
+  - 60+ packages mapped across all platforms
+  - Automatic translation between platform-specific names
 
 ## Supported Package Managers
 
@@ -345,10 +363,24 @@ The wizard offers three setup flows:
 
 #### 1. Start Fresh
 - Creates a new dotfiles repository
+- Choose from 10 pre-configured package profiles or customize your own
 - Scans your home directory for existing dotfiles
 - Detects installed packages (supports Homebrew, APT, DNF, Pacman, mas)
+- Automatically detects missing dependencies and suggests additions
 - Generates a complete `heimdal.yaml` configuration
 - Optionally sets up Git remote
+
+**Available Package Profiles:**
+- **Minimal** - Essential tools only (git, curl, vim, tmux)
+- **Developer** - Full development environment (editors, git tools, build tools)
+- **Web Dev** - Modern web development (node, yarn, docker, postgres)
+- **Rust Dev** - Rust ecosystem (rust, cargo, rust-analyzer, ripgrep, fd, bat)
+- **Python Dev** - Python development (python, pip, pipenv, pyenv)
+- **Go Dev** - Go development (go, gopls, docker, kubectl)
+- **DevOps** - Infrastructure tools (terraform, ansible, docker, kubectl, helm)
+- **Data Science** - Data analysis (python, jupyter, pandas, postgresql)
+- **Designer** - Design and media tools
+- **Writer** - Documentation and writing tools (pandoc, markdown tools)
 
 #### 2. Import Existing Dotfiles
 - Automatically detects your setup (GNU Stow, dotbot, chezmoi, or manual)
@@ -714,11 +746,54 @@ sync:
 
 ### Package Name Mapping
 
-Heimdal automatically maps tool names to package names across different package managers. For example, `docker` becomes `docker.io` on APT but stays `docker` on Homebrew.
+Heimdal automatically maps tool names to package names across different package managers. The enhanced mapper includes:
 
-Built-in mappings include: git, vim, neovim, docker, gcc, fd, ripgrep, bat, fzf, zoxide, and many more.
+**60+ Built-in Mappings:**
+- Core tools: git, vim, neovim, tmux, curl, wget, tree, make
+- Terminal utilities: ripgrep, bat, fd, fzf, htop, zsh, starship, jq
+- Programming languages: node, python, go, rust
+- Containers: docker, docker-compose, kubectl, helm, k9s
+- Infrastructure: terraform, ansible
+- Databases: postgresql, redis, mysql, sqlite
+- Git tools: gh, delta, lazygit
+- And many more...
 
-You can override mappings in your config:
+**Smart Name Normalization:**
+```bash
+# Common aliases are automatically normalized
+nodejs  → node
+golang  → go
+postgres → postgresql
+k8s     → kubectl
+rg      → ripgrep
+nvim    → neovim
+```
+
+**Fuzzy Matching for Typos:**
+```bash
+# Heimdal suggests corrections for misspelled packages
+ripgrap  → suggests 'ripgrep'
+dokcer   → suggests 'docker'
+kubctl   → suggests 'kubectl'
+```
+
+**Platform-Specific Translations:**
+```yaml
+# Same package, different names across platforms
+docker:
+  apt: docker.io       # Debian/Ubuntu
+  brew: docker         # macOS
+  dnf: docker          # Fedora
+  pacman: docker       # Arch
+
+node:
+  apt: nodejs          # Debian/Ubuntu
+  brew: node           # macOS
+  dnf: nodejs          # Fedora
+  pacman: nodejs       # Arch
+```
+
+You can still override any mapping in your config:
 
 ```yaml
 mappings:
