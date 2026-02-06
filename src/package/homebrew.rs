@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use std::process::Command;
 
 use super::manager::{command_exists, InstallResult, PackageManager};
-use crate::utils::{error, info, step, success};
+use crate::utils::{error, info, package_error, step, success, PackageErrorType};
 
 pub struct HomebrewManager;
 
@@ -67,6 +67,14 @@ impl PackageManager for HomebrewManager {
             Ok(())
         } else {
             let err = String::from_utf8_lossy(&output.stderr);
+            let error_type = if err.contains("No available formula") || err.contains("No cask") {
+                PackageErrorType::PackageNotFound
+            } else {
+                PackageErrorType::InstallationFailed(err.to_string())
+            };
+
+            let error_msg = package_error(package, "brew", error_type);
+            eprintln!("{}", error_msg);
             anyhow::bail!("Failed to install {}: {}", package, err);
         }
     }
@@ -101,10 +109,23 @@ impl PackageManager for HomebrewManager {
                 }
                 Ok(out) => {
                     let err = String::from_utf8_lossy(&out.stderr);
+
+                    let error_type =
+                        if err.contains("No available formula") || err.contains("No cask") {
+                            PackageErrorType::PackageNotFound
+                        } else {
+                            PackageErrorType::InstallationFailed(err.to_string())
+                        };
+
+                    let error_msg = package_error(package, "brew", error_type);
+                    eprintln!("{}", error_msg);
                     error(&format!("Failed to install {}: {}", package, err));
                     results.push(InstallResult::failed(package.clone(), err.to_string()));
                 }
                 Err(e) => {
+                    let error_msg =
+                        package_error(package, "brew", PackageErrorType::ManagerNotFound);
+                    eprintln!("{}", error_msg);
                     error(&format!("Failed to install {}: {}", package, e));
                     results.push(InstallResult::failed(package.clone(), e.to_string()));
                 }

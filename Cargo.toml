@@ -33,6 +33,9 @@ env_logger = "0.11"
 
 # Terminal colors & formatting
 colored = "2.1"
+dialoguer = "0.11"
+indicatif = "0.17"
+console = "0.15"
 
 # File system operations
 walkdir = "2.5"
@@ -49,3 +52,6 @@ chrono = "0.4"
 
 # Directory utilities
 dirs = "5.0"
+
+[dev-dependencies]
+tempfile = "3.8"

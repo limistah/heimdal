@@ -10,6 +10,36 @@
 
 Heimdal is a powerful, cross-platform tool that automatically manages your dotfiles, installs packages, and keeps your development environment in sync across multiple machines. Say goodbye to manual configuration and hello to automated, declarative system management.
 
+## 🚀 Quick Start
+
+### New to dotfiles?
+
+```bash
+heimdal wizard
+```
+
+The interactive wizard will guide you through:
+- Scanning your existing dotfiles
+- Detecting installed packages
+- Generating configuration
+- Setting up Git sync
+
+**Done in under 2 minutes!**
+
+### Migrating from Stow or dotbot?
+
+```bash
+heimdal wizard
+# Choose "Import existing dotfiles"
+```
+
+Heimdal automatically detects and converts:
+- ✅ **GNU Stow** - Maintains Stow compatibility
+- ✅ **dotbot** - Converts `install.conf.yaml` 
+- ✅ **Manual setups** - Smart scanning and detection
+
+No manual conversion needed!
+
 ## Features
 
 - **Universal Package Management** - Install packages across Homebrew, APT, DNF, Pacman, and Mac App Store from a single configuration
@@ -189,16 +219,14 @@ curl -L https://github.com/limistah/heimdal/releases/download/v1.0.0/heimdal-lin
 sudo mv heimdal /usr/local/bin/
 ```
 
-## Quick Start
+## Manual Setup (Advanced)
+
+If you prefer manual setup instead of the wizard:
 
 ### 1. Create a Dotfiles Repository
 
-Create a new Git repository for your dotfiles:
-
 ```bash
-mkdir ~/dotfiles
-cd ~/dotfiles
-git init
+mkdir ~/dotfiles && cd ~/dotfiles && git init
 ```
 
 ### 2. Create `heimdal.yaml`
@@ -304,6 +332,94 @@ heimdal apply
 ```
 
 ## Usage
+
+### Setup Wizard (Recommended)
+
+The easiest way to get started:
+
+```bash
+heimdal wizard
+```
+
+The wizard offers three setup flows:
+
+#### 1. Start Fresh
+- Creates a new dotfiles repository
+- Scans your home directory for existing dotfiles
+- Detects installed packages (supports Homebrew, APT, DNF, Pacman, mas)
+- Generates a complete `heimdal.yaml` configuration
+- Optionally sets up Git remote
+
+#### 2. Import Existing Dotfiles
+- Automatically detects your setup (GNU Stow, dotbot, chezmoi, or manual)
+- Converts configuration to Heimdal format
+- Preserves compatibility (e.g., Stow compatibility mode)
+- Extracts package information from dotbot shell commands
+
+**Supported Tools:**
+- ✅ **GNU Stow** - Detects `.stowrc` or Stow directory structure
+- ✅ **dotbot** - Parses `install.conf.yaml`
+- ✅ **chezmoi** - Coming soon
+- ✅ **Manual** - Smart scanning fallback
+
+#### 3. Clone Existing Heimdal Repo
+- Clone your existing Heimdal dotfiles repository
+- Select profile to apply
+- Initialize on a new machine
+
+**Example: Importing from Stow**
+
+```bash
+$ heimdal wizard
+? What would you like to do?
+  > Import existing dotfiles
+
+? Where are your dotfiles? ~/dotfiles
+
+→ Analyzing directory structure...
+✓ Detected: GNU Stow setup
+
+? Convert GNU Stow configuration to Heimdal? Yes
+
+→ Importing from GNU Stow...
+✓ Found 12 files
+
+Dotfiles to track:
+  1. vim/.vimrc → ~/.vimrc
+  2. zsh/.zshrc → ~/.zshrc
+  3. tmux/.tmux.conf → ~/.tmux.conf
+  ... and 9 more
+
+? Generate heimdal.yaml configuration? Yes
+? Profile name: personal
+
+→ Generating configuration...
+✓ Saved to ~/dotfiles/heimdal.yaml
+
+✓ Import complete!
+```
+
+### Direct Import (Without Wizard)
+
+For quick, non-interactive imports:
+
+```bash
+# Auto-detect tool and import
+heimdal import --path ~/dotfiles
+
+# Import from specific tool
+heimdal import --path ~/dotfiles --from stow
+heimdal import --path ~/dotfiles --from dotbot
+
+# Specify output location
+heimdal import --path ~/dotfiles --output ~/my-config.yaml
+```
+
+The `import` command will:
+1. Detect the dotfile management tool (or use specified tool)
+2. Parse the existing configuration
+3. Generate `heimdal.yaml`
+4. Preserve compatibility settings (e.g., Stow compatibility mode)
 
 ### Initialize Heimdal
 
