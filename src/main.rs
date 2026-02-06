@@ -51,6 +51,12 @@ fn main() -> Result<()> {
         Commands::Status { verbose } => {
             commands::run_status(verbose)?;
         }
+        Commands::Diff {
+            verbose,
+            interactive,
+        } => {
+            commands::run_diff(verbose, interactive)?;
+        }
         Commands::Profiles => {
             cmd_profiles()?;
         }
