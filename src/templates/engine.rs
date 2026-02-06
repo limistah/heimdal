@@ -47,24 +47,21 @@ impl TemplateEngine {
     /// Render a template string
     /// Replaces {{ variable }} with values from the variables map
     pub fn render(&self, template: &str) -> Result<String> {
-        let mut result = template.to_string();
-
         // Track missing variables
         let mut missing_vars = Vec::new();
 
-        // Find all template variables
-        for cap in VARIABLE_REGEX.captures_iter(template) {
-            let var_name = &cap[1];
+        // Single-pass replacement using replace_all with closure
+        let result = VARIABLE_REGEX.replace_all(template, |caps: &regex::Captures| {
+            let var_name = &caps[1];
 
             if let Some(value) = self.variables.get(var_name) {
-                // Replace all occurrences of this variable (handles any whitespace)
-                let var_re = Regex::new(&format!(r"\{{\{{\s*{}\s*\}}\}}", regex::escape(var_name)))
-                    .expect("Invalid pattern regex");
-                result = var_re.replace_all(&result, value).to_string();
+                value.clone()
             } else {
                 missing_vars.push(var_name.to_string());
+                // Keep the original placeholder for missing variables
+                caps[0].to_string()
             }
-        }
+        });
 
         // Warn about missing variables
         if !missing_vars.is_empty() {
@@ -75,7 +72,7 @@ impl TemplateEngine {
             );
         }
 
-        Ok(result)
+        Ok(result.to_string())
     }
 
     /// Render a template file and write to output

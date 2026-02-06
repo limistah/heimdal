@@ -117,11 +117,7 @@ fn wizard_start_fresh() -> Result<()> {
     let mut scanned_dotfiles = Vec::new();
     if scan_existing {
         let spinner = ProgressBar::new_spinner();
-        spinner.set_style(
-            ProgressStyle::default_spinner()
-                .template("{spinner:.green} {msg}")
-                .unwrap(),
-        );
+        spinner.set_style(ProgressStyle::default_spinner().template("{spinner:.green} {msg}")?);
         spinner.set_message("Scanning for dotfiles...");
         spinner.enable_steady_tick(std::time::Duration::from_millis(100));
 
@@ -304,11 +300,7 @@ fn wizard_start_fresh() -> Result<()> {
         // Detect packages
         1 => {
             let spinner = ProgressBar::new_spinner();
-            spinner.set_style(
-                ProgressStyle::default_spinner()
-                    .template("{spinner:.green} {msg}")
-                    .unwrap(),
-            );
+            spinner.set_style(ProgressStyle::default_spinner().template("{spinner:.green} {msg}")?);
             spinner.set_message("Detecting packages...");
             spinner.enable_steady_tick(std::time::Duration::from_millis(100));
 
@@ -878,11 +870,7 @@ fn wizard_import() -> Result<()> {
 
         if scan {
             let spinner = ProgressBar::new_spinner();
-            spinner.set_style(
-                ProgressStyle::default_spinner()
-                    .template("{spinner:.green} {msg}")
-                    .unwrap(),
-            );
+            spinner.set_style(ProgressStyle::default_spinner().template("{spinner:.green} {msg}")?);
             spinner.set_message("Scanning for dotfiles...");
             spinner.enable_steady_tick(std::time::Duration::from_millis(100));
 
