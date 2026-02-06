@@ -40,6 +40,14 @@ pub fn render_templates(
     // Auto-detect .tmpl files in dotfiles directory if no explicit templates
     if template_files.is_empty() {
         template_files = auto_detect_templates(dotfiles_dir)?;
+        if !template_files.is_empty() {
+            println!(
+                "{} Automatically discovered {} template(s) in {}",
+                "ℹ".blue(),
+                template_files.len(),
+                dotfiles_dir.display()
+            );
+        }
     }
 
     // Render each template

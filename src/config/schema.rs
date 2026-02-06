@@ -364,6 +364,13 @@ pub struct TemplateConfig {
     pub files: Vec<TemplateFile>,
 }
 
+impl TemplateConfig {
+    /// Check if this config has any template configuration
+    pub fn has_configuration(&self) -> bool {
+        !self.variables.is_empty() || !self.files.is_empty()
+    }
+}
+
 /// Template file configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemplateFile {
@@ -382,4 +389,11 @@ pub struct ProfileTemplateConfig {
     /// Profile-specific template files
     #[serde(default)]
     pub files: Vec<TemplateFile>,
+}
+
+impl ProfileTemplateConfig {
+    /// Check if this profile has any template configuration
+    pub fn has_configuration(&self) -> bool {
+        !self.variables.is_empty() || !self.files.is_empty()
+    }
 }

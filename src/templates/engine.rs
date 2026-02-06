@@ -45,17 +45,16 @@ impl TemplateEngine {
         let mut result = template.to_string();
         let re = Regex::new(r"\{\{\s*(\w+)\s*\}\}").unwrap();
 
-        // Track which variables are used
-        let mut used_vars = Vec::new();
+        // Track missing variables
         let mut missing_vars = Vec::new();
 
         // Find all template variables
         for cap in re.captures_iter(template) {
             let var_name = &cap[1];
-            used_vars.push(var_name.to_string());
 
             if let Some(value) = self.variables.get(var_name) {
                 // Replace all occurrences of this variable
+                // Note: Pattern uses escaped braces for regex: \{\{ matches literal {{
                 let pattern = format!(r"\{{\{{\s*{}\s*\}}\}}", var_name);
                 let var_re = Regex::new(&pattern).unwrap();
                 result = var_re.replace_all(&result, value).to_string();

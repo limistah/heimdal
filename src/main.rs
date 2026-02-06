@@ -406,12 +406,7 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
 
     // Render templates
     if let Some(profile) = config.profiles.get(&profile_name) {
-        let has_templates = !config.templates.files.is_empty()
-            || !profile.templates.files.is_empty()
-            || !config.templates.variables.is_empty()
-            || !profile.templates.variables.is_empty();
-
-        if has_templates {
+        if config.templates.has_configuration() || profile.templates.has_configuration() {
             info("Rendering templates...");
             let rendered = templates::render_templates(&config, profile, &dotfiles_dir, dry_run)?;
             if !rendered.is_empty() {
