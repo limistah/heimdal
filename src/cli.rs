@@ -386,4 +386,26 @@ pub enum ProfileAction {
         /// Second profile name
         profile2: String,
     },
+
+    /// List available profile templates
+    Templates,
+
+    /// Create a new profile from a template
+    Create {
+        /// New profile name
+        name: String,
+
+        /// Template to use
+        #[arg(short, long)]
+        template: String,
+    },
+
+    /// Clone an existing profile
+    Clone {
+        /// Source profile name
+        source: String,
+
+        /// New profile name
+        target: String,
+    },
 }
