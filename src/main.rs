@@ -243,6 +243,16 @@ fn main() -> Result<()> {
             PackagesAction::UpdateAll { dry_run, yes } => {
                 cmd_packages_update_all(dry_run, yes)?;
             }
+            PackagesAction::Outdated { all } => {
+                commands::packages::run_outdated(all)?;
+            }
+            PackagesAction::Upgrade {
+                package,
+                all,
+                dry_run,
+            } => {
+                commands::packages::run_upgrade(package, all, dry_run)?;
+            }
         },
 
         Commands::Template { action } => match action {
