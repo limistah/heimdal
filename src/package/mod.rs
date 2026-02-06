@@ -1,4 +1,5 @@
 pub mod apt;
+pub mod dependencies;
 pub mod dnf;
 pub mod homebrew;
 pub mod hooks;
@@ -8,6 +9,9 @@ pub mod mas;
 pub mod pacman;
 pub mod profiles;
 
+pub use dependencies::{
+    AnalysisResult, Dependency, DependencyAnalyzer, MissingDependency, Suggestion,
+};
 pub use hooks::{execute_hooks, HookResult};
 pub use manager::{InstallResult, PackageManager};
 pub use mapper::{map_package_name, PackageManagerType};
