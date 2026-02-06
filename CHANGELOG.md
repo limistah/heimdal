@@ -9,6 +9,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Week 3: Enhanced Status & Package Commands
+
+- **Enhanced Status Command** - Beautiful, informative status display
+  - Color-coded output with status icons (✓✗⚠)
+  - Organized sections: Configuration, Dotfiles, Packages, Git Status, Warnings
+  - Dotfile tracking with symlink status (Synced, Modified, Missing, WrongTarget)
+  - Package tracking with installation status and versions
+  - Git integration (current branch, uncommitted changes)
+  - Smart timestamps with relative time formatting ("2 hours ago")
+  - Intelligent warnings system:
+    - Modified dotfiles warning
+    - Missing symlinks warning
+    - Uninstalled packages warning
+    - Uncommitted changes warning
+    - Stale sync warning (>7 days)
+  - Verbose mode for detailed information
+  - 7 comprehensive tests
+
+- **Diff Command** - Interactive change management for dotfiles
+  - Git-based change detection using `git status --porcelain`
+  - Tracks 5 change types: Modified, Added, Deleted, Renamed, TypeChanged
+  - Line change statistics (+lines/-lines) in verbose mode
+  - Beautiful colored output with change indicators
+  - Grouped changes by type with counts
+  - Interactive mode (`--interactive` flag):
+    - View detailed git diff
+    - Commit all or specific files (multi-select)
+    - Discard all or specific changes (multi-select)
+    - Optional push to remote after commit
+    - Confirmation prompts for destructive actions
+  - Safety features:
+    - Verifies git repository exists
+    - Only allows discarding modified/deleted files
+    - Confirmation for "discard all"
+  - 6 comprehensive tests
+
+- **Package Management Commands** - Complete package lifecycle management
+  
+  - **`packages add <name>`** - Interactive package addition
+    - Auto-detect available package managers
+    - Interactive manager selection if multiple available
+    - Package database lookup with metadata display
+    - Package name normalization
+    - Dependency detection with interactive prompts
+    - Auto-update `heimdal.yaml` configuration
+    - Optional `--no-install` flag
+    - Support for `--manager` and `--profile` flags
+  
+  - **`packages remove <name>`** - Interactive package removal
+    - Find package across all managers
+    - Reverse dependency checking (warns if other packages depend on it)
+    - Interactive removal confirmation
+    - Auto-update `heimdal.yaml` configuration
+    - Optional system uninstallation with confirmation
+    - `--force` flag to skip dependency warnings
+    - `--no-uninstall` flag to skip system removal
+  
+  - **`packages search <query>`** - Package database search
+    - Search by name, description, or tags
+    - Filter by category with `--category` flag
+    - Display results with metadata (description, category, tags)
+    - Results sorted by popularity
+  
+  - **`packages info <name>`** - Detailed package information
+    - Show package metadata (description, category, tags)
+    - Display alternative packages
+    - Show related packages
+    - List dependencies (required and optional)
+    - Beautiful formatted output
+  
+  - **`packages list`** - List profile packages
+    - List all packages in active profile
+    - Grouped by package manager
+    - Show installation status (✓/✗)
+    - `--installed` flag to filter installed-only
+    - `--profile` flag for specific profile
+    - Total package count summary
+  
+  - Configuration management:
+    - Reads from `heimdal.yaml`
+    - Updates `Sources` section
+    - Ensures profile references package manager source
+    - Initializes sources with default hooks
+  
+  - 7 comprehensive tests across all package commands
+
 #### Week 2: Package Intelligence & Smart Defaults
 
 - **Package Profiles System** - Pre-configured package sets for common workflows

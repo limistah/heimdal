@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use std::collections::HashMap;
 
 use super::schema::{
     DotfilesConfig, HeimdallConfig, Profile, ProfileHooks, ProfileSource, SourceOverride, Sources,
@@ -127,6 +126,7 @@ fn merge_profile(resolved: &mut ResolvedProfile, profile: &Profile) -> Result<()
 mod tests {
     use super::*;
     use crate::config::schema::*;
+    use std::collections::HashMap;
 
     #[test]
     fn test_resolve_simple_profile() {
