@@ -110,6 +110,26 @@ makepkg -si
 
 ### APK (Alpine Linux)
 
+**From APK Repository (Recommended):**
+
+```bash
+# One-line setup
+wget -qO- https://limistah.github.io/apk-repo/setup.sh | sudo sh
+```
+
+Or manually add the repository:
+
+```bash
+# Add repository
+echo "https://limistah.github.io/apk-repo/stable" | sudo tee -a /etc/apk/repositories
+
+# Install
+sudo apk update
+sudo apk add heimdal --allow-untrusted
+```
+
+**Direct APK Package:**
+
 ```bash
 # Download and install the latest APK package
 wget https://github.com/limistah/heimdal/releases/download/v1.0.0/heimdal-1.0.0-r0.apk
