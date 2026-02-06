@@ -57,13 +57,7 @@ impl TemplateEngine {
             let var_name = &cap[1];
 
             if let Some(value) = self.variables.get(var_name) {
-                // Replace all occurrences of this variable
-                // Use a simple string replace since we know the exact pattern
-                let pattern = format!("{{{{ {} }}}}", var_name);
-                result = result.replace(&pattern, value);
-
-                // Also handle patterns with extra whitespace
-                let pattern_with_spaces = format!(r"{{{{ {} }}}}", var_name);
+                // Replace all occurrences of this variable (handles any whitespace)
                 let var_re = Regex::new(&format!(r"\{{\{{\s*{}\s*\}}\}}", regex::escape(var_name)))
                     .expect("Invalid pattern regex");
                 result = var_re.replace_all(&result, value).to_string();
