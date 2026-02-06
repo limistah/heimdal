@@ -3,6 +3,10 @@ use clap::Parser;
 use colored::Colorize;
 use std::path::PathBuf;
 
+// Import macros first
+#[macro_use]
+mod utils;
+
 mod cli;
 mod commands;
 mod config;
@@ -16,7 +20,6 @@ mod state;
 mod symlink;
 mod sync;
 mod templates;
-mod utils;
 mod wizard;
 
 use cli::{
@@ -251,9 +254,9 @@ fn cmd_init(profile: &str, repo: &str, path: Option<&str>) -> Result<()> {
         PathBuf::from(shellexpand::tilde("~/.dotfiles").as_ref())
     };
 
-    info(&format!("Profile: {}", profile));
-    info(&format!("Repository: {}", repo));
-    info(&format!("Dotfiles path: {}", dotfiles_path.display()));
+    info_fmt!("Profile: {}", profile);
+    info_fmt!("Repository: {}", repo);
+    info_fmt!("Dotfiles path: {}", dotfiles_path.display());
 
     // Check if dotfiles directory already exists
     if dotfiles_path.exists() {
@@ -264,7 +267,7 @@ fn cmd_init(profile: &str, repo: &str, path: Option<&str>) -> Result<()> {
     }
 
     // Clone the repository
-    info(&format!("Cloning repository: {}", repo));
+    info_fmt!("Cloning repository: {}", repo);
     let status = std::process::Command::new("git")
         .arg("clone")
         .arg("--recurse-submodules")
@@ -392,8 +395,8 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
         )
     })?;
 
-    info(&format!("Loading config: {}", config_path.display()));
-    info(&format!("Using profile: {}", profile_name));
+    info_fmt!("Loading config: {}", config_path.display());
+    info_fmt!("Using profile: {}", profile_name);
 
     // Determine dotfiles directory (parent of heimdal.yaml)
     let dotfiles_dir = config_path
