@@ -235,8 +235,8 @@ jobs:
           source=""
           
           package() {
-              mkdir -p "\$pkgdir/usr/local/bin"
-              install -Dm755 "$GITHUB_WORKSPACE/heimdal" "\$pkgdir/usr/local/bin/heimdal"
+              mkdir -p "\$pkgdir/usr/bin"
+              install -Dm755 "$GITHUB_WORKSPACE/heimdal" "\$pkgdir/usr/bin/heimdal"
           }
           EOF
           
