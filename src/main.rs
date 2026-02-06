@@ -10,13 +10,16 @@ mod git;
 mod hooks;
 mod import;
 mod package;
+mod profile;
 mod state;
 mod symlink;
 mod sync;
 mod utils;
 mod wizard;
 
-use cli::{AutoSyncAction, Cli, Commands, ConfigAction, PackagesAction, RemoteAction};
+use cli::{
+    AutoSyncAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction, RemoteAction,
+};
 use utils::{error, header, info, success};
 
 fn main() -> Result<()> {
@@ -114,6 +117,23 @@ fn main() -> Result<()> {
         Commands::Profiles => {
             cmd_profiles()?;
         }
+        Commands::Profile { action } => match action {
+            ProfileAction::Switch { name, no_apply } => {
+                cmd_profile_switch(&name, !no_apply)?;
+            }
+            ProfileAction::Current => {
+                cmd_profile_current()?;
+            }
+            ProfileAction::Show { name, resolved } => {
+                cmd_profile_show(name.as_deref(), resolved)?;
+            }
+            ProfileAction::List { verbose } => {
+                cmd_profile_list(verbose)?;
+            }
+            ProfileAction::Diff { profile1, profile2 } => {
+                cmd_profile_diff(profile1.as_deref(), &profile2)?;
+            }
+        },
         Commands::Rollback { target } => {
             cmd_rollback(target.as_deref())?;
         }
@@ -1335,5 +1355,46 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>) -> Result<()
         style("heimdal apply").cyan()
     );
 
+    Ok(())
+}
+
+// ========== Profile Management ==========
+
+fn cmd_profile_switch(profile_name: &str, auto_apply: bool) -> Result<()> {
+    header("Switch Profile");
+    let (should_apply, _) = profile::switch_profile(profile_name, auto_apply)?;
+
+    if should_apply {
+        println!("\n{} Applying new profile configuration...", "→".blue());
+        cmd_apply(false, false)?;
+    } else {
+        println!(
+            "\n{} Run {} to apply the new profile configuration",
+            "ℹ".blue(),
+            "heimdal apply".cyan()
+        );
+    }
+
+    Ok(())
+}
+
+fn cmd_profile_current() -> Result<()> {
+    let profile_name = profile::get_current_profile()?;
+    println!("{}", profile_name.cyan());
+    Ok(())
+}
+
+fn cmd_profile_show(profile_name: Option<&str>, show_resolved: bool) -> Result<()> {
+    profile::show_profile_info(profile_name, show_resolved)?;
+    Ok(())
+}
+
+fn cmd_profile_list(verbose: bool) -> Result<()> {
+    profile::list_profiles(verbose)?;
+    Ok(())
+}
+
+fn cmd_profile_diff(profile1: Option<&str>, profile2: &str) -> Result<()> {
+    profile::diff_profiles(profile1, profile2)?;
     Ok(())
 }

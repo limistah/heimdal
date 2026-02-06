@@ -138,6 +138,12 @@ pub enum Commands {
     /// List available profiles
     Profiles,
 
+    /// Manage profiles (switch, show, list, etc.)
+    Profile {
+        #[command(subcommand)]
+        action: ProfileAction,
+    },
+
     /// Rollback to a previous version
     Rollback {
         /// Commit hash or tag to rollback to (defaults to previous commit)
@@ -338,4 +344,46 @@ pub enum RemoteAction {
 
     /// Interactive remote setup
     Setup,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ProfileAction {
+    /// Switch to a different profile
+    Switch {
+        /// Profile name to switch to
+        name: String,
+
+        /// Don't automatically reapply after switching
+        #[arg(long)]
+        no_apply: bool,
+    },
+
+    /// Show currently active profile
+    Current,
+
+    /// Show detailed information about a profile
+    Show {
+        /// Profile name (defaults to current profile)
+        name: Option<String>,
+
+        /// Show resolved configuration (after inheritance)
+        #[arg(short, long)]
+        resolved: bool,
+    },
+
+    /// List all available profiles
+    List {
+        /// Show detailed information
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// Compare two profiles
+    Diff {
+        /// First profile name (defaults to current)
+        profile1: Option<String>,
+
+        /// Second profile name
+        profile2: String,
+    },
 }
