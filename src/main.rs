@@ -16,7 +16,7 @@ mod sync;
 mod utils;
 mod wizard;
 
-use cli::{AutoSyncAction, Cli, Commands, ConfigAction, PackagesAction, RemoteAction};
+use cli::{AutoSyncAction, BranchAction, Cli, Commands, ConfigAction, PackagesAction, RemoteAction};
 use utils::{error, header, info, success};
 
 fn main() -> Result<()> {

@@ -85,7 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Package module now uses shared hooks module instead of local implementation
 - All package managers updated to use `HookContext` enum
 
-### Week 3: Enhanced Status & Package Commands
+#### Week 3: Enhanced Status & Package Commands
 
 - **Enhanced Status Command** - Beautiful, informative status display
   - Color-coded output with status icons (✓✗⚠)
