@@ -1,7 +1,6 @@
 use anyhow::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
-use walkdir::WalkDir;
 
 /// Scanner for detecting existing dotfiles
 pub struct DotfileScanner {

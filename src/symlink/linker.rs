@@ -7,8 +7,7 @@ use walkdir::WalkDir;
 use super::conflict::{
     create_backup, detect_conflict, resolve_conflict, ConflictResolution, ConflictStrategy,
 };
-use super::stow::StowConfig;
-use crate::utils::{info, step, success, symlink_error, warning, SymlinkErrorType};
+use crate::utils::{info, step, success, symlink_error, SymlinkErrorType};
 
 /// Result of a symlink operation
 #[derive(Debug, Clone)]

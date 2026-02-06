@@ -1,9 +1,7 @@
 use anyhow::{Context, Result};
-use std::collections::HashMap;
 
 use super::schema::{
-    AptSource, CustomInstall, DnfSource, DotfilesConfig, GitHubRepo, HeimdallConfig,
-    HomebrewSource, MasSource, PacmanSource, Profile, ProfileHooks, ProfileSource, SourceOverride,
+    DotfilesConfig, HeimdallConfig, Profile, ProfileHooks, ProfileSource, SourceOverride,
     Sources,
 };
 

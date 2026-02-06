@@ -1,7 +1,7 @@
 use super::{DotfileMapping, DotfileTool, ImportResult, Importer};
 use anyhow::{Context, Result};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Importer for GNU Stow structured dotfiles
 pub struct StowImporter;

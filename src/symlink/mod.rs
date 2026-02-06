@@ -2,7 +2,7 @@ pub mod conflict;
 pub mod linker;
 pub mod stow;
 
-pub use conflict::{ConflictResolution, ConflictStrategy};
+pub use conflict::ConflictStrategy;
 pub use linker::{Linker, SymlinkResult};
 pub use stow::StowConfig;
 

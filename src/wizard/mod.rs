@@ -5,7 +5,6 @@ mod scanner;
 
 pub use generator::*;
 pub use package_detector::*;
-pub use prompts::*;
 pub use scanner::*;
 
 use crate::import::{detect_tool, import_from_tool};
