@@ -7,8 +7,7 @@ use walkdir::WalkDir;
 use super::conflict::{
     create_backup, detect_conflict, resolve_conflict, ConflictResolution, ConflictStrategy,
 };
-use super::stow::StowConfig;
-use crate::utils::{info, step, success, warning};
+use crate::utils::{info, step, success, symlink_error, SymlinkErrorType};
 
 /// Result of a symlink operation
 #[derive(Debug, Clone)]
@@ -88,6 +87,11 @@ impl Linker {
 
         // Verify dotfiles directory exists
         if !self.dotfiles_dir.exists() {
+            let error_msg = crate::utils::config_error(
+                &self.dotfiles_dir.display().to_string(),
+                crate::utils::ConfigErrorType::FileNotFound,
+            );
+            eprintln!("{}", error_msg);
             anyhow::bail!(
                 "Dotfiles directory does not exist: {}",
                 self.dotfiles_dir.display()
@@ -217,8 +221,21 @@ impl Linker {
             return Ok(SymlinkResult::success(source, target.to_path_buf()));
         }
 
-        unix_fs::symlink(&source, target).with_context(|| {
-            format!(
+        unix_fs::symlink(&source, target).map_err(|e| {
+            let error_type = match e.kind() {
+                std::io::ErrorKind::PermissionDenied => SymlinkErrorType::PermissionDenied,
+                std::io::ErrorKind::NotFound => SymlinkErrorType::DirectoryNotFound,
+                _ => SymlinkErrorType::FileExists,
+            };
+
+            let error_msg = symlink_error(
+                &source.display().to_string(),
+                &target.display().to_string(),
+                error_type,
+            );
+            eprintln!("{}", error_msg);
+
+            anyhow::anyhow!(
                 "Failed to create symlink: {} -> {}",
                 target.display(),
                 source.display()

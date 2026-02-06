@@ -21,7 +21,7 @@ pub fn enable_auto_sync(interval: &str) -> Result<()> {
     // Get existing crontab
     let output = Command::new("crontab").arg("-l").output();
 
-    let mut existing_crontab = if let Ok(out) = output {
+    let existing_crontab = if let Ok(out) = output {
         if out.status.success() {
             String::from_utf8_lossy(&out.stdout).to_string()
         } else {
