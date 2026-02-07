@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-02-07
+
+### Fixed
+
+- **Made `repo` field optional in heimdal configuration** ([1e0ffd7](https://github.com/limistah/heimdal/commit/1e0ffd7))
+  - The `repo` field in `heimdal.yaml` is now optional
+  - Previously caused `heimdal init` to fail with "missing field `repo`" error
+  - Repo URL is already stored in state file, making config field redundant
+  - **Breaking Change:** None - existing configs with `repo` field still work
+  - **Migration:** Users can remove `repo:` line from their `heimdal.yaml` if desired
+
+### Changed
+
+- Updated configuration schema: `HeimdallMeta.repo` is now `Option<String>`
+- Removed validation that required `repo` to be non-empty
+- Updated example files with clarifying comments about optional repo field
+
 ## [1.1.0] - 2026-02-07
 
 ### Documentation
