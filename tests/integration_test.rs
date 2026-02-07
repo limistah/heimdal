@@ -8,3 +8,4 @@
 mod helpers;
 mod test_basic;
 mod test_init;
+mod test_validate;
