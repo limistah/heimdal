@@ -6,17 +6,17 @@ use crate::state::lock::{LockManager, StateLock};
 
 /// Show current lock status
 pub fn cmd_lock_info() -> Result<()> {
-    match LockManager::show_lock() {
-        Ok(_) => Ok(()),
-        Err(e) => {
-            if e.to_string().contains("No active lock") {
-                println!("{}", "No active lock found".green());
-                Ok(())
-            } else {
-                Err(e)
-            }
-        }
+    // Check if a lock file exists before attempting to show it
+    let lock_path = get_lock_path()?;
+
+    if !lock_path.exists() {
+        println!("{}", "No active lock found".green());
+        return Ok(());
     }
+
+    // A lock file exists; delegate to LockManager and propagate any real errors
+    LockManager::show_lock()?;
+    Ok(())
 }
 
 /// Force remove an active lock

@@ -243,6 +243,10 @@ fn remove_package_from_config(
     package_name: &str,
     manager: &str,
 ) -> Result<()> {
+    // TODO: This currently removes from root sources, affecting all profiles
+    // Should remove from profile-specific sources instead to avoid affecting inherited packages
+    // See: https://github.com/limistah/heimdal/pull/6 (Copilot review comment)
+
     // Remove from root sources
     match manager {
         "homebrew" | "homebrew-cask" => {

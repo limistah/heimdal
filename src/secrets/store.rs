@@ -14,6 +14,13 @@ pub struct Secret {
     pub created_at: String,
 }
 
+/// Secret metadata (without sensitive value)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecretMetadata {
+    pub name: String,
+    pub created_at: String,
+}
+
 /// Cross-platform secret storage using system keychains
 /// - macOS: Keychain
 /// - Linux: Secret Service (libsecret)
@@ -71,8 +78,21 @@ impl SecretStore {
         Ok(())
     }
 
-    /// List all secret names (not values)
-    pub fn list(&self) -> Result<Vec<Secret>> {
+    /// List all secret names and metadata (not values)
+    pub fn list(&self) -> Result<Vec<SecretMetadata>> {
+        let metadata = self.load_metadata()?;
+        let mut secrets = Vec::new();
+
+        for (name, created_at) in metadata {
+            secrets.push(SecretMetadata { name, created_at });
+        }
+
+        Ok(secrets)
+    }
+
+    /// Get all secrets with values (use with caution!)
+    /// Only use when you explicitly need secret values (e.g., for template substitution)
+    pub fn list_with_values(&self) -> Result<Vec<Secret>> {
         let metadata = self.load_metadata()?;
         let mut secrets = Vec::new();
 
@@ -106,7 +126,8 @@ impl SecretStore {
                     serde_json::from_str(&json).context("Failed to parse secrets metadata")?;
                 Ok(metadata)
             }
-            Err(_) => Ok(HashMap::new()), // No metadata yet
+            Err(keyring::Error::NoEntry) => Ok(HashMap::new()), // No metadata yet
+            Err(e) => Err(e).context("Failed to load secrets metadata"),
         }
     }
 
@@ -137,6 +158,7 @@ mod tests {
 
     #[test]
     #[serial]
+    #[ignore] // Requires system keychain access - run manually with: cargo test -- --ignored
     fn test_secret_store_operations() {
         let store = SecretStore::new().unwrap();
         let test_name = "heimdal_test_secret";

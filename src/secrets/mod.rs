@@ -9,7 +9,8 @@ use std::collections::HashMap;
 /// Returns a HashMap with secret names as keys
 pub fn get_secret_variables() -> Result<HashMap<String, String>> {
     let store = SecretStore::new()?;
-    let secrets = store.list()?;
+    // We need values here for template substitution
+    let secrets = store.list_with_values()?;
 
     let mut vars = HashMap::new();
     for secret in secrets {
