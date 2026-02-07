@@ -358,17 +358,58 @@ fn get_all_installed_packages(pm_name: &str) -> Result<Vec<String>> {
 }
 
 /// Get packages from current profile
-/// For now, returns a small test set - in production this would read from config
 fn get_profile_packages() -> Result<Vec<String>> {
-    // TODO: Read from actual profile configuration
-    // For now, return common packages as a demo
-    Ok(vec![
-        "git".to_string(),
-        "node".to_string(),
-        "rust".to_string(),
-        "docker".to_string(),
-        "fzf".to_string(),
-    ])
+    use crate::config;
+    use crate::state::HeimdallState;
+
+    // Load state to get current profile
+    let state = HeimdallState::load()?;
+    let profile_name = &state.active_profile;
+
+    // Load config
+    let config_path = state.dotfiles_path.join("heimdal.yaml");
+    if !config_path.exists() {
+        anyhow::bail!(
+            "Config file not found: {}\nRun 'heimdal init' first.",
+            config_path.display()
+        );
+    }
+
+    let config = config::load_config(&config_path)?;
+
+    // Verify profile exists
+    if !config.profiles.contains_key(profile_name) {
+        anyhow::bail!("Profile '{}' not found in config", profile_name);
+    }
+
+    // Resolve profile
+    let resolved = config::resolve_profile(&config, profile_name)?;
+
+    // Collect all packages from the profile
+    let mut packages = Vec::new();
+
+    // Add Homebrew packages
+    if let Some(homebrew) = &resolved.sources.homebrew {
+        packages.extend(homebrew.packages.clone());
+        packages.extend(homebrew.casks.clone());
+    }
+
+    // Add apt packages
+    if let Some(apt) = &resolved.sources.apt {
+        packages.extend(apt.packages.clone());
+    }
+
+    // Add dnf packages
+    if let Some(dnf) = &resolved.sources.dnf {
+        packages.extend(dnf.packages.clone());
+    }
+
+    // Add pacman packages
+    if let Some(pacman) = &resolved.sources.pacman {
+        packages.extend(pacman.packages.clone());
+    }
+
+    Ok(packages)
 }
 
 #[cfg(test)]

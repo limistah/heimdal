@@ -239,11 +239,13 @@ impl ConflictResolver {
     fn merge_states(local: &HeimdallStateV2, remote: &HeimdallStateV2) -> Result<HeimdallStateV2> {
         let mut merged = local.clone();
 
-        // Use higher serial number
-        if remote.lineage.serial > local.lineage.serial {
-            merged.lineage.serial = remote.lineage.serial;
-        }
-        merged.lineage.parent_serial = merged.lineage.serial;
+        // Determine merged serials: use higher as current, lower as parent
+        let local_serial = local.lineage.serial;
+        let remote_serial = remote.lineage.serial;
+        let new_serial = std::cmp::max(local_serial, remote_serial);
+        let parent_serial = std::cmp::min(local_serial, remote_serial);
+        merged.lineage.serial = new_serial;
+        merged.lineage.parent_serial = parent_serial;
 
         // Merge machine list
         for machine in &remote.lineage.machines {
@@ -339,11 +341,19 @@ impl ConflictResolver {
         use std::io::Read;
 
         let mut file = std::fs::File::open(path)?;
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer)?;
+        let mut context = md5::Context::new();
+        let mut buffer = [0u8; 8192];
+
+        loop {
+            let bytes_read = file.read(&mut buffer)?;
+            if bytes_read == 0 {
+                break;
+            }
+            context.consume(&buffer[..bytes_read]);
+        }
 
         // Using MD5 for file checksums
-        Ok(format!("{:x}", md5::compute(&buffer)))
+        Ok(format!("{:x}", context.compute()))
     }
 
     /// Update checksums for tracked files
