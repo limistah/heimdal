@@ -2,13 +2,14 @@ pub mod conflict;
 pub mod linker;
 pub mod stow;
 
-pub use conflict::{ConflictResolution, ConflictStrategy};
+pub use conflict::ConflictStrategy;
 pub use linker::{Linker, SymlinkResult};
 pub use stow::StowConfig;
 
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
+use crate::config::conditions::evaluate_condition;
 use crate::config::ResolvedProfile;
 use crate::utils::{header, info, warning};
 
@@ -37,7 +38,7 @@ pub fn create_symlinks(
         let stowrc_path = dotfiles_dir.join(".stowrc");
 
         if stowrc_path.exists() {
-            info(&format!("Reading .stowrc: {}", stowrc_path.display()));
+            info_fmt!("Reading .stowrc: {}", stowrc_path.display());
 
             let stow_config = StowConfig::parse(&stowrc_path)?;
 
@@ -55,9 +56,9 @@ pub fn create_symlinks(
             let mut ignore_patterns = stow_config.ignore.clone();
             ignore_patterns.extend(profile.dotfiles.ignore.clone());
 
-            info(&format!("Target directory: {}", target_dir.display()));
-            info(&format!("Backup directory: {}", backup_dir.display()));
-            info(&format!("Ignoring {} patterns", ignore_patterns.len()));
+            info_fmt!("Target directory: {}", target_dir.display());
+            info_fmt!("Backup directory: {}", backup_dir.display());
+            info_fmt!("Ignoring {} patterns", ignore_patterns.len());
 
             // Create linker
             let linker = Linker::new(dotfiles_dir.to_path_buf(), target_dir, backup_dir)
@@ -98,6 +99,23 @@ pub fn create_symlinks(
             .with_conflict_strategy(strategy);
 
         for mapping in &profile.dotfiles.files {
+            // Check if condition is met
+            if let Some(condition) = &mapping.when {
+                if !evaluate_condition(condition, &profile.name)? {
+                    let source_path = dotfiles_dir.join(&mapping.source);
+                    let target_expanded = shellexpand::tilde(&mapping.target);
+                    let target_path = PathBuf::from(target_expanded.as_ref());
+
+                    info(&format!("Skipping {} (condition not met)", mapping.source));
+                    report.results.push(SymlinkResult::skipped(
+                        source_path,
+                        target_path,
+                        "Condition not met".to_string(),
+                    ));
+                    continue;
+                }
+            }
+
             let source = dotfiles_dir.join(&mapping.source);
             let target_expanded = shellexpand::tilde(&mapping.target);
             let target = PathBuf::from(target_expanded.as_ref());
