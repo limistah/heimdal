@@ -5,6 +5,7 @@ pub mod dnf;
 pub mod groups;
 pub mod homebrew;
 pub mod manager;
+pub mod manager_base;
 pub mod mapper;
 pub mod mas;
 pub mod pacman;

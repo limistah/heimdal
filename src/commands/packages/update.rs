@@ -1,7 +1,7 @@
 use anyhow::Result;
 use colored::Colorize;
 
-use crate::package::database::{CacheMetadata, DatabaseLoader};
+use crate::package::database::DatabaseLoader;
 use crate::utils::{error, header, info, success};
 
 /// Run the packages update command

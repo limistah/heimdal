@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Manages the local cache for the package database
 pub struct DatabaseCache {
@@ -50,27 +50,27 @@ impl DatabaseCache {
 
     /// Read the database file
     pub fn read_db(&self) -> Result<Vec<u8>> {
-        fs::read(&self.db_path()).context("Failed to read cached database")
+        fs::read(self.db_path()).context("Failed to read cached database")
     }
 
     /// Write the database file
     pub fn write_db(&self, data: &[u8]) -> Result<()> {
-        fs::write(&self.db_path(), data).context("Failed to write database to cache")
+        fs::write(self.db_path(), data).context("Failed to write database to cache")
     }
 
     /// Read the checksum file
     pub fn read_checksum(&self) -> Result<String> {
-        fs::read_to_string(&self.checksum_path()).context("Failed to read checksum")
+        fs::read_to_string(self.checksum_path()).context("Failed to read checksum")
     }
 
     /// Write the checksum file
     pub fn write_checksum(&self, checksum: &str) -> Result<()> {
-        fs::write(&self.checksum_path(), checksum).context("Failed to write checksum")
+        fs::write(self.checksum_path(), checksum).context("Failed to write checksum")
     }
 
     /// Read the metadata file (JSON with last_updated timestamp)
     pub fn read_metadata(&self) -> Result<CacheMetadata> {
-        let content = fs::read_to_string(&self.metadata_path())?;
+        let content = fs::read_to_string(self.metadata_path())?;
         let metadata: CacheMetadata = serde_json::from_str(&content)?;
         Ok(metadata)
     }
@@ -78,7 +78,7 @@ impl DatabaseCache {
     /// Write the metadata file
     pub fn write_metadata(&self, metadata: &CacheMetadata) -> Result<()> {
         let content = serde_json::to_string_pretty(metadata)?;
-        fs::write(&self.metadata_path(), content)?;
+        fs::write(self.metadata_path(), content)?;
         Ok(())
     }
 
@@ -120,13 +120,13 @@ impl DatabaseCache {
     /// Clear the cache
     pub fn clear(&self) -> Result<()> {
         if self.db_path().exists() {
-            fs::remove_file(&self.db_path())?;
+            fs::remove_file(self.db_path())?;
         }
         if self.checksum_path().exists() {
-            fs::remove_file(&self.checksum_path())?;
+            fs::remove_file(self.checksum_path())?;
         }
         if self.metadata_path().exists() {
-            fs::remove_file(&self.metadata_path())?;
+            fs::remove_file(self.metadata_path())?;
         }
         Ok(())
     }
