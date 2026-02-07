@@ -24,9 +24,9 @@ mod wizard;
 
 use cli::{
     AutoSyncAction, Cli, Commands, ConfigAction, PackagesAction, ProfileAction, RemoteAction,
-    SecretAction, TemplateAction,
+    SecretAction, StateAction, TemplateAction,
 };
-use utils::{error, header, info, success};
+use utils::{error, header, info, success, warning};
 
 fn main() -> Result<()> {
     // Parse CLI arguments
@@ -281,6 +281,32 @@ fn main() -> Result<()> {
                 cmd_secret_list(verbose)?;
             }
         },
+        Commands::State { action } => match action {
+            StateAction::LockInfo => {
+                commands::state::cmd_lock_info()?;
+            }
+            StateAction::Unlock { force } => {
+                commands::state::cmd_unlock(force)?;
+            }
+            StateAction::CheckConflicts => {
+                commands::state::cmd_check_conflicts()?;
+            }
+            StateAction::Resolve { strategy, yes } => {
+                commands::state::cmd_resolve(strategy.clone(), yes)?;
+            }
+            StateAction::CheckDrift { all } => {
+                commands::state::cmd_check_drift(all)?;
+            }
+            StateAction::History { limit } => {
+                commands::state::cmd_history(limit)?;
+            }
+            StateAction::Version => {
+                commands::state::cmd_version()?;
+            }
+            StateAction::Migrate { no_backup, force } => {
+                commands::state::cmd_migrate(no_backup, force)?;
+            }
+        },
     }
 
     Ok(())
@@ -382,6 +408,30 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
     if dry_run {
         info("Dry-run mode: no changes will be made");
     }
+
+    // Acquire state lock (unless dry-run)
+    let _guard = if !dry_run {
+        // Load state V2
+        let state_v2 = state::HeimdallStateV2::load().unwrap_or_else(|_| {
+            // Create new V2 state as fallback
+            state::HeimdallStateV2::new("default".to_string(), PathBuf::from("."), "".to_string())
+                .unwrap()
+        });
+
+        let lock_config = state::lock::LockConfig::default();
+        let guard = state::lock::StateGuard::acquire(
+            "apply",
+            state_v2.machine.id.clone(),
+            state_v2.lineage.serial,
+            Some("Applying configuration".to_string()),
+            lock_config,
+        )?;
+
+        Some(guard)
+    } else {
+        info("Skipping lock acquisition (dry-run mode)");
+        None
+    };
 
     // Try to load state first
     let state_result = state::HeimdallState::load();
@@ -534,6 +584,28 @@ fn cmd_sync(quiet: bool, dry_run: bool) -> Result<()> {
         header("Syncing Configuration");
     }
 
+    // Acquire state lock (unless dry-run)
+    let _guard = if !dry_run {
+        // Load state V2
+        let state_v2 = state::HeimdallStateV2::load()?;
+
+        let lock_config = state::lock::LockConfig::default();
+        let guard = state::lock::StateGuard::acquire(
+            "sync",
+            state_v2.machine.id.clone(),
+            state_v2.lineage.serial,
+            Some("Syncing configuration".to_string()),
+            lock_config,
+        )?;
+
+        Some(guard)
+    } else {
+        if !quiet {
+            info("Skipping lock acquisition (dry-run mode)");
+        }
+        None
+    };
+
     // Load state
     let mut state = state::HeimdallState::load()?;
 
@@ -589,6 +661,68 @@ fn cmd_sync(quiet: bool, dry_run: bool) -> Result<()> {
             git::SyncResult::Success => {
                 if !quiet {
                     success("Git pull completed successfully!");
+                }
+
+                // Check for state conflicts after successful pull
+                if !quiet {
+                    info("Checking for state conflicts...");
+                }
+
+                // Try to load both local and remote state (from git)
+                if let Ok(local_state_v2) = state::HeimdallStateV2::load() {
+                    // Check if state.json was updated in the pull
+                    let state_file = state.dotfiles_path.join("state.json");
+                    if state_file.exists() {
+                        // Read remote state from the file
+                        if let Ok(remote_content) = std::fs::read_to_string(&state_file) {
+                            if let Ok(remote_state_v2) =
+                                serde_json::from_str::<state::HeimdallStateV2>(&remote_content)
+                            {
+                                // Detect conflicts
+                                let detection = state::conflict::ConflictResolver::detect_conflicts(
+                                    &local_state_v2,
+                                    &remote_state_v2,
+                                );
+
+                                if detection.has_conflict {
+                                    // Display conflicts
+                                    state::conflict::ConflictResolver::display_conflicts(
+                                        &detection,
+                                    );
+
+                                    // Offer to resolve automatically
+                                    if !quiet {
+                                        println!();
+                                        info("Attempting automatic merge...");
+                                    }
+
+                                    match state::conflict::ConflictResolver::resolve(
+                                        &local_state_v2,
+                                        &remote_state_v2,
+                                        state::conflict::ResolutionStrategy::Merge,
+                                    ) {
+                                        Ok(mut merged_state) => {
+                                            merged_state.save()?;
+                                            if !quiet {
+                                                success("State conflicts resolved automatically");
+                                            }
+                                        }
+                                        Err(e) => {
+                                            if !quiet {
+                                                warning(&format!(
+                                                    "Could not auto-resolve conflicts: {}",
+                                                    e
+                                                ));
+                                                info("Run 'heimdal state resolve' to manually resolve conflicts");
+                                            }
+                                        }
+                                    }
+                                } else if !quiet {
+                                    success("No state conflicts detected");
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Update sync time
@@ -866,7 +1000,18 @@ fn cmd_commit(message: Option<&str>, auto: bool, push: bool, files: Vec<String>)
     header("Commit Changes");
 
     // Load state to get dotfiles path
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdallStateV2::load()?;
+
+    // Acquire state lock
+    let lock_config = state::lock::LockConfig::default();
+    let _guard = state::lock::StateGuard::acquire(
+        "commit",
+        state.machine.id.clone(),
+        state.lineage.serial,
+        Some("Committing changes".to_string()),
+        lock_config,
+    )?;
+
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     // Check if there are changes
@@ -908,7 +1053,18 @@ fn cmd_push(_remote: Option<&str>, _branch: Option<&str>) -> Result<()> {
     header("Push to Remote");
 
     // Load state to get dotfiles path
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdallStateV2::load()?;
+
+    // Acquire state lock
+    let lock_config = state::lock::LockConfig::default();
+    let _guard = state::lock::StateGuard::acquire(
+        "push",
+        state.machine.id.clone(),
+        state.lineage.serial,
+        Some("Pushing to remote".to_string()),
+        lock_config,
+    )?;
+
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     // Check if there are local commits to push
@@ -928,7 +1084,18 @@ fn cmd_pull(rebase: bool) -> Result<()> {
     header("Pull from Remote");
 
     // Load state to get dotfiles path
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdallStateV2::load()?;
+
+    // Acquire state lock
+    let lock_config = state::lock::LockConfig::default();
+    let _guard = state::lock::StateGuard::acquire(
+        "pull",
+        state.machine.id.clone(),
+        state.lineage.serial,
+        Some("Pulling from remote".to_string()),
+        lock_config,
+    )?;
+
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     info("Pulling changes from remote...");

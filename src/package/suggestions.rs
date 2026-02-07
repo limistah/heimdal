@@ -1,6 +1,7 @@
 use anyhow::Result;
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use std::fs;
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 use super::database::{PackageDatabase, PackageInfo};
@@ -23,8 +24,10 @@ pub struct PackageSuggestion<'a> {
 pub struct DetectedTool {
     /// Tool name (e.g., "Node.js", "Rust", "Python")
     pub name: String,
-    /// Associated file patterns (e.g., "package.json", "Cargo.toml")
-    pub files: Vec<String>,
+    /// File patterns used for detection (e.g., "package.json", "Cargo.toml")
+    pub patterns: Vec<String>,
+    /// Actual detected file paths that matched the patterns
+    pub detected_files: Vec<String>,
     /// Suggested packages
     pub packages: Vec<String>,
 }
@@ -162,7 +165,8 @@ impl SuggestionEngine {
                 file.to_string(),
                 DetectedTool {
                     name: name.to_string(),
-                    files: files.iter().map(|s| s.to_string()).collect(),
+                    patterns: files.iter().map(|s| s.to_string()).collect(),
+                    detected_files: Vec::new(),
                     packages: packages.iter().map(|s| s.to_string()).collect(),
                 },
             );
@@ -181,7 +185,17 @@ impl SuggestionEngine {
         {
             let path = entry.path();
 
-            // Skip hidden directories except for dotfiles
+            // Skip hidden directories except for dotfiles in the root
+            if path.is_dir() && path != dir {
+                if let Some(file_name) = path.file_name() {
+                    let name = file_name.to_string_lossy();
+                    // Skip hidden directories (except .git which we might want to check)
+                    if name.starts_with('.') && name != ".git" {
+                        continue;
+                    }
+                }
+            }
+
             if let Some(file_name) = path.file_name() {
                 let name = file_name.to_string_lossy();
 
@@ -191,7 +205,7 @@ impl SuggestionEngine {
                         detected
                             .entry(tool.name.clone())
                             .or_insert_with(|| tool.clone())
-                            .files
+                            .detected_files
                             .push(path.to_string_lossy().to_string());
                     }
                 }
@@ -239,7 +253,7 @@ impl SuggestionEngine {
                         package,
                         reason: format!("Detected {} project files", tool.name),
                         relevance,
-                        detected_files: tool.files.clone(),
+                        detected_files: tool.detected_files.clone(),
                     });
                 }
             }
@@ -267,7 +281,7 @@ impl SuggestionEngine {
         }
 
         // Boost based on number of detected files (more files = more likely active project)
-        let file_boost = (tool.files.len().min(5) * 2) as u8;
+        let file_boost = (tool.detected_files.len().min(5) * 2) as u8;
         score = score.saturating_add(file_boost);
 
         score.min(100) // Cap at 100
@@ -396,7 +410,8 @@ mod tests {
         let engine = SuggestionEngine::new();
         let tool = DetectedTool {
             name: "Node.js".to_string(),
-            files: vec!["package.json".to_string()],
+            patterns: vec!["package.json".to_string()],
+            detected_files: vec!["package.json".to_string()],
             packages: vec!["node".to_string()],
         };
 
