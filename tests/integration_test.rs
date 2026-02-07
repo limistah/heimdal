@@ -1,10 +1,10 @@
 /// Integration tests for heimdal CLI
-/// 
+///
 /// These tests verify actual CLI behavior following global testing standards:
 /// - Test happy paths (expected usage)
 /// - Test sad paths (error cases)
 /// - Test edge cases
 /// - Use actual commands that exist in the binary
-
 mod helpers;
 mod test_basic;
+mod test_init;
