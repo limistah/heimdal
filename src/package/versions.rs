@@ -264,7 +264,7 @@ impl VersionChecker {
 
                     version.installed = installed_ver.clone();
                     version.latest = available_ver.or(installed_ver);
-                    version.update_available = matches!((&version.installed, &version.latest), 
+                    version.update_available = matches!((&version.installed, &version.latest),
                         (Some(i), Some(l)) if i != l);
                 }
             }
@@ -288,7 +288,7 @@ impl VersionChecker {
             if let Ok(output) = installed_output {
                 if output.status.success() {
                     let stdout = String::from_utf8_lossy(&output.stdout);
-                    let parts: Vec<&str> = stdout.trim().split_whitespace().collect();
+                    let parts: Vec<&str> = stdout.split_whitespace().collect();
                     if parts.len() >= 2 {
                         version.installed = Some(parts[1].to_string());
                     }

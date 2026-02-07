@@ -66,7 +66,7 @@ mod tests {
         writeln!(file, "--ignore=.git").unwrap();
         writeln!(file, "--ignore=.DS_Store").unwrap();
         writeln!(file, "# comment").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
 
         let config = StowConfig::parse(file.path()).unwrap();
         assert!(config.target.is_some());

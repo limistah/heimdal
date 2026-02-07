@@ -214,7 +214,7 @@ pub fn resolve_conflicts(
                 ];
 
                 let selection = Select::new()
-                    .with_prompt(&format!(
+                    .with_prompt(format!(
                         "File exists: {} - What would you like to do?",
                         conflict.destination.display()
                     ))

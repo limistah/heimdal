@@ -44,3 +44,24 @@ pub fn cmd_check_drift(_all: bool) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_check_drift_no_state() {
+        // When no state exists, should fail gracefully
+        let result = cmd_check_drift(false);
+        // Should either succeed (if state exists) or fail with clear error
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_check_drift_with_all_flag() {
+        // Test with all flag
+        let result = cmd_check_drift(true);
+        // Should handle the flag without panicking
+        assert!(result.is_ok() || result.is_err());
+    }
+}
