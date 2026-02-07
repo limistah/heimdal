@@ -106,8 +106,8 @@ if [ -f "$TEST_DIR/dotfiles/heimdal.yaml" ]; then
     # Corrupt the config
     echo "corrupted yaml content {{" > "$TEST_DIR/dotfiles/heimdal.yaml"
     
-    # Commands should fail gracefully
-    if heimdal validate > /dev/null 2>&1; then
+    # Commands should fail gracefully (run from dotfiles directory)
+    if (cd "$TEST_DIR/dotfiles" && heimdal validate > /dev/null 2>&1); then
         test_fail "Validation should fail on corrupted config"
     else
         test_pass "Corrupted config correctly rejected"
@@ -268,8 +268,8 @@ version: "1.0"
 wrong_indent: true
 EOF
     
-    # Validation should fail
-    if heimdal validate > /dev/null 2>&1; then
+    # Validation should fail (run from dotfiles directory)
+    if (cd "$TEST_DIR/dotfiles" && heimdal validate > /dev/null 2>&1); then
         test_fail "Should reject invalid YAML"
     else
         test_pass "Invalid YAML correctly rejected"
