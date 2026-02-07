@@ -281,7 +281,7 @@ impl HeimdallStateV2 {
         let state_path = self.dotfiles_path.join("heimdal.state.json");
         let state_dir = self.dotfiles_path.as_path();
 
-        fs::create_dir_all(&state_dir).with_context(|| {
+        fs::create_dir_all(state_dir).with_context(|| {
             format!("Failed to create state directory: {}", state_dir.display())
         })?;
 
@@ -376,7 +376,7 @@ impl HeimdallStateV2 {
     fn parse_version(ver: &str) -> Result<(u32, u32, u32)> {
         // Strip pre-release and build metadata (anything after '-' or '+')
         // e.g., "1.2.3-alpha.1+build.5" -> "1.2.3"
-        let core = ver.split(|c| c == '-' || c == '+').next().unwrap_or(ver);
+        let core = ver.split(['-', '+']).next().unwrap_or(ver);
 
         let parts: Vec<&str> = core.split('.').collect();
         if parts.len() != 3 {
