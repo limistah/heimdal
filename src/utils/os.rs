@@ -13,7 +13,7 @@ pub enum LinuxDistro {
     Debian,
     Ubuntu,
     Fedora,
-    RHEL,
+    Rhel,
     CentOS,
     RedHat,
     Arch,
@@ -48,7 +48,7 @@ fn detect_linux_distro() -> LinuxDistro {
                     "debian" => LinuxDistro::Debian,
                     "ubuntu" => LinuxDistro::Ubuntu,
                     "fedora" => LinuxDistro::Fedora,
-                    "rhel" => LinuxDistro::RHEL,
+                    "rhel" => LinuxDistro::Rhel,
                     "centos" => LinuxDistro::CentOS,
                     "redhat" => LinuxDistro::RedHat,
                     "arch" => LinuxDistro::Arch,
@@ -80,11 +80,13 @@ fn detect_linux_distro() -> LinuxDistro {
 }
 
 /// Check if running on macOS
+#[allow(dead_code)]
 pub fn is_macos() -> bool {
     matches!(detect_os(), OperatingSystem::MacOS)
 }
 
 /// Check if running on Linux
+#[allow(dead_code)]
 pub fn is_linux() -> bool {
     matches!(detect_os(), OperatingSystem::Linux(_))
 }

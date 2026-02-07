@@ -89,6 +89,7 @@ mod tests {
                         sources: vec![],
                         dotfiles: DotfilesConfig::default(),
                         hooks: ProfileHooks::default(),
+                        templates: ProfileTemplateConfig::default(),
                     },
                 );
                 map
@@ -96,6 +97,8 @@ mod tests {
             sync: SyncConfig::default(),
             ignore: vec![],
             mappings: HashMap::new(),
+            hooks: GlobalHooks::default(),
+            templates: TemplateConfig::default(),
         };
 
         assert!(validate_config(&config).is_err());

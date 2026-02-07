@@ -1,9 +1,17 @@
+pub mod conflict;
+pub mod lock;
+pub mod versioned;
+
+// Re-export for backwards compatibility
+pub use versioned::HeimdallStateV2;
+
+// Original V1 state (kept for migration)
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-/// Heimdal state stored in ~/.heimdal/
+/// Heimdal state stored in ~/.heimdal/ (V1 - Legacy)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeimdallState {
     /// Currently active profile
@@ -80,12 +88,29 @@ impl HeimdallState {
         Ok(home.join(".heimdal"))
     }
 
-    /// Get the state file path (~/.heimdal/state.json)
+    /// Get the state file path (~/.heimdal/heimdal.state.json)
+    /// Also checks old state.json for backward compatibility
     pub fn state_path() -> Result<PathBuf> {
-        Ok(Self::state_dir()?.join("state.json"))
+        let state_dir = Self::state_dir()?;
+
+        // Check new naming first
+        let new_path = state_dir.join("heimdal.state.json");
+        if new_path.exists() {
+            return Ok(new_path);
+        }
+
+        // Check old naming for backward compatibility
+        let old_path = state_dir.join("state.json");
+        if old_path.exists() {
+            return Ok(old_path);
+        }
+
+        // Return new naming for new installations
+        Ok(new_path)
     }
 
     /// Get the backup directory path (~/.heimdal/backups)
+    #[allow(dead_code)]
     pub fn backup_dir() -> Result<PathBuf> {
         Ok(Self::state_dir()?.join("backups"))
     }

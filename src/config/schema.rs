@@ -14,6 +14,10 @@ pub struct HeimdallConfig {
     pub ignore: Vec<String>,
     #[serde(default)]
     pub mappings: HashMap<String, PackageMapping>,
+    #[serde(default)]
+    pub hooks: GlobalHooks,
+    #[serde(default)]
+    pub templates: TemplateConfig,
 }
 
 /// Metadata section
@@ -171,6 +175,19 @@ pub enum HookCommand {
     },
 }
 
+/// Global lifecycle hooks
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct GlobalHooks {
+    #[serde(default)]
+    pub pre_apply: Vec<HookCommand>,
+    #[serde(default)]
+    pub post_apply: Vec<HookCommand>,
+    #[serde(default)]
+    pub pre_sync: Vec<HookCommand>,
+    #[serde(default)]
+    pub post_sync: Vec<HookCommand>,
+}
+
 /// Machine profile configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Profile {
@@ -182,6 +199,8 @@ pub struct Profile {
     pub dotfiles: DotfilesConfig,
     #[serde(default)]
     pub hooks: ProfileHooks,
+    #[serde(default)]
+    pub templates: ProfileTemplateConfig,
 }
 
 /// Profile-specific source (for overrides)
@@ -233,13 +252,43 @@ pub struct DotfilesConfig {
 pub struct DotfileMapping {
     pub source: String,
     pub target: String,
+    #[serde(default)]
+    pub post_link: Vec<HookCommand>,
+    #[serde(default)]
+    pub pre_unlink: Vec<HookCommand>,
+    /// Optional condition for when to link this file
+    #[serde(default)]
+    pub when: Option<DotfileCondition>,
+}
+
+/// Condition for when to link a dotfile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DotfileCondition {
+    /// Operating system(s) to link on (e.g., ["macos", "linux"])
+    #[serde(default)]
+    pub os: Vec<String>,
+    /// Profile(s) to link for (e.g., ["work", "personal"])
+    #[serde(default)]
+    pub profile: Vec<String>,
+    /// Environment variable condition (e.g., "WORK_ENV=true")
+    #[serde(default)]
+    pub env: Option<String>,
+    /// Hostname pattern (e.g., "work-*")
+    #[serde(default)]
+    pub hostname: Option<String>,
 }
 
 /// Profile-level hooks
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProfileHooks {
     #[serde(default)]
+    pub pre_apply: Vec<HookCommand>,
+    #[serde(default)]
     pub post_apply: Vec<HookCommand>,
+    #[serde(default)]
+    pub pre_sync: Vec<HookCommand>,
+    #[serde(default)]
+    pub post_sync: Vec<HookCommand>,
 }
 
 /// Sync configuration
@@ -302,4 +351,49 @@ fn default_true() -> bool {
 
 fn default_interval() -> String {
     "1h".to_string()
+}
+
+/// Template configuration for the entire config
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TemplateConfig {
+    /// Variables available for all profiles
+    #[serde(default)]
+    pub variables: HashMap<String, String>,
+    /// Template files to render
+    #[serde(default)]
+    pub files: Vec<TemplateFile>,
+}
+
+impl TemplateConfig {
+    /// Check if this config has any template configuration
+    pub fn has_configuration(&self) -> bool {
+        !self.variables.is_empty() || !self.files.is_empty()
+    }
+}
+
+/// Template file configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateFile {
+    /// Source template file (e.g., .gitconfig.tmpl)
+    pub src: String,
+    /// Destination file (e.g., .gitconfig)
+    pub dest: String,
+}
+
+/// Profile-specific template configuration
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProfileTemplateConfig {
+    /// Profile-specific variables (override global)
+    #[serde(default)]
+    pub variables: HashMap<String, String>,
+    /// Profile-specific template files
+    #[serde(default)]
+    pub files: Vec<TemplateFile>,
+}
+
+impl ProfileTemplateConfig {
+    /// Check if this profile has any template configuration
+    pub fn has_configuration(&self) -> bool {
+        !self.variables.is_empty() || !self.files.is_empty()
+    }
 }

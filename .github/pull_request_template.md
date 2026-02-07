@@ -29,6 +29,12 @@ Closes #
 - [ ] I have added tests that prove my fix is effective or that my feature works
 - [ ] All existing tests pass (`cargo test`)
 - [ ] Code follows the style guidelines (`cargo fmt` and `cargo clippy`)
+- [ ] Tested database loading from heimdal-packages (if applicable)
+
+## Database Changes (if applicable)
+- [ ] Changes to package database loading/caching
+- [ ] Tested with latest heimdal-packages release
+- [ ] Database schema version compatibility verified
 
 ## Checklist
 - [ ] My code follows the project's code style

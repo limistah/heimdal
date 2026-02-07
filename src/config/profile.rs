@@ -1,15 +1,12 @@
 use anyhow::{Context, Result};
-use std::collections::HashMap;
 
 use super::schema::{
-    AptSource, CustomInstall, DnfSource, DotfilesConfig, GitHubRepo, HeimdallConfig,
-    HomebrewSource, MasSource, PacmanSource, Profile, ProfileHooks, ProfileSource, SourceOverride,
-    Sources,
+    DotfilesConfig, HeimdallConfig, Profile, ProfileHooks, ProfileSource, SourceOverride, Sources,
 };
 
 /// Resolve a profile by merging with its parents (additive)
 pub fn resolve_profile(config: &HeimdallConfig, profile_name: &str) -> Result<ResolvedProfile> {
-    let profile = config
+    let _profile = config
         .profiles
         .get(profile_name)
         .with_context(|| format!("Profile '{}' not found", profile_name))?;
@@ -60,7 +57,7 @@ fn merge_profile(resolved: &mut ResolvedProfile, profile: &Profile) -> Result<()
     // Merge sources (additive)
     for source in &profile.sources {
         match source {
-            ProfileSource::Name(name) => {
+            ProfileSource::Name(_name) => {
                 // Just marks that this source should be used
                 // The actual sources come from the root config
             }
@@ -84,15 +81,11 @@ fn merge_profile(resolved: &mut ResolvedProfile, profile: &Profile) -> Result<()
                             }
                         }
                     }
-                    ("github", SourceOverride::Github { repos }) => {
-                        if let Some(repos) = repos {
-                            resolved.sources.github.extend(repos.clone());
-                        }
+                    ("github", SourceOverride::Github { repos: Some(repos) }) => {
+                        resolved.sources.github.extend(repos.clone());
                     }
-                    ("custom", SourceOverride::Custom { items }) => {
-                        if let Some(items) = items {
-                            resolved.sources.custom.extend(items.clone());
-                        }
+                    ("custom", SourceOverride::Custom { items: Some(items) }) => {
+                        resolved.sources.custom.extend(items.clone());
                     }
                     _ => {}
                 }
@@ -129,6 +122,7 @@ fn merge_profile(resolved: &mut ResolvedProfile, profile: &Profile) -> Result<()
 mod tests {
     use super::*;
     use crate::config::schema::*;
+    use std::collections::HashMap;
 
     #[test]
     fn test_resolve_simple_profile() {
@@ -140,6 +134,7 @@ mod tests {
                 sources: vec![ProfileSource::Name("packages".to_string())],
                 dotfiles: DotfilesConfig::default(),
                 hooks: ProfileHooks::default(),
+                templates: ProfileTemplateConfig::default(),
             },
         );
 
@@ -154,6 +149,8 @@ mod tests {
             sync: SyncConfig::default(),
             ignore: vec![],
             mappings: HashMap::new(),
+            hooks: GlobalHooks::default(),
+            templates: TemplateConfig::default(),
         };
 
         let resolved = resolve_profile(&config, "base").unwrap();

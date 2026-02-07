@@ -10,17 +10,101 @@
 
 Heimdal is a powerful, cross-platform tool that automatically manages your dotfiles, installs packages, and keeps your development environment in sync across multiple machines. Say goodbye to manual configuration and hello to automated, declarative system management.
 
+## 🚀 Quick Start
+
+### New to dotfiles?
+
+```bash
+heimdal wizard
+```
+
+The interactive wizard will guide you through:
+- **Smart scanning** with real-time progress indicators
+- **Interactive selection** - Choose exactly which files and packages to track
+- **Smart profile names** - Auto-generated based on your hostname and OS  
+- **Package detection** with helpful empty state guidance
+- **Git sync setup** with remote configuration
+
+**Done in under 2 minutes!**
+
+### Migrating from Stow or dotbot?
+
+```bash
+heimdal wizard
+# Choose "Import existing dotfiles"
+```
+
+Heimdal automatically detects and converts:
+- ✅ **GNU Stow** - Maintains Stow compatibility
+- ✅ **dotbot** - Converts `install.conf.yaml`
+- ✅ **chezmoi** - Parses chezmoi naming conventions
+- ✅ **yadm** - Imports yadm tracked files
+- ✅ **homesick** - Converts castle structures
+- ✅ **Manual setups** - Smart scanning and detection
+
+**Preview before importing:**
+```bash
+heimdal import --path ~/dotfiles --preview
+```
+
+No manual conversion needed!
+
 ## Features
 
+### Core Features
 - **Universal Package Management** - Install packages across Homebrew, APT, DNF, Pacman, and Mac App Store from a single configuration
 - **Intelligent Symlinking** - GNU Stow-compatible symlink management with conflict resolution
+- **Template System** - Simple variable substitution for machine-specific configs (user, hostname, email, etc.)
+- **Secret Management** - Secure API keys and tokens using OS-native keychains (never stored in git)
 - **Git-Based Sync** - Keep your configuration in sync across machines using Git
 - **Profile-Based Configuration** - Different configurations for different machines (work, personal, servers)
+- **Interactive Wizard** - Smart setup with progress indicators and interactive selection
 - **Auto-Sync** - Background synchronization via cron jobs
 - **Rollback Support** - Easily revert to previous configurations
 - **Hooks System** - Run custom scripts before/after installation
-- **Package Name Mapping** - Automatic translation of package names across different package managers
 - **Dry-Run Mode** - Preview changes before applying them
+
+### ✨ Recent Improvements (v1.4.0 - Week 10)
+- **Smart Package Management**
+  - Fuzzy search with typo tolerance and intelligent scoring
+  - Installation status detection across all package managers
+  - Tag-based filtering for refined searches
+  - Automatic package suggestions based on detected project technologies
+  - 15 curated package groups for common workflows (web-dev, rust-dev, python-dev, etc.)
+  - Package version management with outdated detection and bulk upgrades
+  - Rich terminal output with relevance indicators and metadata
+
+### Previous Improvements
+- **v1.3.0 - Enhanced Import System**
+  - Support for 3 additional dotfile managers: chezmoi, yadm, homesick
+  - Intelligent conflict resolution with 4 strategies (Skip, Overwrite, Backup, Ask)
+  - Import preview mode to see what would be imported
+  - Better file categorization and destination mapping
+- **v1.2.0 - Wizard UX & Performance**
+  - Real-time progress indicators for scanning operations
+  - Interactive file/package selection with multi-select support
+  - Smart profile name generation (e.g., "work-mac", "personal-linux")
+  - 30-50% faster template rendering with cached regex
+  - Eliminated critical `.unwrap()` calls with proper error handling
+  - Added logging macros to reduce boilerplate
+
+### 🎯 Smart Package Intelligence (New in v1.1.0)
+- **Package Profiles** - Pre-configured package sets for common workflows
+  - 10 built-in profiles: Minimal, Developer, Web Dev, Rust Dev, Python Dev, Go Dev, DevOps, Data Science, Designer, Writer
+  - Automatic platform-aware package selection
+- **Dependency Detection** - Automatically detects and suggests missing dependencies
+  - Required dependencies (e.g., neovim needs git)
+  - Optional enhancements (e.g., neovim works better with ripgrep, fzf)
+  - 50+ package relationships mapped
+- **Package Database** - Rich metadata for 60+ popular packages
+  - Descriptions, categories, popularity scores
+  - Alternative package suggestions
+  - Related package recommendations
+- **Enhanced Package Mapper** - Intelligent cross-platform package name handling
+  - Fuzzy matching for typos (e.g., 'ripgrap' → suggests 'ripgrep')
+  - Name normalization (e.g., 'nodejs' → 'node', 'golang' → 'go')
+  - 60+ packages mapped across all platforms
+  - Automatic translation between platform-specific names
 
 ## Supported Package Managers
 
@@ -189,16 +273,14 @@ curl -L https://github.com/limistah/heimdal/releases/download/v1.0.0/heimdal-lin
 sudo mv heimdal /usr/local/bin/
 ```
 
-## Quick Start
+## Manual Setup (Advanced)
+
+If you prefer manual setup instead of the wizard:
 
 ### 1. Create a Dotfiles Repository
 
-Create a new Git repository for your dotfiles:
-
 ```bash
-mkdir ~/dotfiles
-cd ~/dotfiles
-git init
+mkdir ~/dotfiles && cd ~/dotfiles && git init
 ```
 
 ### 2. Create `heimdal.yaml`
@@ -305,6 +387,108 @@ heimdal apply
 
 ## Usage
 
+### Setup Wizard (Recommended)
+
+The easiest way to get started:
+
+```bash
+heimdal wizard
+```
+
+The wizard offers three setup flows:
+
+#### 1. Start Fresh
+- Creates a new dotfiles repository
+- Choose from 10 pre-configured package profiles or customize your own
+- Scans your home directory for existing dotfiles
+- Detects installed packages (supports Homebrew, APT, DNF, Pacman, mas)
+- Automatically detects missing dependencies and suggests additions
+- Generates a complete `heimdal.yaml` configuration
+- Optionally sets up Git remote
+
+**Available Package Profiles:**
+- **Minimal** - Essential tools only (git, curl, vim, tmux)
+- **Developer** - Full development environment (editors, git tools, build tools)
+- **Web Dev** - Modern web development (node, yarn, docker, postgres)
+- **Rust Dev** - Rust ecosystem (rust, cargo, rust-analyzer, ripgrep, fd, bat)
+- **Python Dev** - Python development (python, pip, pipenv, pyenv)
+- **Go Dev** - Go development (go, gopls, docker, kubectl)
+- **DevOps** - Infrastructure tools (terraform, ansible, docker, kubectl, helm)
+- **Data Science** - Data analysis (python, jupyter, pandas, postgresql)
+- **Designer** - Design and media tools
+- **Writer** - Documentation and writing tools (pandoc, markdown tools)
+
+#### 2. Import Existing Dotfiles
+- Automatically detects your setup (GNU Stow, dotbot, chezmoi, or manual)
+- Converts configuration to Heimdal format
+- Preserves compatibility (e.g., Stow compatibility mode)
+- Extracts package information from dotbot shell commands
+
+**Supported Tools:**
+- ✅ **GNU Stow** - Detects `.stowrc` or Stow directory structure
+- ✅ **dotbot** - Parses `install.conf.yaml`
+- ✅ **chezmoi** - Coming soon
+- ✅ **Manual** - Smart scanning fallback
+
+#### 3. Clone Existing Heimdal Repo
+- Clone your existing Heimdal dotfiles repository
+- Select profile to apply
+- Initialize on a new machine
+
+**Example: Importing from Stow**
+
+```bash
+$ heimdal wizard
+? What would you like to do?
+  > Import existing dotfiles
+
+? Where are your dotfiles? ~/dotfiles
+
+→ Analyzing directory structure...
+✓ Detected: GNU Stow setup
+
+? Convert GNU Stow configuration to Heimdal? Yes
+
+→ Importing from GNU Stow...
+✓ Found 12 files
+
+Dotfiles to track:
+  1. vim/.vimrc → ~/.vimrc
+  2. zsh/.zshrc → ~/.zshrc
+  3. tmux/.tmux.conf → ~/.tmux.conf
+  ... and 9 more
+
+? Generate heimdal.yaml configuration? Yes
+? Profile name: personal
+
+→ Generating configuration...
+✓ Saved to ~/dotfiles/heimdal.yaml
+
+✓ Import complete!
+```
+
+### Direct Import (Without Wizard)
+
+For quick, non-interactive imports:
+
+```bash
+# Auto-detect tool and import
+heimdal import --path ~/dotfiles
+
+# Import from specific tool
+heimdal import --path ~/dotfiles --from stow
+heimdal import --path ~/dotfiles --from dotbot
+
+# Specify output location
+heimdal import --path ~/dotfiles --output ~/my-config.yaml
+```
+
+The `import` command will:
+1. Detect the dotfile management tool (or use specified tool)
+2. Parse the existing configuration
+3. Generate `heimdal.yaml`
+4. Preserve compatibility settings (e.g., Stow compatibility mode)
+
 ### Initialize Heimdal
 
 Initialize Heimdal on a new machine by cloning your dotfiles repository:
@@ -358,6 +542,229 @@ heimdal status
 heimdal status --verbose
 ```
 
+### View Local Changes
+
+Show differences between local dotfiles and repository:
+
+```bash
+# Show summary of changes
+heimdal diff
+
+# Show detailed changes (line counts)
+heimdal diff --verbose
+
+# Interactive mode (commit or discard changes)
+heimdal diff --interactive
+```
+
+The diff command shows:
+- **Modified files** - Files with content changes
+- **Added files** - New files staged for commit
+- **Deleted files** - Files that were removed
+- **Renamed files** - Files that were moved
+- **Untracked files** - New files not yet in git
+
+**Interactive mode** offers actions:
+- View detailed git diff
+- Commit all or specific files
+- Discard all or specific changes
+- Push to remote after commit
+
+### Manage Packages
+
+Heimdal provides powerful package management commands that work across all package managers:
+
+#### Add Packages
+
+```bash
+# Add package with auto-detection
+heimdal packages add git
+
+# Specify package manager
+heimdal packages add docker --manager homebrew
+
+# Add to specific profile
+heimdal packages add python --profile work-laptop
+
+# Add without installing (just update config)
+heimdal packages add nodejs --no-install
+```
+
+The add command:
+- Auto-detects available package managers
+- Shows package metadata from database
+- Detects and suggests dependencies
+- Updates `heimdal.yaml` configuration
+- Optionally installs immediately
+
+#### Remove Packages
+
+```bash
+# Remove package
+heimdal packages remove docker
+
+# Remove from specific profile
+heimdal packages remove python --profile work-laptop
+
+# Force removal (skip dependency warnings)
+heimdal packages remove nodejs --force
+
+# Remove without uninstalling
+heimdal packages remove vim --no-uninstall
+```
+
+The remove command:
+- Finds package in configuration
+- Checks for dependent packages
+- Updates `heimdal.yaml` configuration
+- Optionally uninstalls from system
+
+#### Search Packages
+
+```bash
+# Fuzzy search by name or description
+heimdal packages search neovim
+
+# Filter by category
+heimdal packages search editor --category editor
+
+# Filter by tag
+heimdal packages search docker --tag container
+```
+
+The search command features:
+- **Fuzzy matching** - Finds packages even with typos
+- **Smart scoring** - Prioritizes exact matches over fuzzy matches
+- **Installation status** - Shows which packages are already installed (✓/○)
+- **Relevance indicators** - ★ highly relevant / ☆ relevant / · fuzzy match
+- **Rich metadata** - Displays descriptions, popularity, alternatives
+
+Available categories: development, editor, terminal, language, container, infrastructure, database, network, application
+
+#### Smart Package Suggestions
+
+```bash
+# Suggest packages for current directory
+heimdal packages suggest
+
+# Suggest for specific directory
+heimdal packages suggest --directory ~/projects/my-app
+```
+
+The suggest command:
+- **Auto-detects technologies** - Scans for `package.json`, `Cargo.toml`, `requirements.txt`, etc.
+- **Context-aware recommendations** - Suggests tools based on detected project types
+- **Relevance scoring** - Prioritizes essential tools for detected technologies
+- **Installation status** - Shows which suggested packages are already installed
+
+Supports 15+ tool patterns: Node.js, Python, Rust, Go, Docker, Kubernetes, and more.
+
+#### Package Groups
+
+```bash
+# List all package groups
+heimdal packages list-groups
+
+# List groups by category
+heimdal packages list-groups --category development
+
+# Show group details
+heimdal packages show-group web-dev
+
+# Search for groups
+heimdal packages search-groups rust
+
+# Install a package group
+heimdal packages add-group web-dev
+
+# Include optional packages
+heimdal packages add-group web-dev --include-optional
+
+# Dry-run to preview
+heimdal packages add-group rust-dev --dry-run
+```
+
+**Available Groups** (15 curated collections):
+- `essential` - Core system utilities
+- `web-dev` - Web development stack (Node.js, TypeScript, etc.)
+- `rust-dev` - Rust development tools
+- `python-dev` - Python environment
+- `go-dev` - Go development
+- `docker` - Container ecosystem
+- `editors` - Modern text editors
+- `shells` - Shell enhancements
+- `terminal-tools` - CLI productivity tools
+- `network` - Network debugging
+- `monitoring` - System monitoring
+- `security` - Security and encryption tools
+- `cloud` - Cloud provider CLIs
+- `database` - Database management tools
+- `media` - Media processing tools
+
+#### Package Version Management
+
+```bash
+# Check for outdated packages
+heimdal packages outdated
+
+# Check all packages (not just profile)
+heimdal packages outdated --all
+
+# Upgrade specific package
+heimdal packages upgrade docker
+
+# Upgrade all outdated packages
+heimdal packages upgrade --all
+
+# Dry-run upgrade
+heimdal packages upgrade --all --dry-run
+```
+
+The version management system:
+- **Cross-platform** - Works with Homebrew, APT, DNF, Pacman
+- **Version comparison** - Shows installed vs. available versions
+- **Colored output** - Red for outdated, green for up-to-date
+- **Bulk operations** - Upgrade multiple packages at once
+
+#### List Packages
+
+```bash
+# List packages in current profile
+heimdal packages list
+
+# List packages in specific profile
+heimdal packages list --profile work-laptop
+```
+
+Available categories: development, editor, terminal, language, container, infrastructure, database, network, application
+
+#### Get Package Info
+
+```bash
+# Show detailed package information
+heimdal packages info neovim
+```
+
+Shows:
+- Description and category
+- Alternative packages
+- Related packages
+- Dependencies (required and optional)
+- Tags and popularity
+
+#### List Packages
+
+```bash
+# List all packages in current profile
+heimdal packages list
+
+# Show only installed packages
+heimdal packages list --installed
+
+# List packages in specific profile
+heimdal packages list --profile work-laptop
+```
+
 ### Auto-Sync
 
 Enable automatic background synchronization:
@@ -405,6 +812,237 @@ heimdal history
 # Show last 20 commits
 heimdal history 20
 ```
+
+### Git Operations
+
+Heimdal provides comprehensive git workflow management for your dotfiles:
+
+#### Commit Changes
+
+```bash
+# Commit with auto-generated message
+heimdal commit --auto
+
+# Commit with custom message
+heimdal commit -m "Add nvim config"
+
+# Commit and push
+heimdal commit -m "Update zshrc" --push
+
+# Commit specific files
+heimdal commit -m "Update vim config" vim/.vimrc
+```
+
+The commit command:
+- Auto-stages files before committing
+- Generates smart commit messages based on changes
+- Optional push to remote after commit
+- Shows git status before committing
+
+#### Push and Pull
+
+```bash
+# Push to default remote
+heimdal push
+
+# Push to specific remote
+heimdal push --remote upstream
+
+# Push specific branch
+heimdal push --branch main
+
+# Pull from remote
+heimdal pull
+
+# Pull with rebase
+heimdal pull --rebase
+```
+
+#### Branch Management
+
+```bash
+# Show current branch
+heimdal branch current
+
+# List all branches
+heimdal branch list
+
+# Create and switch to new branch
+heimdal branch create feature-branch
+
+# Switch to existing branch
+heimdal branch switch main
+
+# Show tracking information
+heimdal branch info
+```
+
+The branch info shows:
+- Current branch name
+- Upstream tracking branch
+- Commits ahead/behind remote
+- Sync status
+
+#### Remote Management
+
+```bash
+# List remotes
+heimdal remote list
+heimdal remote list -v  # Show URLs
+
+# Add new remote
+heimdal remote add origin git@github.com:user/dotfiles.git
+
+# Remove remote
+heimdal remote remove upstream
+
+# Change remote URL
+heimdal remote set-url origin https://github.com/user/dotfiles.git
+
+# Show remote details
+heimdal remote show origin
+
+# Interactive remote setup (recommended for first-time setup)
+heimdal remote setup
+```
+
+The interactive remote setup:
+- Shows existing remotes if any
+- Prompts for remote name (default: origin)
+- Prompts for remote URL (SSH or HTTPS)
+- Handles replacing existing remotes
+- Optionally pushes after adding remote
+
+### Profile Management
+
+Heimdal's powerful profile system allows you to manage different configurations for different machines or use cases (work laptop, personal desktop, server, etc.).
+
+#### Switch Profiles
+
+Switch between different profiles with automatic configuration reapply:
+
+```bash
+# Switch to a profile (auto-applies configuration)
+heimdal profile switch work
+
+# Switch without auto-applying
+heimdal profile switch work --no-apply
+```
+
+#### View Profile Information
+
+```bash
+# Show currently active profile
+heimdal profile current
+
+# Show details about a specific profile
+heimdal profile show work
+
+# Show resolved configuration (after inheritance)
+heimdal profile show work --resolved
+
+# List all available profiles
+heimdal profile list
+
+# List with details
+heimdal profile list --verbose
+```
+
+#### Compare Profiles
+
+Compare dotfiles and packages between profiles:
+
+```bash
+# Compare current profile with another
+heimdal profile diff work
+
+# Compare two specific profiles
+heimdal profile diff personal work
+```
+
+The diff shows:
+- **Common items** - Shared between both profiles
+- **Only in profile 1** - Unique to first profile
+- **Only in profile 2** - Unique to second profile
+
+#### Profile Templates
+
+Create new profiles from built-in templates:
+
+```bash
+# List available templates
+heimdal profile templates
+```
+
+**Available templates:**
+- `minimal` - Basic shell config only
+- `developer` - Dev tools and editor configs
+- `devops` - Infrastructure and deployment tools
+- `macos-desktop` - macOS GUI and window management
+- `linux-server` - Server configuration
+- `workstation` - Comprehensive setup with all features
+
+**Create from template:**
+
+```bash
+# Create a new profile from a template
+heimdal profile create my-work --template developer
+
+# The new profile will be added to heimdal.yaml
+# Edit it to customize packages and dotfiles
+```
+
+#### Clone Profiles
+
+Duplicate an existing profile for customization:
+
+```bash
+# Clone a profile
+heimdal profile clone work work-laptop
+
+# The cloned profile will have the same configuration
+# Edit heimdal.yaml to customize it
+```
+
+#### Conditional Dotfiles
+
+Apply dotfiles conditionally based on OS, profile, environment, or hostname:
+
+```yaml
+profiles:
+  work:
+    dotfiles:
+      files:
+        - source: vim/.vimrc
+          target: ~/.vimrc
+          # This file will only be linked on macOS or Linux
+          when:
+            os: ["macos", "linux"]
+        
+        - source: work/.ssh/config
+          target: ~/.ssh/config
+          # Only link for work profile
+          when:
+            profile: ["work"]
+        
+        - source: aws/.aws/config
+          target: ~/.aws/config
+          # Only link when WORK_ENV variable is set
+          when:
+            env: "WORK_ENV=true"
+        
+        - source: vpn/vpn.conf
+          target: /etc/vpn.conf
+          # Only link on machines with hostname starting with "work-"
+          when:
+            hostname: "work-*"
+```
+
+**Condition types:**
+- `os`: ["macos", "linux", "windows"] - Operating system
+- `profile`: ["work", "personal"] - Profile names
+- `env`: "VAR=value" or just "VAR" - Environment variables
+- `hostname`: "pattern" - Hostname with glob support
 
 ### List Profiles
 
@@ -598,11 +1236,54 @@ sync:
 
 ### Package Name Mapping
 
-Heimdal automatically maps tool names to package names across different package managers. For example, `docker` becomes `docker.io` on APT but stays `docker` on Homebrew.
+Heimdal automatically maps tool names to package names across different package managers. The enhanced mapper includes:
 
-Built-in mappings include: git, vim, neovim, docker, gcc, fd, ripgrep, bat, fzf, zoxide, and many more.
+**60+ Built-in Mappings:**
+- Core tools: git, vim, neovim, tmux, curl, wget, tree, make
+- Terminal utilities: ripgrep, bat, fd, fzf, htop, zsh, starship, jq
+- Programming languages: node, python, go, rust
+- Containers: docker, docker-compose, kubectl, helm, k9s
+- Infrastructure: terraform, ansible
+- Databases: postgresql, redis, mysql, sqlite
+- Git tools: gh, delta, lazygit
+- And many more...
 
-You can override mappings in your config:
+**Smart Name Normalization:**
+```bash
+# Common aliases are automatically normalized
+nodejs  → node
+golang  → go
+postgres → postgresql
+k8s     → kubectl
+rg      → ripgrep
+nvim    → neovim
+```
+
+**Fuzzy Matching for Typos:**
+```bash
+# Heimdal suggests corrections for misspelled packages
+ripgrap  → suggests 'ripgrep'
+dokcer   → suggests 'docker'
+kubctl   → suggests 'kubectl'
+```
+
+**Platform-Specific Translations:**
+```yaml
+# Same package, different names across platforms
+docker:
+  apt: docker.io       # Debian/Ubuntu
+  brew: docker         # macOS
+  dnf: docker          # Fedora
+  pacman: docker       # Arch
+
+node:
+  apt: nodejs          # Debian/Ubuntu
+  brew: node           # macOS
+  dnf: nodejs          # Fedora
+  pacman: nodejs       # Arch
+```
+
+You can still override any mapping in your config:
 
 ```yaml
 mappings:
@@ -612,6 +1293,85 @@ mappings:
     dnf: "mytool-rpm"
     pacman: "mytool-arch"
 ```
+
+### Template System
+
+Heimdal includes a simple template system for machine-specific configurations. Use `{{ variable }}` syntax to substitute values based on the current machine and profile.
+
+**Built-in System Variables:**
+- `{{ os }}` - Operating system (linux, macos, windows)
+- `{{ arch }}` - Architecture (x86_64, aarch64, arm)
+- `{{ family }}` - OS family (unix, windows)
+- `{{ hostname }}` - Machine hostname
+- `{{ user }}` - Current user
+- `{{ home }}` - Home directory path
+
+**Example `.gitconfig.tmpl`:**
+```ini
+[user]
+    name = {{ name }}
+    email = {{ email }}
+
+[core]
+    editor = vim
+
+# Machine-specific settings
+[http]
+    proxy = {{ http_proxy }}
+```
+
+**Configuration in `heimdal.yaml`:**
+```yaml
+# Global variables
+templates:
+  variables:
+    name: "John Doe"
+    http_proxy: ""
+
+profiles:
+  work-laptop:
+    templates:
+      variables:
+        email: "john@company.com"      # Override for work
+        http_proxy: "proxy.company.com"
+      files:
+        - src: .gitconfig.tmpl
+          dest: .gitconfig
+
+  personal:
+    templates:
+      variables:
+        email: "john@personal.com"     # Override for personal
+      files:
+        - src: .gitconfig.tmpl
+          dest: .gitconfig
+```
+
+**Auto-Detection:**
+Heimdal automatically detects `.tmpl` files in your dotfiles directory:
+```bash
+~/.dotfiles/
+├── .gitconfig.tmpl   # Auto-detected
+├── .zshrc.tmpl       # Auto-detected
+└── heimdal.yaml
+```
+
+**Template Commands:**
+```bash
+# Preview how a template will be rendered
+heimdal template preview .gitconfig.tmpl
+
+# List all template files
+heimdal template list -v
+
+# Show all available variables
+heimdal template variables
+```
+
+**Variable Priority:**
+Profile variables > Config variables > System variables
+
+This means profile-specific variables override global config variables, which override built-in system variables.
 
 ### Conflict Resolution
 
