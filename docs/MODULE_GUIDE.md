@@ -370,34 +370,100 @@ src/
 
 ## Dependency Graph
 
+### Module Dependencies
+
+```mermaid
+graph TD
+    Main[main.rs] --> CLI[cli.rs]
+    Main --> Commands
+    Main --> Wizard
+    
+    Commands --> PackageCmd[commands/packages/*]
+    Commands --> StateCmd[commands/state/*]
+    
+    PackageCmd --> Package[package/]
+    PackageCmd --> Config[config/]
+    PackageCmd --> State[state/]
+    
+    StateCmd --> State
+    StateCmd --> Config
+    
+    Wizard --> Config
+    Wizard --> Package
+    Wizard --> Profile[profile/]
+    
+    Config --> Schema[config/schema.rs]
+    Config --> Loader[config/loader.rs]
+    
+    Package --> Manager[package/manager.rs]
+    Package --> Database[package/database/]
+    Package --> Mapper[package/mapper.rs]
+    
+    Database --> Core[database/core.rs]
+    Database --> Cache[database/cache.rs]
+    Database --> Search[database/search.rs]
+    
+    Profile --> Config
+    Profile --> State
+    
+    Symlink[symlink/] --> Stow[symlink/stow.rs]
+    Symlink --> Conflict[symlink/conflict.rs]
+    
+    Sync[sync/] --> Git[git/]
+    Sync --> State
+    
+    Templates[templates/] --> Secrets[secrets/]
+    
+    Git --> Operations[git/operations.rs]
+    
+    State --> Lock[state/lock.rs]
+    State --> ConflictMgr[state/conflict.rs]
+    
+    Secrets --> Keychain[(OS Keychain)]
+    
+    Utils[utils/] -.-> All[All Modules]
+    
+    style Main fill:#e1f5ff
+    style Config fill:#fff4e1
+    style Package fill:#e8f5e9
+    style State fill:#ffcdd2
+    style Utils fill:#f0f0f0
 ```
-                    main.rs (entry point)
-                         │
-                    ┌────┴────┐
-                    │   cli   │
-                    └────┬────┘
-                         │
-         ┌───────────────┼───────────────┐
-         │               │               │
-    ┌────▼────┐    ┌────▼────┐    ┌────▼────┐
-    │ wizard  │    │commands │    │  sync   │
-    └────┬────┘    └────┬────┘    └────┬────┘
-         │              │              │
-         └──────┬───────┴──────┬───────┘
-                │              │
-         ┌──────▼───┐    ┌─────▼─────┐
-         │  config  │    │   state   │
-         └──────┬───┘    └─────┬─────┘
-                │              │
-         ┌──────┴──────┬───────┴─────┐
-         │             │             │
-    ┌────▼────┐  ┌─────▼─────┐ ┌────▼────┐
-    │ package │  │  symlink  │ │   git   │
-    └────┬────┘  └───────────┘ └─────────┘
-         │
-    ┌────▼────┐
-    │database │
-    └─────────┘
+
+### Data Flow Between Modules
+
+```mermaid
+flowchart LR
+    subgraph Input
+        User([User Command])
+        ConfigFile[heimdal.yaml]
+    end
+    
+    subgraph Processing
+        CLI --> Config
+        Config --> Profile
+        Profile --> Package
+        Package --> State
+        State --> Output
+    end
+    
+    subgraph External
+        PackageDB[(Package DB)]
+        GitRepo[(Git Repo)]
+        OSKeychain[(Keychain)]
+    end
+    
+    User --> CLI
+    ConfigFile --> Config
+    Package <--> PackageDB
+    State <--> GitRepo
+    Config <--> OSKeychain
+    
+    Output([Result])
+    
+    style Input fill:#e1f5ff
+    style Processing fill:#fff4e1
+    style External fill:#f0f0f0
 ```
 
 ## Common Patterns
@@ -419,6 +485,33 @@ pub fn load_config(path: &Path) -> Result<Config> {
 }
 ```
 
+**Real Example from `src/config/loader.rs`:**
+```rust
+pub fn load_config(config_path: Option<&Path>) -> Result<Config> {
+    let path = config_path
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| {
+            dirs::home_dir()
+                .expect("Could not find home directory")
+                .join(".heimdal")
+                .join("heimdal.yaml")
+        });
+
+    if !path.exists() {
+        anyhow::bail!("Config file not found at {:?}", path);
+    }
+
+    let content = fs::read_to_string(&path)
+        .context(format!("Failed to read config file: {:?}", path))?;
+    
+    let config: Config = serde_yaml::from_str(&content)
+        .context("Failed to parse YAML configuration")?;
+    
+    validate_config(&config)?;
+    Ok(config)
+}
+```
+
 ### Logging
 Use the `log` crate macros:
 
@@ -431,6 +524,200 @@ error!("Failed to create symlink: {}", err);
 debug!("Resolved package name: {} -> {}", canonical, platform);
 ```
 
+**Real Example from `src/package/database/loader.rs`:**
+```rust
+pub async fn load_database() -> Result<PackageDatabase> {
+    debug!("Loading package database...");
+    
+    let cache_path = get_cache_path()?;
+    
+    if cache_path.exists() && !is_cache_stale(&cache_path)? {
+        info!("Loading package database from cache: {:?}", cache_path);
+        return load_from_cache(&cache_path);
+    }
+    
+    info!("Cache stale or missing, downloading fresh database...");
+    download_and_cache_database().await
+}
+```
+
+### Package Manager Trait Pattern
+All package managers implement a common trait:
+
+**Real Example from `src/package/manager.rs`:**
+```rust
+/// Common interface for all package managers
+pub trait PackageManager: Send + Sync {
+    /// Name of the package manager
+    fn name(&self) -> &str;
+
+    /// Check if this package manager is available on the system
+    fn is_available(&self) -> bool;
+
+    /// Check if a package is installed
+    fn is_installed(&self, package: &str) -> bool;
+
+    /// Install a package
+    fn install(&self, package: &str, dry_run: bool) -> Result<()>;
+
+    /// Install multiple packages at once (more efficient)
+    fn install_many(&self, packages: &[String], dry_run: bool) 
+        -> Result<Vec<InstallResult>>;
+
+    /// Update package manager's package list
+    fn update(&self, dry_run: bool) -> Result<()>;
+}
+
+// Example implementation for Homebrew
+pub struct Homebrew;
+
+impl PackageManager for Homebrew {
+    fn name(&self) -> &str {
+        "homebrew"
+    }
+
+    fn is_available(&self) -> bool {
+        Command::new("brew")
+            .arg("--version")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
+    }
+
+    fn is_installed(&self, package: &str) -> bool {
+        Command::new("brew")
+            .args(["list", package])
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
+    }
+
+    fn install(&self, package: &str, dry_run: bool) -> Result<()> {
+        if dry_run {
+            info!("DRY RUN: Would install package: {}", package);
+            return Ok(());
+        }
+
+        let status = Command::new("brew")
+            .args(["install", package])
+            .status()
+            .context("Failed to execute brew install")?;
+
+        if !status.success() {
+            anyhow::bail!("Failed to install package: {}", package);
+        }
+
+        Ok(())
+    }
+
+    // ... other methods
+}
+```
+
+### Configuration Struct Pattern
+
+**Real Example from `src/config/schema.rs`:**
+```rust
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    /// Active profile name
+    pub profile: Option<String>,
+    
+    /// All defined profiles
+    pub profiles: HashMap<String, Profile>,
+    
+    /// Dotfiles configuration
+    pub dotfiles: Option<DotfilesConfig>,
+    
+    /// Git sync configuration
+    pub sync: Option<SyncConfig>,
+    
+    /// Global settings
+    pub settings: Option<Settings>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Profile {
+    /// Profile display name
+    pub name: String,
+    
+    /// Inherit from another profile
+    pub inherits: Option<String>,
+    
+    /// Packages to install
+    pub packages: Vec<String>,
+    
+    /// Template variables
+    pub variables: Option<HashMap<String, String>>,
+    
+    /// Platform-specific overrides
+    pub platforms: Option<HashMap<String, PlatformConfig>>,
+}
+```
+
+### State Management Pattern
+
+**Real Example from `src/state/mod.rs`:**
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct State {
+    /// Active profile name
+    pub active_profile: String,
+    
+    /// Installed packages with metadata
+    pub installed_packages: Vec<InstalledPackage>,
+    
+    /// Applied dotfiles with checksums
+    pub applied_dotfiles: Vec<AppliedDotfile>,
+    
+    /// Last sync timestamp
+    pub last_sync: Option<DateTime<Utc>>,
+    
+    /// State lock information
+    pub lock: Option<StateLock>,
+}
+
+impl State {
+    /// Load state from disk
+    pub fn load() -> Result<Self> {
+        let state_path = Self::state_path()?;
+        
+        if !state_path.exists() {
+            return Ok(Self::default());
+        }
+        
+        let content = fs::read_to_string(&state_path)
+            .context("Failed to read state file")?;
+        
+        let state: State = serde_json::from_str(&content)
+            .context("Failed to parse state JSON")?;
+        
+        Ok(state)
+    }
+    
+    /// Save state to disk
+    pub fn save(&self) -> Result<()> {
+        let state_path = Self::state_path()?;
+        let state_dir = state_path.parent()
+            .context("Invalid state path")?;
+        
+        fs::create_dir_all(state_dir)
+            .context("Failed to create state directory")?;
+        
+        let content = serde_json::to_string_pretty(self)
+            .context("Failed to serialize state")?;
+        
+        fs::write(&state_path, content)
+            .context("Failed to write state file")?;
+        
+        Ok(())
+    }
+}
+```
+
 ### Testing
 Tests are colocated with source files using `#[cfg(test)]`:
 
@@ -441,14 +728,80 @@ mod tests {
 
     #[test]
     fn test_package_search() {
-        // Test implementation
+        let db = PackageDatabase::new();
+        let results = db.search("nodejs");
+        assert!(!results.is_empty());
+    }
+    
+    #[test]
+    fn test_config_validation() {
+        let config = Config {
+            profile: Some("work".to_string()),
+            profiles: HashMap::new(),
+            dotfiles: None,
+            sync: None,
+            settings: None,
+        };
+        
+        let result = validate_config(&config);
+        assert!(result.is_err()); // Missing required profile
     }
 }
 ```
 
-See [Testing Guide](dev/TESTING.md) for more details.
+**Real Example from `src/package/mapper.rs`:**
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_common_package_mappings() {
+        let mapper = PackageMapper::new();
+        
+        // Test Node.js mapping
+        assert_eq!(
+            mapper.map_package_name("nodejs", Platform::MacOS),
+            "node"
+        );
+        
+        // Test Python mapping
+        assert_eq!(
+            mapper.map_package_name("python3", Platform::Ubuntu),
+            "python3"
+        );
+        
+        // Test package manager specific names
+        assert_eq!(
+            mapper.map_package_name("httpie", Platform::MacOS),
+            "httpie"
+        );
+    }
+    
+    #[test]
+    fn test_platform_detection() {
+        let platform = detect_platform();
+        assert!(platform.is_ok());
+    }
+}
+```
 
 ## Adding New Features
+
+### Quick Navigation for Common Tasks
+
+| Want to... | Start here | Key files |
+|------------|------------|-----------|
+| Add a new CLI command | `src/cli.rs` | `src/commands/`, `src/main.rs` |
+| Support new package manager | `src/package/manager.rs` | `src/package/mapper.rs` |
+| Modify configuration schema | `src/config/schema.rs` | `src/config/loader.rs` |
+| Change state management | `src/state/mod.rs` | `src/state/lock.rs` |
+| Add template features | `src/templates/engine.rs` | `src/templates/variables.rs` |
+| Implement new import format | `src/import/` | Create new file in `import/` |
+| Modify symlink behavior | `src/symlink/linker.rs` | `src/symlink/stow.rs` |
+| Change Git operations | `src/git/operations.rs` | `src/sync/manager.rs` |
+| Add secret storage options | `src/secrets/store.rs` | Update to support new backends |
+| Extend wizard functionality | `src/wizard/mod.rs` | `src/wizard/prompts.rs` |
 
 ### Adding a New Command
 
