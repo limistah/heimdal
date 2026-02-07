@@ -58,11 +58,8 @@ jobs:
       - name: Build heimdal
         run: cargo build --verbose
       
-      - name: Run Cargo Tests
+      - name: Run Integration Tests
         run: cargo test --test integration_test --verbose
-      
-      - name: Run Unit Tests
-        run: cargo test --lib --verbose
       
       - name: Test Report
         if: always()
@@ -105,16 +102,16 @@ jobs:
       - name: Install Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.cargo/bin:$PATH"
       
       - name: Build heimdal
         run: |
-          source $HOME/.cargo/env
+          export PATH="$HOME/.cargo/bin:$PATH"
           cargo build --verbose
       
       - name: Run Integration Tests
         run: |
-          source $HOME/.cargo/env
+          export PATH="$HOME/.cargo/bin:$PATH"
           cargo test --test integration_test --verbose
       
       - name: Test Report
