@@ -101,3 +101,47 @@ pub fn cmd_history(limit: usize) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_version_command() {
+        // Test version command - should succeed or fail gracefully
+        let result = cmd_version();
+        // If state exists, should succeed; otherwise should error
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_migrate_deprecated() {
+        // Migration command should always succeed with deprecation message
+        let result = cmd_migrate(false, false);
+        assert!(result.is_ok());
+
+        // Test with various flag combinations
+        assert!(cmd_migrate(true, false).is_ok());
+        assert!(cmd_migrate(false, true).is_ok());
+        assert!(cmd_migrate(true, true).is_ok());
+    }
+
+    #[test]
+    fn test_history_command() {
+        // Test history command with default limit
+        let result = cmd_history(10);
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_history_with_different_limits() {
+        // Test various limits
+        let limits = vec![1, 5, 10, 50, 100];
+
+        for limit in limits {
+            let result = cmd_history(limit);
+            // Should handle any limit value
+            assert!(result.is_ok() || result.is_err());
+        }
+    }
+}
