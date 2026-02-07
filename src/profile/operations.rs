@@ -9,7 +9,8 @@ use crate::state::HeimdallState;
 pub fn switch_profile(profile_name: &str, auto_apply: bool) -> Result<(bool, String)> {
     // Load state and config
     let mut state = HeimdallState::load()?;
-    let config = load_config(&state.dotfiles_path)?;
+    let config_path = state.dotfiles_path.join("heimdal.yaml");
+    let config = load_config(&config_path)?;
 
     // Validate that the profile exists
     if !config.profiles.contains_key(profile_name) {
@@ -60,7 +61,8 @@ pub fn get_current_profile() -> Result<String> {
 /// Show detailed information about a profile
 pub fn show_profile_info(profile_name: Option<&str>, show_resolved: bool) -> Result<()> {
     let state = HeimdallState::load()?;
-    let config = load_config(&state.dotfiles_path)?;
+    let config_path = state.dotfiles_path.join("heimdal.yaml");
+    let config = load_config(&config_path)?;
 
     let profile_name = profile_name.unwrap_or(&state.active_profile);
 
@@ -172,7 +174,8 @@ pub fn show_profile_info(profile_name: Option<&str>, show_resolved: bool) -> Res
 /// List all available profiles
 pub fn list_profiles(verbose: bool) -> Result<()> {
     let state = HeimdallState::load()?;
-    let config = load_config(&state.dotfiles_path)?;
+    let config_path = state.dotfiles_path.join("heimdal.yaml");
+    let config = load_config(&config_path)?;
 
     println!("{}", "Available Profiles:".cyan().bold());
     println!("{}", "─".repeat(50).dimmed());
@@ -230,7 +233,8 @@ pub fn list_profiles(verbose: bool) -> Result<()> {
 /// Compare two profiles
 pub fn diff_profiles(profile1: Option<&str>, profile2: &str) -> Result<()> {
     let state = HeimdallState::load()?;
-    let config = load_config(&state.dotfiles_path)?;
+    let config_path = state.dotfiles_path.join("heimdal.yaml");
+    let config = load_config(&config_path)?;
 
     let profile1_name = profile1.unwrap_or(&state.active_profile);
 

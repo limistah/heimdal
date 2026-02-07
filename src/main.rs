@@ -1746,7 +1746,7 @@ fn cmd_profile_create(profile_name: &str, template_name: &str) -> Result<()> {
     let config_path = state.dotfiles_path.join("heimdal.yaml");
 
     // Load existing config
-    let mut config = config::load_config(&state.dotfiles_path)?;
+    let mut config = config::load_config(&config_path)?;
 
     // Check if profile already exists
     if config.profiles.contains_key(profile_name) {
@@ -1792,7 +1792,7 @@ fn cmd_profile_clone(source_name: &str, target_name: &str) -> Result<()> {
     let config_path = state.dotfiles_path.join("heimdal.yaml");
 
     // Load existing config
-    let mut config = config::load_config(&state.dotfiles_path)?;
+    let mut config = config::load_config(&config_path)?;
 
     // Check if source profile exists
     let source_profile = config
