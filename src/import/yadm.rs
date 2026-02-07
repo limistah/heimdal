@@ -102,7 +102,7 @@ impl Importer for YadmImporter {
         info_fmt!("Found {} files tracked by yadm", tracked_files.len());
 
         // Convert to DotfileMapping
-        let home_dir = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+        let _home_dir = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
         let dotfiles: Vec<DotfileMapping> = tracked_files
             .iter()
             .map(|file| {

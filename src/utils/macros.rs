@@ -1,6 +1,5 @@
 /// Logging macros that accept format! style arguments
 /// These reduce boilerplate by eliminating the need for `&format!(...)`
-
 #[macro_export]
 macro_rules! info_fmt {
     ($($arg:tt)*) => {

@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::process;
 
 /// Current state schema version
 pub const STATE_VERSION: u32 = 2;

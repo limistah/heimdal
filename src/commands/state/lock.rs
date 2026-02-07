@@ -3,7 +3,6 @@ use colored::Colorize;
 use std::path::PathBuf;
 
 use crate::state::lock::{LockManager, StateLock};
-use crate::state::versioned::HeimdallStateV2;
 
 /// Show current lock status
 pub fn cmd_lock_info() -> Result<()> {

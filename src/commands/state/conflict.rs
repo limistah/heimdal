@@ -54,8 +54,8 @@ pub fn cmd_resolve(strategy: String, yes: bool) -> Result<()> {
     println!("{}", "Resolving state conflicts...".cyan());
     println!("  Strategy: {:?}", resolution_strategy);
 
-    // Load local state
-    let local_state =
+    // Load local state (TODO: use this in actual conflict resolution)
+    let _local_state =
         HeimdallStateV2::load().map_err(|e| anyhow!("Failed to load local state: {}", e))?;
 
     // Confirm if not yes
