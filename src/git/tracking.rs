@@ -16,6 +16,7 @@ pub enum ChangeType {
 
 impl ChangeType {
     /// Get color for display
+    #[allow(dead_code)]
     pub fn color(&self) -> colored::Color {
         use colored::Color;
         match self {
@@ -41,6 +42,7 @@ impl ChangeType {
     }
 
     /// Get description
+    #[allow(dead_code)]
     pub fn description(&self) -> &str {
         match self {
             ChangeType::Modified => "Modified",
@@ -65,6 +67,7 @@ pub struct FileChange {
 
 impl FileChange {
     /// Format change for display
+    #[allow(dead_code)]
     pub fn format(&self) -> String {
         use colored::Colorize;
 
@@ -79,6 +82,7 @@ impl FileChange {
     }
 
     /// Get line statistics string
+    #[allow(dead_code)]
     pub fn line_stats(&self) -> Option<String> {
         match (self.lines_added, self.lines_removed) {
             (Some(added), Some(removed)) => {
@@ -150,6 +154,7 @@ impl GitRepo {
     }
 
     /// Get list of tracked files that are modified
+    #[allow(dead_code)]
     pub fn get_modified_files(&self) -> Result<Vec<String>> {
         let changes = self.get_changes()?;
         Ok(changes
@@ -160,6 +165,7 @@ impl GitRepo {
     }
 
     /// Get list of untracked files
+    #[allow(dead_code)]
     pub fn get_untracked_files(&self) -> Result<Vec<String>> {
         let changes = self.get_changes()?;
         Ok(changes

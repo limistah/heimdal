@@ -7,6 +7,7 @@ use crate::config::PacmanSource;
 
 /// Pacman package manager (Arch Linux, Manjaro)
 pub struct Pacman {
+    #[allow(dead_code)]
     source: PacmanSource,
     base: BaseManager,
 }

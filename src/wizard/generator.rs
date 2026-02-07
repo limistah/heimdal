@@ -17,6 +17,7 @@ pub struct ConfigGenerator {
 
 impl ConfigGenerator {
     /// Create a new config generator with default smart profile name
+    #[allow(dead_code)]
     pub fn new_smart() -> Self {
         Self {
             profile_name: Self::generate_smart_profile_name(),
@@ -40,6 +41,7 @@ impl ConfigGenerator {
 
     /// Generate a smart profile name based on hostname and OS
     /// Examples: "work-mac", "personal-linux", "server-ubuntu"
+    #[allow(dead_code)]
     pub fn generate_smart_profile_name() -> String {
         let hostname = hostname::get()
             .ok()

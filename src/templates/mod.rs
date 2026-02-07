@@ -131,6 +131,8 @@ fn auto_detect_templates(dotfiles_dir: &Path) -> Result<Vec<crate::config::schem
 /// Result of a rendered template
 #[derive(Debug, Clone)]
 pub struct RenderedTemplate {
+    #[allow(dead_code)]
     pub src: PathBuf,
+    #[allow(dead_code)]
     pub dest: PathBuf,
 }

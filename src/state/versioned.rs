@@ -300,6 +300,7 @@ impl HeimdallStateV2 {
     }
 
     /// Record an operation in history
+    #[allow(dead_code)]
     pub fn record_operation(&mut self, operation: &str, description: &str) {
         let op = StateOperation {
             operation: operation.to_string(),
@@ -335,6 +336,7 @@ impl HeimdallStateV2 {
     }
 
     /// Check binary version compatibility
+    #[allow(dead_code)]
     pub fn check_version_compatibility(&self) -> Result<VersionCompatibility> {
         let current_version = env!("CARGO_PKG_VERSION");
 
@@ -373,6 +375,7 @@ impl HeimdallStateV2 {
         Ok(VersionCompatibility::Compatible)
     }
 
+    #[allow(dead_code)]
     fn parse_version(ver: &str) -> Result<(u32, u32, u32)> {
         // Strip pre-release and build metadata (anything after '-' or '+')
         // e.g., "1.2.3-alpha.1+build.5" -> "1.2.3"
@@ -415,6 +418,7 @@ impl HeimdallStateV2 {
     }
 
     /// Get the backup directory path (always in ~/.heimdal)
+    #[allow(dead_code)]
     pub fn backup_dir() -> Result<PathBuf> {
         let home = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("Failed to determine home directory"))?;
@@ -422,17 +426,20 @@ impl HeimdallStateV2 {
     }
 
     /// Update last sync timestamp
+    #[allow(dead_code)]
     pub fn update_sync_time(&mut self) {
         self.last_sync = Some(Utc::now());
     }
 
     /// Update last apply timestamp
+    #[allow(dead_code)]
     pub fn update_apply_time(&mut self) {
         self.last_apply = Some(Utc::now());
     }
 }
 
 /// Version compatibility status
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum VersionCompatibility {
     /// Exact version match
@@ -462,6 +469,7 @@ pub enum VersionCompatibility {
 }
 
 impl VersionCompatibility {
+    #[allow(dead_code)]
     pub fn is_safe(&self) -> bool {
         matches!(
             self,

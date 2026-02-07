@@ -30,11 +30,13 @@ impl TemplateEngine {
     }
 
     /// Add a variable for substitution
+    #[allow(dead_code)]
     pub fn add_variable(&mut self, key: &str, value: &str) {
         self.variables.insert(key.to_string(), value.to_string());
     }
 
     /// Add multiple variables
+    #[allow(dead_code)]
     pub fn add_variables(&mut self, vars: HashMap<String, String>) {
         self.variables.extend(vars);
     }
@@ -105,6 +107,7 @@ impl TemplateEngine {
     }
 
     /// Check if a template has undefined variables
+    #[allow(dead_code)]
     pub fn validate(&self, template: &str) -> Result<Vec<String>> {
         let used_vars = Self::find_variables(template);
         let mut missing = Vec::new();
@@ -119,6 +122,7 @@ impl TemplateEngine {
     }
 
     /// Check if a file is a template (has .tmpl extension)
+    #[allow(dead_code)]
     pub fn is_template_file(path: &Path) -> bool {
         path.extension()
             .and_then(|ext| ext.to_str())
@@ -128,6 +132,7 @@ impl TemplateEngine {
 
     /// Get output path for a template file
     /// Example: .gitconfig.tmpl → .gitconfig
+    #[allow(dead_code)]
     pub fn get_output_path(template_path: &Path) -> Option<String> {
         let path_str = template_path.to_str()?;
 

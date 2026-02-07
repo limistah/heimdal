@@ -85,6 +85,7 @@ impl GitRepo {
     }
 
     /// Get repository path
+    #[allow(dead_code)]
     pub fn path(&self) -> &Path {
         &self.path
     }

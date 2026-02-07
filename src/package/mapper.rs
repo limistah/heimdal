@@ -319,6 +319,7 @@ pub fn normalize_package_name(name: &str) -> String {
 ///
 /// Returns the best matching package name if the similarity is above 0.85
 /// Uses Jaro-Winkler distance for similarity calculation
+#[allow(dead_code)]
 pub fn fuzzy_match_package(query: &str, available: &[&str]) -> Option<String> {
     let query_lower = query.to_lowercase();
     let mut best_match = None;
@@ -338,6 +339,7 @@ pub fn fuzzy_match_package(query: &str, available: &[&str]) -> Option<String> {
 }
 
 /// Get all available package names for fuzzy matching
+#[allow(dead_code)]
 pub fn get_available_packages() -> Vec<&'static str> {
     BUILTIN_MAPPINGS.keys().copied().collect()
 }
@@ -345,6 +347,7 @@ pub fn get_available_packages() -> Vec<&'static str> {
 /// Find suggestions for a misspelled or unknown package
 ///
 /// First tries normalization, then fuzzy matching
+#[allow(dead_code)]
 pub fn suggest_package(name: &str) -> Option<String> {
     // Try normalization first
     let normalized = normalize_package_name(name);

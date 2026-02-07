@@ -8,13 +8,15 @@ pub enum ConflictStrategy {
     Prompt, // Ask user what to do
     Backup, // Automatically backup existing file
     Force,  // Overwrite without asking
-    Skip,   // Don't create symlink
+    #[allow(dead_code)]
+    Skip, // Don't create symlink
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConflictResolution {
     Overwrite,
     Backup,
+    #[allow(dead_code)]
     Skip,
 }
 

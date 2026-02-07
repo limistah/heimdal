@@ -268,6 +268,7 @@ impl GitRepo {
     }
 
     /// Fetch from remote
+    #[allow(dead_code)]
     pub fn fetch(&self) -> Result<()> {
         step("Fetching from remote...");
 

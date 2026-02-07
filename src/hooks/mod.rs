@@ -16,14 +16,17 @@ pub enum HookContext {
     /// After syncing from remote
     PostSync,
     /// After linking a dotfile
+    #[allow(dead_code)]
     PostLink,
     /// Before unlinking a dotfile
+    #[allow(dead_code)]
     PreUnlink,
     /// Before installing a package
     PreInstall,
     /// After installing a package
     PostInstall,
     /// Custom context
+    #[allow(dead_code)]
     Custom(&'static str),
 }
 
@@ -46,8 +49,10 @@ impl HookContext {
 /// Result of executing a hook
 #[derive(Debug, Clone)]
 pub struct HookResult {
+    #[allow(dead_code)]
     pub command: String,
     pub success: bool,
+    #[allow(dead_code)]
     pub output: Option<String>,
     pub skipped: bool,
 }

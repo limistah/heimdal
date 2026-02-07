@@ -19,6 +19,7 @@ pub enum ChangeType {
     /// File has been renamed
     Renamed,
     /// File type changed (file -> symlink, etc.)
+    #[allow(dead_code)]
     TypeChanged,
 }
 
@@ -35,6 +36,7 @@ impl ChangeType {
     }
 
     /// Get a description of the change type
+    #[allow(dead_code)]
     fn description(&self) -> &str {
         match self {
             ChangeType::Modified => "modified",

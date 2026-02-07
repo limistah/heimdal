@@ -24,6 +24,7 @@ pub struct DetectedTool {
     /// Tool name (e.g., "Node.js", "Rust", "Python")
     pub name: String,
     /// File patterns used for detection (e.g., "package.json", "Cargo.toml")
+    #[allow(dead_code)]
     pub patterns: Vec<String>,
     /// Actual detected file paths that matched the patterns
     pub detected_files: Vec<String>,
@@ -287,6 +288,7 @@ impl SuggestionEngine {
     }
 
     /// Suggest packages based on commonly used tools together
+    #[allow(dead_code)]
     pub fn suggest_related(&self, installed: &[String]) -> Vec<PackageSuggestion<'_>> {
         let mut suggestions = Vec::new();
         let installed_set: HashSet<_> = installed.iter().collect();
@@ -335,6 +337,7 @@ impl SuggestionEngine {
     }
 
     /// Get the package database
+    #[allow(dead_code)]
     pub fn database(&self) -> &PackageDatabase {
         &self.db
     }

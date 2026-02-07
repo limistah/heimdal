@@ -12,6 +12,7 @@ use crate::utils::{info, step, success, symlink_error, SymlinkErrorType};
 /// Result of a symlink operation
 #[derive(Debug, Clone)]
 pub struct SymlinkResult {
+    #[allow(dead_code)]
     pub source: PathBuf,
     pub target: PathBuf,
     pub success: bool,

@@ -43,6 +43,7 @@ pub struct PackageStatus {
 pub enum InstallStatus {
     Installed,
     NotInstalled,
+    #[allow(dead_code)]
     Unknown,
 }
 
@@ -51,6 +52,7 @@ pub enum InstallStatus {
 pub struct StatusInfo {
     pub profile: String,
     pub dotfiles_path: PathBuf,
+    #[allow(dead_code)]
     pub repo_url: String,
     pub last_sync: Option<String>,
     pub last_apply: Option<String>,
