@@ -68,7 +68,7 @@ fi
 # ==============================================
 test_header "Test 2.3: Config validation"
 
-if heimdal config validate > /dev/null 2>&1; then
+if heimdal validate > /dev/null 2>&1; then
     test_pass "Config validation passed"
 else
     test_fail "Config validation failed"
