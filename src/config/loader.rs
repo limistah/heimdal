@@ -23,10 +23,8 @@ pub fn validate_config(config: &HeimdallConfig) -> Result<()> {
         anyhow::bail!("heimdal.version cannot be empty");
     }
 
-    // Check repo URL
-    if config.heimdal.repo.is_empty() {
-        anyhow::bail!("heimdal.repo cannot be empty");
-    }
+    // Repo is optional - it can be specified in config or stored in state
+    // No validation needed here
 
     // Check that at least one profile exists
     if config.profiles.is_empty() {
@@ -76,7 +74,7 @@ mod tests {
         let config = HeimdallConfig {
             heimdal: HeimdallMeta {
                 version: "".to_string(),
-                repo: "test".to_string(),
+                repo: Some("test".to_string()),
                 stow_compat: true,
             },
             sources: Sources::default(),

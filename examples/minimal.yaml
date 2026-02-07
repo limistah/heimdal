@@ -2,7 +2,7 @@
 
 heimdal:
   version: "1.0"
-  repo: "git@github.com:yourusername/dotfiles.git"
+  repo: "git@github.com:yourusername/dotfiles.git"  # Optional: can be specified or stored in state
   stow_compat: true
 
 sources:

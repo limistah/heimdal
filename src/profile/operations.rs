@@ -361,7 +361,7 @@ mod tests {
         let config = HeimdallConfig {
             heimdal: HeimdallMeta {
                 version: "1.0".to_string(),
-                repo: "test".to_string(),
+                repo: Some("test".to_string()),
                 stow_compat: true,
             },
             sources: Sources::default(),
