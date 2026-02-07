@@ -82,6 +82,7 @@ pub fn generate_commit_message(changes: &[FileChange]) -> Result<String> {
 }
 
 /// Generate a detailed commit message with body
+#[allow(dead_code)]
 pub fn generate_detailed_message(changes: &[FileChange]) -> Result<String> {
     let subject = generate_commit_message(changes)?;
 

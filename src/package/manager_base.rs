@@ -1,16 +1,18 @@
 use anyhow::{Context, Result};
 use std::process::Command;
 
-use super::manager::{command_exists, InstallResult, PackageManager};
+use super::manager::InstallResult;
 use crate::utils::{error, info, package_error, step, success, PackageErrorType};
 
 /// Configuration for a package manager
 pub struct ManagerConfig {
     pub name: &'static str,
     pub command: &'static str,
+    #[allow(dead_code)]
     pub check_command: Option<&'static str>,
     pub install_cmd: Vec<&'static str>,
     pub list_cmd: Vec<&'static str>,
+    #[allow(dead_code)]
     pub update_cmd: Vec<&'static str>,
     pub use_sudo: bool,
     pub supports_batch: bool,
@@ -183,6 +185,7 @@ impl BaseManager {
     }
 
     /// Default implementation of update
+    #[allow(dead_code)]
     pub fn update_default(&self, dry_run: bool) -> Result<()> {
         step(&format!("Updating {} package list...", self.config.name));
 

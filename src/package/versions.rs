@@ -40,6 +40,7 @@ impl PackageVersion {
     }
 
     /// Check if package is installed
+    #[allow(dead_code)]
     pub fn is_installed(&self) -> bool {
         self.installed.is_some()
     }

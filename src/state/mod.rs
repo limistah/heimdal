@@ -110,6 +110,7 @@ impl HeimdallState {
     }
 
     /// Get the backup directory path (~/.heimdal/backups)
+    #[allow(dead_code)]
     pub fn backup_dir() -> Result<PathBuf> {
         Ok(Self::state_dir()?.join("backups"))
     }

@@ -13,12 +13,14 @@ pub trait PackageManager: Send + Sync {
     fn is_installed(&self, package: &str) -> bool;
 
     /// Install a package
+    #[allow(dead_code)]
     fn install(&self, package: &str, dry_run: bool) -> Result<()>;
 
     /// Install multiple packages at once (more efficient)
     fn install_many(&self, packages: &[String], dry_run: bool) -> Result<Vec<InstallResult>>;
 
     /// Update package manager's package list
+    #[allow(dead_code)]
     fn update(&self, dry_run: bool) -> Result<()>;
 }
 
@@ -70,6 +72,7 @@ pub fn command_exists(cmd: &str) -> bool {
 }
 
 /// Run a shell command and return its output
+#[allow(dead_code)]
 pub fn run_command(cmd: &str, args: &[&str], use_sudo: bool) -> Result<std::process::Output> {
     if use_sudo {
         let mut sudo_args = vec!["sudo", cmd];

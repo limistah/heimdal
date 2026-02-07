@@ -147,8 +147,10 @@ pub fn package_error(package: &str, manager: &str, error_type: PackageErrorType)
 }
 
 /// Type of package error
+#[allow(dead_code)]
 pub enum PackageErrorType {
     PackageNotFound,
+    #[allow(dead_code)]
     ManagerNotFound,
     InstallationFailed(String),
 }
@@ -202,9 +204,12 @@ pub fn config_error(file: &str, error_type: ConfigErrorType) -> String {
 }
 
 /// Type of configuration error
+#[allow(dead_code)]
 pub enum ConfigErrorType {
     FileNotFound,
+    #[allow(dead_code)]
     ParseError(String),
+    #[allow(dead_code)]
     ValidationError(String, String),
 }
 

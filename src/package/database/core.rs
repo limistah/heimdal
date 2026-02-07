@@ -148,11 +148,13 @@ impl PackageDatabase {
     }
 
     /// Check if a package exists in the database
+    #[allow(dead_code)]
     pub fn contains(&self, name: &str) -> bool {
         self.packages.contains_key(name)
     }
 
     /// Search packages by name or description (case-insensitive)
+    #[allow(dead_code)]
     pub fn search(&self, query: &str) -> Vec<&PackageInfo> {
         let query_lower = query.to_lowercase();
         let mut results: Vec<&PackageInfo> = self
@@ -252,6 +254,7 @@ impl PackageDatabase {
     }
 
     /// Search packages by tag
+    #[allow(dead_code)]
     pub fn search_by_tag(&self, tag: &str) -> Vec<&PackageInfo> {
         let tag_lower = tag.to_lowercase();
         let mut results: Vec<&PackageInfo> = self
@@ -270,6 +273,7 @@ impl PackageDatabase {
     }
 
     /// Get packages by category
+    #[allow(dead_code)]
     pub fn by_category(&self, category: &PackageCategory) -> Vec<&PackageInfo> {
         let mut results: Vec<&PackageInfo> = self
             .packages
@@ -282,6 +286,7 @@ impl PackageDatabase {
     }
 
     /// Get the most popular packages (top N)
+    #[allow(dead_code)]
     pub fn popular(&self, limit: usize) -> Vec<&PackageInfo> {
         let mut results: Vec<&PackageInfo> = self.packages.values().collect();
         results.sort_by(|a, b| b.popularity.cmp(&a.popularity));
@@ -289,6 +294,7 @@ impl PackageDatabase {
     }
 
     /// Get alternative packages for a given package
+    #[allow(dead_code)]
     pub fn get_alternatives(&self, package: &str) -> Vec<&PackageInfo> {
         if let Some(pkg) = self.get(package) {
             pkg.alternatives
@@ -301,6 +307,7 @@ impl PackageDatabase {
     }
 
     /// Get related packages for a given package
+    #[allow(dead_code)]
     pub fn get_related(&self, package: &str) -> Vec<&PackageInfo> {
         if let Some(pkg) = self.get(package) {
             pkg.related.iter().filter_map(|rel| self.get(rel)).collect()
@@ -310,12 +317,14 @@ impl PackageDatabase {
     }
 
     /// Get all packages as a vec
+    #[allow(dead_code)]
     pub fn all(&self) -> Vec<&PackageInfo> {
         self.packages.values().collect()
     }
 
     /// Check if a package is installed on the system
     /// This checks the most common package managers for the current platform
+    #[allow(dead_code)]
     pub fn is_package_installed(package_name: &str) -> bool {
         use std::process::Command;
 

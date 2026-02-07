@@ -10,6 +10,7 @@ pub struct DotfileScanner {
 /// A scanned dotfile with metadata
 #[derive(Debug, Clone)]
 pub struct ScannedDotfile {
+    #[allow(dead_code)]
     pub path: PathBuf,
     pub relative_path: String,
     pub category: DotfileCategory,

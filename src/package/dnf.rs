@@ -7,6 +7,7 @@ use crate::config::DnfSource;
 
 /// DNF package manager (Fedora, RHEL, CentOS)
 pub struct Dnf {
+    #[allow(dead_code)]
     source: DnfSource,
     base: BaseManager,
 }

@@ -325,6 +325,7 @@ impl MissingDependency {
     }
 
     /// Check if this is a required dependency
+    #[allow(dead_code)]
     pub fn is_required(&self) -> bool {
         self.dependency.required
     }
@@ -333,16 +334,20 @@ impl MissingDependency {
 /// Represents a suggested package
 #[derive(Debug, Clone)]
 pub struct Suggestion {
+    #[allow(dead_code)]
     /// The suggested package name
     pub package: String,
     /// Why this is suggested
+    #[allow(dead_code)]
     pub reason: String,
     /// The package that triggered this suggestion
+    #[allow(dead_code)]
     pub related_to: String,
 }
 
 impl Suggestion {
     /// Format as a user-friendly message
+    #[allow(dead_code)]
     pub fn format_message(&self) -> String {
         format!("💡 Consider '{}': {}", self.package, self.reason)
     }
@@ -417,6 +422,7 @@ impl AnalysisResult {
     }
 
     /// Get all missing packages (required + optional)
+    #[allow(dead_code)]
     pub fn all_missing_packages(&self) -> Vec<String> {
         let mut packages: Vec<String> = self
             .required_missing
@@ -431,6 +437,7 @@ impl AnalysisResult {
     }
 
     /// Format a summary of the analysis
+    #[allow(dead_code)]
     pub fn format_summary(&self) -> String {
         let mut lines = Vec::new();
 

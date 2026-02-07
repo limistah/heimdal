@@ -584,6 +584,7 @@ impl StateGuard {
         })
     }
 
+    #[allow(dead_code)]
     pub fn lock(&self) -> Result<&StateLock> {
         self.lock
             .as_ref()

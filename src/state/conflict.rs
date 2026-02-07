@@ -347,6 +347,7 @@ impl ConflictResolver {
     }
 
     /// Update checksums for tracked files
+    #[allow(dead_code)]
     pub fn update_checksums(state: &mut HeimdallStateV2) -> Result<()> {
         state.checksums.clear();
 
@@ -361,7 +362,9 @@ impl ConflictResolver {
 pub struct FileDrift {
     pub file: String,
     pub kind: DriftKind,
+    #[allow(dead_code)]
     pub stored_checksum: String,
+    #[allow(dead_code)]
     pub current_checksum: Option<String>,
 }
 
@@ -369,6 +372,7 @@ pub struct FileDrift {
 pub enum DriftKind {
     Modified,
     Missing,
+    #[allow(dead_code)]
     Added,
 }
 

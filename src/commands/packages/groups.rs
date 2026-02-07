@@ -297,17 +297,6 @@ pub fn search_groups(query: &str) -> Result<()> {
     Ok(())
 }
 
-// Simulation functions for testing (will be replaced with real implementation)
-fn is_package_installed_simulation(_pkg: &str) -> bool {
-    // In real implementation, check if package is actually installed
-    false
-}
-
-fn install_package_simulation(_pkg: &str) -> Result<()> {
-    // In real implementation, call actual package manager
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

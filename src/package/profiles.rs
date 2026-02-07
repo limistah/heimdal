@@ -24,6 +24,7 @@ pub enum ProfileType {
     /// Writer/content creator tools
     Writer,
     /// Custom profile with user-defined packages
+    #[allow(dead_code)]
     Custom(String),
 }
 
@@ -99,6 +100,7 @@ impl ProfileType {
 /// A package profile with platform-specific package lists
 #[derive(Debug, Clone)]
 pub struct PackageProfile {
+    #[allow(dead_code)]
     pub profile_type: ProfileType,
     pub base_packages: Vec<String>,
     pub macos_packages: Vec<String>,
@@ -161,6 +163,7 @@ impl PackageProfile {
     }
 
     /// Get package count for the current platform
+    #[allow(dead_code)]
     pub fn package_count(&self) -> usize {
         self.resolve_packages().len()
     }
@@ -420,6 +423,7 @@ impl ProfileSelector {
     }
 
     /// Get all profile types
+    #[allow(dead_code)]
     pub fn get_all(&self) -> &[ProfileType] {
         &self.profiles
     }

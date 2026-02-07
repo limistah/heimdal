@@ -80,11 +80,13 @@ fn detect_linux_distro() -> LinuxDistro {
 }
 
 /// Check if running on macOS
+#[allow(dead_code)]
 pub fn is_macos() -> bool {
     matches!(detect_os(), OperatingSystem::MacOS)
 }
 
 /// Check if running on Linux
+#[allow(dead_code)]
 pub fn is_linux() -> bool {
     matches!(detect_os(), OperatingSystem::Linux(_))
 }

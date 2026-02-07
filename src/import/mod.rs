@@ -36,6 +36,7 @@ impl DotfileTool {
 /// Result of importing from another tool
 #[derive(Debug)]
 pub struct ImportResult {
+    #[allow(dead_code)]
     pub tool: DotfileTool,
     pub dotfiles: Vec<DotfileMapping>,
     pub packages: Vec<String>,
@@ -64,6 +65,7 @@ pub enum ConflictResolution {
 }
 
 /// Options for importing dotfiles
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ImportOptions {
     pub conflict_resolution: ConflictResolution,
