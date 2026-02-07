@@ -68,11 +68,14 @@ fi
 # ==============================================
 test_header "Test 2.3: Config validation"
 
+# validate command looks for heimdal.yaml in current directory
+cd "$DOTFILES_DIR"
 if heimdal validate > /dev/null 2>&1; then
     test_pass "Config validation passed"
 else
     test_fail "Config validation failed"
 fi
+cd "$TEST_DIR"
 
 # ==============================================
 # Test 2.4: View Current Config
@@ -82,9 +85,18 @@ test_header "Test 2.4: View current configuration"
 if output=$(heimdal config show 2>&1); then
     test_pass "Config show command succeeded"
     
-    # Check for expected sections
-    check_string_in_file <(echo "$output") "heimdal:" "heimdal section in config"
-    check_string_in_file <(echo "$output") "profiles:" "profiles section in config"
+    # Check for expected sections in output string directly
+    if echo "$output" | grep -q "heimdal:"; then
+        test_pass "Found heimdal section in config"
+    else
+        test_fail "heimdal section not found in config"
+    fi
+    
+    if echo "$output" | grep -q "profiles:"; then
+        test_pass "Found profiles section in config"
+    else
+        test_fail "profiles section not found in config"
+    fi
 else
     test_fail "Config show command failed"
 fi
