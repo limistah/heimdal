@@ -133,8 +133,10 @@ impl SecretStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_secret_store_operations() {
         let store = SecretStore::new().unwrap();
         let test_name = "heimdal_test_secret";

@@ -2,12 +2,11 @@
 //!
 //! Handles conflicts when multiple machines modify state concurrently
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
-use super::versioned::{HeimdallStateV2, StateLineage};
+use super::versioned::HeimdallStateV2;
 
 /// Conflict detection result
 #[derive(Debug, Clone)]

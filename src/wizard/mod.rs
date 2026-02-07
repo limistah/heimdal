@@ -65,7 +65,7 @@ fn detect_package_manager() -> PackageManager {
         OperatingSystem::MacOS => PackageManager::Homebrew,
         OperatingSystem::Linux(distro) => match distro {
             LinuxDistro::Debian | LinuxDistro::Ubuntu => PackageManager::Apt,
-            LinuxDistro::Fedora | LinuxDistro::RHEL | LinuxDistro::CentOS => PackageManager::Dnf,
+            LinuxDistro::Fedora | LinuxDistro::Rhel | LinuxDistro::CentOS => PackageManager::Dnf,
             LinuxDistro::Arch | LinuxDistro::Manjaro => PackageManager::Pacman,
             _ => PackageManager::Homebrew, // fallback
         },
@@ -238,7 +238,8 @@ fn wizard_start_fresh() -> Result<()> {
     match package_choice {
         // Use profile
         0 => {
-            use crate::package::{PackageDatabase, PackageProfile, ProfileSelector};
+            use crate::package::profiles::{PackageProfile, ProfileSelector};
+            use crate::package::PackageDatabase;
 
             let selector = ProfileSelector::new();
             let options = selector.options();

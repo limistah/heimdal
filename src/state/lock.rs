@@ -5,13 +5,12 @@
 //! - Git-based distributed locks (for multi-machine coordination)
 //! - Conflict detection and resolution strategies
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
-use std::time::Duration;
 
 /// Lock configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

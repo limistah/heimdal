@@ -81,15 +81,11 @@ fn merge_profile(resolved: &mut ResolvedProfile, profile: &Profile) -> Result<()
                             }
                         }
                     }
-                    ("github", SourceOverride::Github { repos }) => {
-                        if let Some(repos) = repos {
-                            resolved.sources.github.extend(repos.clone());
-                        }
+                    ("github", SourceOverride::Github { repos: Some(repos) }) => {
+                        resolved.sources.github.extend(repos.clone());
                     }
-                    ("custom", SourceOverride::Custom { items }) => {
-                        if let Some(items) = items {
-                            resolved.sources.custom.extend(items.clone());
-                        }
+                    ("custom", SourceOverride::Custom { items: Some(items) }) => {
+                        resolved.sources.custom.extend(items.clone());
                     }
                     _ => {}
                 }

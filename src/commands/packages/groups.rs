@@ -132,7 +132,9 @@ pub fn add_group(id: &str, include_optional: bool, dry_run: bool, no_install: bo
     // Get the package database for detailed info
     let db = PackageDatabase::new();
 
+    #[allow(unused_mut)] // Will be used when installation is fully implemented
     let mut installed = 0;
+    #[allow(unused_mut)] // Will be used when installation is fully implemented
     let mut already_installed = 0;
     let mut not_found = Vec::new();
     let mut failed = Vec::new();

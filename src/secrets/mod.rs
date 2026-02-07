@@ -1,6 +1,6 @@
 pub mod store;
 
-pub use store::{Secret, SecretStore};
+pub use store::SecretStore;
 
 use anyhow::Result;
 use std::collections::HashMap;
@@ -24,8 +24,10 @@ pub fn get_secret_variables() -> Result<HashMap<String, String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_secret_template_integration() {
         let store = SecretStore::new().unwrap();
         let test_name = "heimdal_template_test";

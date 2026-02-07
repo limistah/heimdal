@@ -90,7 +90,7 @@ pub fn run_add(
 
     // Check for dependencies
     let analyzer = DependencyAnalyzer::new();
-    let analysis = analyzer.analyze(&[mapped_name.clone()]);
+    let analysis = analyzer.analyze(std::slice::from_ref(&mapped_name));
 
     let all_missing: Vec<_> = analysis
         .required_missing
@@ -450,7 +450,7 @@ mod tests {
     #[test]
     fn test_detect_available_managers() {
         let managers = detect_available_managers();
-        // At least we should be able to run this without panicking
-        assert!(managers.len() >= 0);
+        // Verify we got some managers (or empty list, both are valid)
+        let _ = managers;
     }
 }

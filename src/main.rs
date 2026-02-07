@@ -2171,7 +2171,7 @@ fn cmd_template_variables(profile_name: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-fn cmd_packages_update_all(dry_run: bool, yes: bool) -> Result<()> {
+fn cmd_packages_update_all(_dry_run: bool, _yes: bool) -> Result<()> {
     use crate::utils::{error, header};
 
     header("Update All Packages");

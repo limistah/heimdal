@@ -14,11 +14,10 @@ pub mod versions;
 
 pub use database::PackageDatabase;
 pub use dependencies::DependencyAnalyzer;
-pub use groups::{GroupRegistry, PackageGroup};
+pub use groups::GroupRegistry;
 pub use manager::{InstallResult, PackageManager};
 pub use mapper::{map_package_name, PackageManagerType};
-pub use profiles::{PackageProfile, ProfileSelector};
-pub use suggestions::{DetectedTool, PackageSuggestion, SuggestionEngine};
+pub use suggestions::{PackageSuggestion, SuggestionEngine};
 pub use versions::{PackageVersion, VersionChecker};
 
 use anyhow::Result;
@@ -51,7 +50,7 @@ pub fn detect_package_manager() -> Option<Arc<dyn PackageManager>> {
                         None
                     }
                 }
-                LinuxDistro::Fedora | LinuxDistro::RHEL | LinuxDistro::CentOS => {
+                LinuxDistro::Fedora | LinuxDistro::Rhel | LinuxDistro::CentOS => {
                     // Use DNF for Fedora/RHEL/CentOS
                     use crate::config::DnfSource;
                     let dnf_source = DnfSource {
