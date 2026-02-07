@@ -16,12 +16,16 @@ test_header "Test 13.1: Handle invalid repository format"
 
 TEST_DIR="$HOME/heimdal-test-invalid-repo"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
 EXPECTED_ERROR="invalid\|not found\|failed" run_failure heimdal init --repo "not-a-valid-repo" --profile test --path "$TEST_DIR/dotfiles"
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 # ==============================================
 # Test 13.2: Missing Permissions
@@ -30,15 +34,19 @@ test_header "Test 13.2: Handle insufficient permissions"
 
 TEST_DIR="$HOME/heimdal-test-permissions"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1 || true
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || true
 
 # Try to create symlink to read-only location (may fail, that's ok)
 test_pass "Permission handling check completed"
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 # ==============================================
 # Test 13.3: Disk Space Handling
@@ -48,14 +56,18 @@ test_header "Test 13.3: Check disk space handling"
 # Just verify the init doesn't completely fail on space checks
 TEST_DIR="$HOME/heimdal-test-diskspace"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-if heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1; then
+if heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1; then
     test_pass "Initialization handles disk space appropriately"
 fi
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 # ==============================================
 # Test 13.4: Network Failure Handling
@@ -65,12 +77,16 @@ test_header "Test 13.4: Handle network failures gracefully"
 # Try to init with a valid format but unreachable repo
 TEST_DIR="$HOME/heimdal-test-network"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
 EXPECTED_ERROR="failed\|could not\|unable" run_failure heimdal init --repo "github-user-does-not-exist-xyz/repo-xyz-123" --profile test --path "$TEST_DIR/dotfiles"
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 # ==============================================
 # Test 13.5: Corrupted Config File
@@ -79,10 +95,12 @@ test_header "Test 13.5: Handle corrupted config file"
 
 TEST_DIR="$HOME/heimdal-test-corrupt"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1 || true
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || true
 
 if [ -f "$TEST_DIR/dotfiles/heimdal.yaml" ]; then
     # Corrupt the config
@@ -97,6 +115,8 @@ if [ -f "$TEST_DIR/dotfiles/heimdal.yaml" ]; then
 fi
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 # ==============================================
 # Test 13.6: Empty Repository
@@ -106,15 +126,19 @@ test_header "Test 13.6: Handle empty repository"
 # Create a test with minimal content
 TEST_DIR="$HOME/heimdal-test-empty"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
 # Real repo should not be empty, but test handling
-if heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1; then
+if heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1; then
     test_pass "Init handles repository content check"
 fi
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 # ==============================================
 # Test 13.7: Special Characters in Paths
@@ -123,16 +147,20 @@ test_header "Test 13.7: Handle special characters in paths"
 
 TEST_DIR="$HOME/heimdal test spaces"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-if heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1; then
+if heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1; then
     test_pass "Handles paths with spaces"
 else
     test_pass "Path with spaces handled (may have limitations)"
 fi
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 # ==============================================
 # Test 13.8: Concurrent Execution
@@ -141,10 +169,12 @@ test_header "Test 13.8: Handle concurrent operations"
 
 TEST_DIR="$HOME/heimdal-test-concurrent"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1 || true
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || true
 
 # State file locking should prevent issues
 if [ -f "$HOME/.heimdal/state.json" ]; then
@@ -152,6 +182,8 @@ if [ -f "$HOME/.heimdal/state.json" ]; then
 fi
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 # ==============================================
 # Test 13.9: Large Repository Handling
@@ -160,15 +192,19 @@ test_header "Test 13.9: Handle repository size"
 
 TEST_DIR="$HOME/heimdal-test-large"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
 # Our test repo is small, but verify init works
-if heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1; then
+if heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1; then
     test_pass "Repository size handling verified"
 fi
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 # ==============================================
 # Test 13.10: Circular Symlinks
@@ -177,10 +213,12 @@ test_header "Test 13.10: Detect circular symlinks"
 
 TEST_DIR="$HOME/heimdal-test-circular"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1 || true
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || true
 
 # Create circular symlink
 ln -s link1 link2 2>/dev/null || true
@@ -189,6 +227,8 @@ ln -s link2 link1 2>/dev/null || true
 test_pass "Circular symlink handling check"
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 # ==============================================
 # Test 13.11: Missing Dependencies
@@ -209,10 +249,12 @@ test_header "Test 13.12: Detect invalid YAML syntax"
 
 TEST_DIR="$HOME/heimdal-test-yaml"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1 || true
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || true
 
 if [ -f "$TEST_DIR/dotfiles/heimdal.yaml" ]; then
     # Save original
@@ -235,6 +277,8 @@ EOF
 fi
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 # ==============================================
 # Test 13.13: Unicode in Filenames
@@ -243,10 +287,12 @@ test_header "Test 13.13: Handle unicode in filenames"
 
 TEST_DIR="$HOME/heimdal-test-unicode"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1 || true
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || true
 
 # Test with unicode filename
 echo "test" > "$TEST_DIR/test-файл.txt" 2>/dev/null || true
@@ -254,6 +300,8 @@ echo "test" > "$TEST_DIR/test-файл.txt" 2>/dev/null || true
 test_pass "Unicode filename handling check"
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 # ==============================================
 # Test 13.14: Symlink Target Missing
@@ -262,6 +310,8 @@ test_header "Test 13.14: Handle missing symlink targets"
 
 TEST_DIR="$HOME/heimdal-test-missing-target"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
@@ -275,6 +325,8 @@ if [ -L broken-link ]; then
 fi
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 # ==============================================
 # Test 13.15: Exit Code Consistency
