@@ -253,6 +253,15 @@ fn main() -> Result<()> {
             } => {
                 commands::packages::run_upgrade(package, all, dry_run)?;
             }
+            PackagesAction::Update { force } => {
+                commands::packages::run_update(force)?;
+            }
+            PackagesAction::CacheInfo => {
+                commands::packages::run_cache_info()?;
+            }
+            PackagesAction::CacheClear => {
+                commands::packages::run_cache_clear()?;
+            }
         },
 
         Commands::Template { action } => match action {

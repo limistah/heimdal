@@ -349,6 +349,19 @@ pub enum PackagesAction {
         #[arg(short = 'n', long)]
         dry_run: bool,
     },
+
+    /// Update the package database
+    Update {
+        /// Force update even if cache is recent
+        #[arg(short, long)]
+        force: bool,
+    },
+
+    /// Show package database cache information
+    CacheInfo,
+
+    /// Clear the package database cache
+    CacheClear,
 }
 
 #[derive(Subcommand, Debug)]
