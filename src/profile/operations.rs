@@ -329,6 +329,7 @@ mod tests {
     use std::collections::HashMap;
     use tempfile::TempDir;
 
+    #[allow(dead_code)]
     fn setup_test_env() -> Result<(TempDir, String)> {
         let temp = TempDir::new()?;
         let dotfiles_path = temp.path().join("dotfiles");

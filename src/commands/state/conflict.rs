@@ -129,8 +129,8 @@ mod tests {
         for strategy in strategies {
             let result = cmd_resolve(strategy.to_string(), true);
             // Should not fail due to invalid strategy
-            if result.is_err() {
-                let err_msg = result.unwrap_err().to_string();
+            if let Err(err) = result {
+                let err_msg = err.to_string();
                 assert!(!err_msg.contains("Invalid strategy"));
             }
         }
