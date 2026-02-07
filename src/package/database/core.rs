@@ -2,7 +2,7 @@ use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 use std::collections::{HashMap, HashSet};
 
-use super::loader::{CompiledDatabase, DatabaseLoader, Package};
+use super::loader::{DatabaseLoader, Package};
 
 /// Package metadata information
 #[derive(Debug, Clone)]

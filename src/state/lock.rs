@@ -584,8 +584,10 @@ impl StateGuard {
         })
     }
 
-    pub fn lock(&self) -> &StateLock {
-        self.lock.as_ref().expect("Lock should exist")
+    pub fn lock(&self) -> Result<&StateLock> {
+        self.lock
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Lock not acquired"))
     }
 }
 
