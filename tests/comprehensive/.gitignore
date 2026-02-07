@@ -1,0 +1,12 @@
+# Test output directories
+logs/
+results/
+reports/
+
+# Test artifacts
+*.log
+*.backup
+*.test-backup
+
+# Temporary test directories
+heimdal-test-*/
