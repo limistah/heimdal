@@ -218,7 +218,7 @@ fn find_dependents(
             continue;
         }
 
-        let analysis = analyzer.analyze(&[pkg.clone()]);
+        let analysis = analyzer.analyze(std::slice::from_ref(&pkg));
         for dep in &analysis.required_missing {
             if dep.dependency.package == package_name {
                 dependents.push(pkg.clone());

@@ -423,7 +423,7 @@ mod tests {
     #[test]
     fn test_registry_initialization() {
         let registry = GroupRegistry::new();
-        assert!(registry.groups.len() > 0);
+        assert!(!registry.groups.is_empty());
     }
 
     #[test]
@@ -438,14 +438,14 @@ mod tests {
     fn test_list_groups() {
         let registry = GroupRegistry::new();
         let groups = registry.list();
-        assert!(groups.len() > 0);
+        assert!(!groups.is_empty());
     }
 
     #[test]
     fn test_list_by_category() {
         let registry = GroupRegistry::new();
         let dev_groups = registry.list_by_category("development");
-        assert!(dev_groups.len() > 0);
+        assert!(!dev_groups.is_empty());
         assert!(dev_groups.iter().all(|g| g.category == "development"));
     }
 
@@ -453,7 +453,7 @@ mod tests {
     fn test_search_groups() {
         let registry = GroupRegistry::new();
         let results = registry.search("rust");
-        assert!(results.len() > 0);
+        assert!(!results.is_empty());
         assert!(results.iter().any(|g| g.id == "rust-dev"));
     }
 
@@ -461,7 +461,7 @@ mod tests {
     fn test_search_by_package_name() {
         let registry = GroupRegistry::new();
         let results = registry.search("docker");
-        assert!(results.len() > 0);
+        assert!(!results.is_empty());
     }
 
     #[test]

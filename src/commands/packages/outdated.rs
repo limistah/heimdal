@@ -24,7 +24,7 @@ pub fn run_outdated(all_packages: bool) -> Result<()> {
     // Get list of packages to check
     let packages = if all_packages {
         info("Checking all installed packages...");
-        get_all_installed_packages(&pm_name)?
+        get_all_installed_packages(pm_name)?
     } else {
         info("Checking packages from current profile...");
         get_profile_packages()?
@@ -39,7 +39,7 @@ pub fn run_outdated(all_packages: bool) -> Result<()> {
     println!();
 
     // Check versions
-    let versions = VersionChecker::check_versions(packages, &pm_name)?;
+    let versions = VersionChecker::check_versions(packages, pm_name)?;
 
     // Filter outdated packages
     let outdated: Vec<&PackageVersion> = versions.iter().filter(|v| v.update_available).collect();
@@ -115,7 +115,7 @@ pub fn run_upgrade(package: Option<String>, all: bool, dry_run: bool) -> Result<
     // Get packages to upgrade
     let packages = if all {
         info("Checking all installed packages...");
-        get_all_installed_packages(&pm_name)?
+        get_all_installed_packages(pm_name)?
     } else if let Some(pkg) = package {
         vec![pkg]
     } else {
@@ -129,7 +129,7 @@ pub fn run_upgrade(package: Option<String>, all: bool, dry_run: bool) -> Result<
     }
 
     // Check which packages need updates
-    let versions = VersionChecker::check_versions(packages.clone(), &pm_name)?;
+    let versions = VersionChecker::check_versions(packages.clone(), pm_name)?;
     let outdated: Vec<&PackageVersion> = versions.iter().filter(|v| v.update_available).collect();
 
     if outdated.is_empty() {
