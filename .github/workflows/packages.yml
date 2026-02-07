@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Set version
         run: |
@@ -67,14 +67,11 @@ jobs:
       
       - name: Upload to Release
         if: github.event_name == 'release'
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./${{ env.PACKAGE_FILE }}
-          asset_name: ${{ env.PACKAGE_FILE }}
-          asset_content_type: application/vnd.debian.binary-package
+          files: ./${{ env.PACKAGE_FILE }}
       
       - name: Upload as Artifact
         if: github.event_name == 'workflow_dispatch'
@@ -88,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Set version
         run: |
@@ -165,14 +162,11 @@ jobs:
       
       - name: Upload to Release
         if: github.event_name == 'release'
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./${{ env.RPM_FILE }}
-          asset_name: ${{ env.RPM_FILE }}
-          asset_content_type: application/x-rpm
+          files: ./${{ env.RPM_FILE }}
       
       - name: Upload as Artifact
         if: github.event_name == 'workflow_dispatch'
@@ -253,14 +247,11 @@ jobs:
       
       - name: Upload to Release
         if: github.event_name == 'release'
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./${{ env.APK_FILE }}
-          asset_name: ${{ env.APK_FILE }}
-          asset_content_type: application/x-apk
+          files: ./${{ env.APK_FILE }}
       
       - name: Upload as Artifact
         if: github.event_name == 'workflow_dispatch'
