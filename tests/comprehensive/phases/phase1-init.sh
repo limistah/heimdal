@@ -72,7 +72,7 @@ fi
 # ==============================================
 test_header "Test 1.4: State file created correctly"
 
-STATE_FILE="$HOME/.heimdal/state.json"
+STATE_FILE="$HOME/.heimdal/heimdal.state.json"
 
 if check_file_exists "$STATE_FILE" "Heimdal state file"; then
     # Check that state file contains the repo URL
@@ -119,7 +119,8 @@ if [ -d "$DOTFILES_DIR/.git" ]; then
     # Verify it's the correct repository
     cd "$DOTFILES_DIR"
     if remote_url=$(git remote get-url origin 2>/dev/null); then
-        if echo "$remote_url" | grep -q "$TEST_REPO"; then
+        # Match both HTTPS and SSH formats for the same repo
+        if echo "$remote_url" | grep -q "limistah/heimdal-dotfiles-test"; then
             test_pass "Correct repository URL: $remote_url"
         else
             test_fail "Wrong repository URL: $remote_url"
