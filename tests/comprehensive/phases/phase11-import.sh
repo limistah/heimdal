@@ -9,9 +9,11 @@ setup_test_env
 
 TEST_REPO="https://github.com/limistah/heimdal-dotfiles-test.git"
 TEST_DIR="$HOME/heimdal-test-import"
-DOTFILES_DIR="$TEST_DIR/dotfiles"
+DOTFILES_DIR="$HOME/.dotfiles"
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
@@ -73,7 +75,7 @@ test_header "Test 11.5: Initialize heimdal with existing setup"
 cd "$TEST_DIR"
 
 # Initialize heimdal (this should work even with existing files)
-if heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1; then
+if heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1; then
     test_pass "Initialized heimdal successfully"
 else
     test_fail "Failed to initialize heimdal"
@@ -145,6 +147,8 @@ fi
 # ==============================================
 cd "$HOME"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 rm -rf "$HOME/existing-dotfiles"
 rm -rf "$BACKUP_DIR"
 

@@ -11,10 +11,12 @@ setup_test_env
 # Test repository and directories
 TEST_REPO="https://github.com/limistah/heimdal-dotfiles-test.git"
 TEST_DIR="$HOME/heimdal-test-init"
-DOTFILES_DIR="$TEST_DIR/dotfiles"
+DOTFILES_DIR="$HOME/.dotfiles"
 
-# Clean up any existing test directory
+# Clean up any existing test directory and heimdal state
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
@@ -51,7 +53,7 @@ test_header "Test 1.3: Init without repo field in heimdal.yaml (v1.1.1 bugfix)"
 # In v1.1.0 this would fail with "missing field repo" error
 # In v1.1.1 this should succeed
 
-if output=$(heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" 2>&1); then
+if output=$(heimdal init --repo "$TEST_REPO" --profile test 2>&1); then
     test_pass "heimdal init succeeded without repo field"
     
     # Verify the error message is NOT present
@@ -165,7 +167,7 @@ cd "$TEST_DIR"
 
 # Try to init again in the same directory
 # This should either succeed (idempotent) or fail gracefully
-if heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1; then
+if heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1; then
     test_pass "Re-init succeeded (idempotent behavior)"
 else
     # Failure is acceptable if error message is reasonable

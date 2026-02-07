@@ -9,13 +9,15 @@ setup_test_env
 
 TEST_REPO="https://github.com/limistah/heimdal-dotfiles-test.git"
 TEST_DIR="$HOME/heimdal-test-templates"
-DOTFILES_DIR="$TEST_DIR/dotfiles"
+DOTFILES_DIR="$HOME/.dotfiles"
 
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1 || {
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || {
     test_error "Failed to initialize heimdal for template tests"
     phase_summary
 }
@@ -91,5 +93,7 @@ fi
 # ==============================================
 cd "$HOME"
 cleanup_test_dir "$TEST_DIR"
+cleanup_test_dir "$HOME/.dotfiles"
+cleanup_test_dir "$HOME/.heimdal"
 
 phase_summary
