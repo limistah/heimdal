@@ -19,7 +19,7 @@ cleanup_test_dir "$TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-EXPECTED_ERROR="invalid\|not found\|failed" run_failure heimdal init "not-a-valid-repo"
+EXPECTED_ERROR="invalid\|not found\|failed" run_failure heimdal init --repo "not-a-valid-repo" --profile test
 
 cleanup_test_dir "$TEST_DIR"
 
@@ -33,7 +33,7 @@ cleanup_test_dir "$TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init "$TEST_REPO" > /dev/null 2>&1 || true
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || true
 
 # Try to create symlink to read-only location (may fail, that's ok)
 test_pass "Permission handling check completed"
@@ -51,7 +51,7 @@ cleanup_test_dir "$TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-if heimdal init "$TEST_REPO" > /dev/null 2>&1; then
+if heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1; then
     test_pass "Initialization handles disk space appropriately"
 fi
 
@@ -68,7 +68,7 @@ cleanup_test_dir "$TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-EXPECTED_ERROR="failed\|could not\|unable" run_failure heimdal init "github-user-does-not-exist-xyz/repo-xyz-123"
+EXPECTED_ERROR="failed\|could not\|unable" run_failure heimdal init --repo "github-user-does-not-exist-xyz/repo-xyz-123" --profile test
 
 cleanup_test_dir "$TEST_DIR"
 
@@ -82,7 +82,7 @@ cleanup_test_dir "$TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init "$TEST_REPO" > /dev/null 2>&1 || true
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || true
 
 if [ -f "$TEST_DIR/dotfiles/heimdal.yaml" ]; then
     # Corrupt the config
@@ -110,7 +110,7 @@ mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
 # Real repo should not be empty, but test handling
-if heimdal init "$TEST_REPO" > /dev/null 2>&1; then
+if heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1; then
     test_pass "Init handles repository content check"
 fi
 
@@ -126,7 +126,7 @@ cleanup_test_dir "$TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-if heimdal init "$TEST_REPO" > /dev/null 2>&1; then
+if heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1; then
     test_pass "Handles paths with spaces"
 else
     test_pass "Path with spaces handled (may have limitations)"
@@ -144,7 +144,7 @@ cleanup_test_dir "$TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init "$TEST_REPO" > /dev/null 2>&1 || true
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || true
 
 # State file locking should prevent issues
 if [ -f "$HOME/.heimdal/state.json" ]; then
@@ -164,7 +164,7 @@ mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
 # Our test repo is small, but verify init works
-if heimdal init "$TEST_REPO" > /dev/null 2>&1; then
+if heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1; then
     test_pass "Repository size handling verified"
 fi
 
@@ -180,7 +180,7 @@ cleanup_test_dir "$TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init "$TEST_REPO" > /dev/null 2>&1 || true
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || true
 
 # Create circular symlink
 ln -s link1 link2 2>/dev/null || true
@@ -212,7 +212,7 @@ cleanup_test_dir "$TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init "$TEST_REPO" > /dev/null 2>&1 || true
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || true
 
 if [ -f "$TEST_DIR/dotfiles/heimdal.yaml" ]; then
     # Save original
@@ -246,7 +246,7 @@ cleanup_test_dir "$TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init "$TEST_REPO" > /dev/null 2>&1 || true
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || true
 
 # Test with unicode filename
 echo "test" > "$TEST_DIR/test-файл.txt" 2>/dev/null || true

@@ -15,7 +15,7 @@ cleanup_test_dir "$TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init "$TEST_REPO" > /dev/null 2>&1 || {
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || {
     test_error "Failed to initialize heimdal for secret tests"
     phase_summary
 }
