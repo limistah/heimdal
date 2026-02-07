@@ -24,7 +24,8 @@ pub struct HeimdallConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeimdallMeta {
     pub version: String,
-    pub repo: String,
+    #[serde(default)]
+    pub repo: Option<String>,
     #[serde(default = "default_stow_compat")]
     pub stow_compat: bool,
 }

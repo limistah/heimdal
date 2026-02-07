@@ -979,7 +979,9 @@ fn cmd_validate(config_path: Option<&str>) -> Result<()> {
                     // Show summary
                     println!();
                     info(&format!("Version: {}", config.heimdal.version));
-                    info(&format!("Repo: {}", config.heimdal.repo));
+                    if let Some(ref repo) = config.heimdal.repo {
+                        info(&format!("Repo: {}", repo));
+                    }
                     info(&format!("Profiles: {}", config.profiles.len()));
 
                     for (name, profile) in &config.profiles {
