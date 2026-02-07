@@ -73,3 +73,4 @@ keyring = { version = "3.2", features = ["apple-native", "windows-native", "linu
 
 [dev-dependencies]
 tempfile = "3.8"
+serial_test = "3.0"
