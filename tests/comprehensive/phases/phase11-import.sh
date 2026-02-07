@@ -7,7 +7,7 @@ source "$SCRIPT_DIR/../lib/test-lib.sh"
 init_test_phase "Phase 11: Import & Migration" "11"
 setup_test_env
 
-TEST_REPO="limistah/heimdal-dotfiles-test"
+TEST_REPO="https://github.com/limistah/heimdal-dotfiles-test.git"
 TEST_DIR="$HOME/heimdal-test-import"
 DOTFILES_DIR="$TEST_DIR/dotfiles"
 
@@ -73,7 +73,7 @@ test_header "Test 11.5: Initialize heimdal with existing setup"
 cd "$TEST_DIR"
 
 # Initialize heimdal (this should work even with existing files)
-if heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1; then
+if heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1; then
     test_pass "Initialized heimdal successfully"
 else
     test_fail "Failed to initialize heimdal"
