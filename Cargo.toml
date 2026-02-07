@@ -73,3 +73,12 @@ keyring = { version = "3.2", features = ["apple-native", "windows-native", "linu
 
 [dev-dependencies]
 tempfile = "3.8"
+serial_test = "3.0"
+
+# Optimize for smaller binary size in release builds
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Enable Link Time Optimization
+codegen-units = 1   # Better optimization but slower compile
+strip = true        # Strip symbols automatically
+panic = "abort"     # Smaller binary, no stack unwinding
