@@ -264,7 +264,7 @@ impl VersionChecker {
 
                     version.installed = installed_ver.clone();
                     version.latest = available_ver.or(installed_ver);
-                    version.update_available = matches!((&version.installed, &version.latest), 
+                    version.update_available = matches!((&version.installed, &version.latest),
                         (Some(i), Some(l)) if i != l);
                 }
             }
