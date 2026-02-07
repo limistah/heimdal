@@ -348,9 +348,15 @@ mod tests {
         let resolved = resolve_conflicts(conflicts.clone(), &ConflictResolution::Backup).unwrap();
         assert_eq!(resolved.len(), 2);
 
-        // Verify backup files were created using the same logic as generate_backup_path()
-        let backup1 = generate_backup_path(&conflicts[0].destination);
-        let backup2 = generate_backup_path(&conflicts[1].destination);
+        // Verify backup files were created (they should be <original_filename>.backup)
+        let file_name1 = conflicts[0].destination.file_name().unwrap();
+        let file_name2 = conflicts[1].destination.file_name().unwrap();
+        let backup1 = conflicts[0]
+            .destination
+            .with_file_name(format!("{}.backup", file_name1.to_str().unwrap()));
+        let backup2 = conflicts[1]
+            .destination
+            .with_file_name(format!("{}.backup", file_name2.to_str().unwrap()));
         assert!(backup1.exists(), "Backup file should exist: {:?}", backup1);
         assert!(backup2.exists(), "Backup file should exist: {:?}", backup2);
     }
