@@ -415,7 +415,7 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
         let state_v2 = state::HeimdallStateV2::load().unwrap_or_else(|_| {
             // Create new V2 state as fallback
             state::HeimdallStateV2::new("default".to_string(), PathBuf::from("."), "".to_string())
-                .unwrap()
+                .expect("Failed to create default state - this should never fail")
         });
 
         let lock_config = state::lock::LockConfig::default();
@@ -2119,7 +2119,10 @@ fn cmd_template_variables(profile_name: Option<&str>) -> Result<()> {
     let mut system_keys: Vec<_> = system_vars.keys().collect();
     system_keys.sort();
     for key in system_keys {
-        println!("  {} = {}", key.cyan(), system_vars.get(key).unwrap());
+        // Safe unwrap: key comes from keys() iterator
+        if let Some(value) = system_vars.get(key) {
+            println!("  {} = {}", key.cyan(), value);
+        }
     }
 
     // Show config variables
@@ -2128,11 +2131,10 @@ fn cmd_template_variables(profile_name: Option<&str>) -> Result<()> {
         let mut config_keys: Vec<_> = config.templates.variables.keys().collect();
         config_keys.sort();
         for key in config_keys {
-            println!(
-                "  {} = {}",
-                key.cyan(),
-                config.templates.variables.get(key).unwrap()
-            );
+            // Safe unwrap: key comes from keys() iterator
+            if let Some(value) = config.templates.variables.get(key) {
+                println!("  {} = {}", key.cyan(), value);
+            }
         }
     }
 
@@ -2142,11 +2144,10 @@ fn cmd_template_variables(profile_name: Option<&str>) -> Result<()> {
         let mut profile_keys: Vec<_> = profile.templates.variables.keys().collect();
         profile_keys.sort();
         for key in profile_keys {
-            println!(
-                "  {} = {}",
-                key.cyan(),
-                profile.templates.variables.get(key).unwrap()
-            );
+            // Safe unwrap: key comes from keys() iterator
+            if let Some(value) = profile.templates.variables.get(key) {
+                println!("  {} = {}", key.cyan(), value);
+            }
         }
     }
 
@@ -2160,7 +2161,10 @@ fn cmd_template_variables(profile_name: Option<&str>) -> Result<()> {
     let mut merged_keys: Vec<_> = merged_vars.keys().collect();
     merged_keys.sort();
     for key in merged_keys {
-        println!("  {} = {}", key.cyan(), merged_vars.get(key).unwrap());
+        // Safe unwrap: key comes from keys() iterator
+        if let Some(value) = merged_vars.get(key) {
+            println!("  {} = {}", key.cyan(), value);
+        }
     }
 
     println!(
