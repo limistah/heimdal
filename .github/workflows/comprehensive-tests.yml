@@ -1,11 +1,12 @@
-name: Comprehensive Tests
+name: Comprehensive Tests (Legacy - Disabled)
 
 on:
-  push:
-    branches: [master, dev]
+  # Disabled - use Rust CLI Tests workflow instead
+  # push:
+  #   branches: [master, dev]
   workflow_dispatch:
   schedule:
-    # Run weekly on Sunday at 2am UTC
+    # Run weekly on Sunday at 2am UTC (for regression testing)
     - cron: '0 2 * * 0'
 
 env:

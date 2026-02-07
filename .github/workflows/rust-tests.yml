@@ -61,6 +61,9 @@ jobs:
           fi
         shell: bash
       
+      - name: Build heimdal
+        run: cargo build --verbose
+      
       - name: Run Cargo Tests
         run: cargo test --test integration_test --verbose
       
@@ -109,6 +112,11 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      
+      - name: Build heimdal
+        run: |
+          source $HOME/.cargo/env
+          cargo build --verbose
       
       - name: Run Integration Tests
         run: |
