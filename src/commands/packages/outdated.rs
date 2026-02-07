@@ -415,13 +415,101 @@ fn get_profile_packages() -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    fn setup_test_environment() -> Result<(TempDir, TempDir)> {
+        // Create temp directory for dotfiles
+        let dotfiles_dir = TempDir::new()?;
+        let dotfiles_path = dotfiles_dir.path().to_path_buf();
+
+        // Create temp directory for home
+        let home_dir = TempDir::new()?;
+        let heimdal_state_dir = home_dir.path().join(".heimdal");
+        fs::create_dir_all(&heimdal_state_dir)?;
+
+        let state_path = heimdal_state_dir.join("heimdal.state.json");
+
+        // Create a minimal heimdal.yaml config
+        let config_content = r#"
+heimdal:
+  version: "1.0"
+  repo: "test-repo"
+
+sources:
+  homebrew:
+    packages:
+      - git
+      - curl
+    casks:
+      - firefox
+  apt:
+    packages:
+      - vim
+      - tmux
+
+profiles:
+  default:
+    sources:
+      - homebrew
+      - apt
+"#;
+        fs::write(dotfiles_path.join("heimdal.yaml"), config_content)?;
+
+        // Create a minimal state file
+        let state_content = serde_json::json!({
+            "version": 2,
+            "active_profile": "default",
+            "dotfiles_path": dotfiles_path.to_str().unwrap(),
+            "repo_url": "",
+            "last_sync": null,
+            "last_apply": null,
+            "lineage": {
+                "serial": 1,
+                "parent_serial": 0,
+                "timestamp": "2024-01-01T00:00:00Z",
+                "source": "test"
+            }
+        });
+        fs::write(&state_path, serde_json::to_string_pretty(&state_content)?)?;
+
+        // Set HOME to use our test home directory
+        std::env::set_var("HOME", home_dir.path());
+
+        Ok((dotfiles_dir, home_dir))
+    }
 
     #[test]
     fn test_get_profile_packages() {
-        let result = get_profile_packages();
-        assert!(result.is_ok());
-        let packages = result.unwrap();
-        assert!(!packages.is_empty());
+        // Save original HOME to restore after test
+        let original_home = std::env::var("HOME").ok();
+
+        // Setup test environment
+        let result = (|| -> Result<()> {
+            let (_dotfiles, _home) = setup_test_environment()?;
+
+            let result = get_profile_packages()?;
+
+            // Should have packages from our test config (git, curl, firefox, vim, tmux)
+            assert!(!result.is_empty(), "Expected packages from test config");
+            assert!(
+                result.len() >= 3,
+                "Expected at least 3 packages, got {}",
+                result.len()
+            );
+
+            Ok(())
+        })();
+
+        // Restore original HOME
+        if let Some(home) = original_home {
+            std::env::set_var("HOME", home);
+        }
+
+        // Assert the test passed
+        if let Err(e) = result {
+            panic!("Test failed: {:?}", e);
+        }
     }
 
     #[test]
