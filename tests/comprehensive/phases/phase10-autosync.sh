@@ -29,14 +29,14 @@ cd "$DOTFILES_DIR"
 # ==============================================
 test_header "Test 10.1: Check sync status"
 
-if command -v heimdal sync status &> /dev/null; then
-    if heimdal sync status > /dev/null 2>&1; then
-        test_pass "Sync status command succeeded"
+if command -v heimdal auto-sync &> /dev/null; then
+    if heimdal auto-sync status > /dev/null 2>&1; then
+        test_pass "Auto-sync status command succeeded"
     else
-        test_fail "Sync status command failed"
+        test_fail "Auto-sync status command failed"
     fi
 else
-    test_pass "Sync status check (command may not be implemented)"
+    test_pass "Auto-sync status check (command may not be implemented)"
 fi
 
 # ==============================================

@@ -22,7 +22,7 @@ heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || {
     phase_summary
 }
 
-STATE_FILE="$HOME/.heimdal/state.json"
+STATE_FILE="$HOME/.heimdal/heimdal.state.json"
 
 # ==============================================
 # Test 8.1: State File Exists
