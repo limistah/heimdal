@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-02-07
+
+### Documentation
+
+#### Complete Documentation Overhaul (Weeks 1-3)
+
+- **Slim README** - Reduced README from 1,481 to 426 lines (71% reduction)
+  - Focused on quick-start and essential information
+  - Added badges linking to wiki and package database
+  - Moved detailed content to `/docs` and GitHub wiki
+  - Preserved full backup as `README.md.backup-20260207`
+
+- **Technical Documentation in `/docs`**
+  - Created comprehensive `/docs` folder structure:
+    - `docs/ARCHITECTURE.md` (14KB) - System architecture with 8 Mermaid diagrams
+    - `docs/MODULE_GUIDE.md` (23KB) - Codebase navigation with real code examples
+    - `docs/PACKAGE_DATABASE.md` (8KB) - Package database design details
+    - `docs/README.md` - Documentation index and navigation
+  - Moved development guides to `/docs/dev/`:
+    - `docs/dev/CONTRIBUTING.md` - Contribution guidelines
+    - `docs/dev/TESTING.md` (462 lines) - Comprehensive testing guide
+    - `docs/dev/RELEASE.md` (409 lines) - Release process documentation
+
+- **Visual Architecture Diagrams** - Added 10 comprehensive Mermaid diagrams
+  - System architecture diagram showing all components and integrations
+  - Package installation sequence diagram with cross-platform resolution
+  - Dotfile sync sequence diagram with conflict resolution workflow
+  - State management lifecycle state diagram
+  - State file structure component diagram
+  - Git sync workflow with merge and conflict handling
+  - Conflict resolution strategies for file, state, and git conflicts
+  - Module dependency graph showing all module relationships
+  - Data flow diagram between modules
+  - Future plugin system architecture
+
+- **Real Code Examples** - Added 300+ lines of actual code from the codebase
+  - Configuration loading examples from `src/config/loader.rs`
+  - Package manager trait implementation (Homebrew example)
+  - State management patterns from `src/state/mod.rs`
+  - Error handling patterns with `anyhow::Result`
+  - Testing examples with real test cases
+  - Package mapper implementation with platform detection
+  - Configuration schema structs
+
+- **Developer Experience Improvements**
+  - Quick navigation table for common development tasks
+  - Module-by-module breakdown with file locations and line counts
+  - Common patterns section with best practices
+  - "Adding New Features" guide with step-by-step instructions
+
+### Changed
+
+- README now serves as quick-start guide with links to comprehensive documentation
+- Documentation structure follows three-tier strategy:
+  - **README.md** - 60-second quick start
+  - **GitHub Wiki** - Living user documentation (13 comprehensive pages)
+  - **`/docs` folder** - Technical documentation versioned with code
+
 ### Added
 
 #### Week 10: Smart Package Management
