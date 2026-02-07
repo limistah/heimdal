@@ -1,0 +1,322 @@
+name: Comprehensive Tests
+
+on:
+  push:
+    branches: [master, dev]
+  workflow_dispatch:
+  schedule:
+    # Run weekly on Sunday at 2am UTC
+    - cron: '0 2 * * 0'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    name: Build Heimdal
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+          - x86_64-apple-darwin
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+      
+      - name: Upload Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: heimdal-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/heimdal
+          retention-days: 1
+
+  test:
+    name: Test on ${{ matrix.platform }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu
+            os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            
+          - platform: fedora
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            container: fedora:latest
+            
+          - platform: arch
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            container: archlinux:latest
+            
+          - platform: alpine
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            container: alpine:latest
+            
+          - platform: macos
+            os: macos-latest
+            target: x86_64-apple-darwin
+    
+    container: ${{ matrix.container || null }}
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Install Dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git curl bash
+      
+      - name: Install Dependencies (Fedora Container)
+        if: matrix.platform == 'fedora'
+        run: |
+          dnf install -y git curl bash findutils which
+      
+      - name: Install Dependencies (Arch Container)
+        if: matrix.platform == 'arch'
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm git curl bash findutils which
+      
+      - name: Install Dependencies (Alpine Container)
+        if: matrix.platform == 'alpine'
+        run: |
+          apk add --no-cache git curl bash findutils coreutils
+      
+      - name: Install Dependencies (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          brew install git curl bash
+      
+      - name: Download Heimdal Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: heimdal-${{ matrix.target }}
+          path: ./bin
+      
+      - name: Setup Heimdal
+        run: |
+          chmod +x ./bin/heimdal
+          mkdir -p ~/.local/bin
+          cp ./bin/heimdal ~/.local/bin/heimdal
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      
+      - name: Verify Heimdal Installation
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          heimdal --version
+          which heimdal
+      
+      - name: Configure Git
+        run: |
+          git config --global user.name "Heimdal Test"
+          git config --global user.email "test@heimdal.test"
+          git config --global init.defaultBranch main
+      
+      - name: Run Comprehensive Tests
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          LOG_DIR: ${{ github.workspace }}/tests/comprehensive/logs
+          RESULT_DIR: ${{ github.workspace }}/tests/comprehensive/results
+          REPORT_DIR: ${{ github.workspace }}/tests/comprehensive/reports
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          cd tests/comprehensive
+          bash run-all-tests.sh
+      
+      - name: Upload Test Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ matrix.platform }}
+          path: tests/comprehensive/logs/
+          retention-days: 7
+      
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.platform }}
+          path: tests/comprehensive/results/
+          retention-days: 7
+      
+      - name: Upload Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.platform }}
+          path: tests/comprehensive/reports/
+          retention-days: 7
+
+  collect-results:
+    name: Collect Test Results
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download All Results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          path: all-results/
+      
+      - name: Download All Reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-reports-*
+          path: all-reports/
+      
+      - name: Aggregate Results
+        id: aggregate
+        run: |
+          # Count passed and failed platforms
+          total_platforms=0
+          passed_platforms=0
+          failed_platforms=0
+          
+          for platform_dir in all-results/test-results-*; do
+            if [ -d "$platform_dir" ]; then
+              total_platforms=$((total_platforms + 1))
+              platform_name=$(basename "$platform_dir" | sed 's/test-results-//')
+              
+              # Check if any failures exist
+              if find "$platform_dir" -name "failures-*.json" | grep -q .; then
+                failed_platforms=$((failed_platforms + 1))
+                echo "❌ $platform_name: FAILED"
+              else
+                passed_platforms=$((passed_platforms + 1))
+                echo "✅ $platform_name: PASSED"
+              fi
+            fi
+          done
+          
+          echo "total_platforms=$total_platforms" >> $GITHUB_OUTPUT
+          echo "passed_platforms=$passed_platforms" >> $GITHUB_OUTPUT
+          echo "failed_platforms=$failed_platforms" >> $GITHUB_OUTPUT
+          
+          echo ""
+          echo "=========================================="
+          echo "  Comprehensive Test Results"
+          echo "=========================================="
+          echo "Total Platforms:  $total_platforms"
+          echo "Passed Platforms: $passed_platforms"
+          echo "Failed Platforms: $failed_platforms"
+          echo "=========================================="
+      
+      - name: Generate Summary
+        run: |
+          echo "# Comprehensive Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Total Platforms:** ${{ steps.aggregate.outputs.total_platforms }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Passed:** ${{ steps.aggregate.outputs.passed_platforms }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Failed:** ${{ steps.aggregate.outputs.failed_platforms }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Add platform details
+          echo "## Platform Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Platform | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          for platform_dir in all-results/test-results-*; do
+            if [ -d "$platform_dir" ]; then
+              platform_name=$(basename "$platform_dir" | sed 's/test-results-//')
+              
+              if find "$platform_dir" -name "failures-*.json" | grep -q .; then
+                echo "| $platform_name | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| $platform_name | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Upload Aggregated Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-test-summary
+          path: |
+            all-results/
+            all-reports/
+          retention-days: 30
+
+  create-issues:
+    name: Create GitHub Issues for Failures
+    needs: [test, collect-results]
+    if: failure()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download All Results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          path: all-results/
+      
+      - name: Install GitHub CLI
+        run: |
+          type -p curl >/dev/null || sudo apt install curl -y
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh -y
+      
+      - name: Create Issues for Failures
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+        run: |
+          cd tests/comprehensive
+          bash lib/github-issue.sh ../../all-results/
+
+  notify:
+    name: Send Notifications
+    needs: [test, collect-results]
+    if: failure()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Notify on Failure
+        run: |
+          echo "⚠️ Comprehensive tests failed on one or more platforms"
+          echo "Check workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "GitHub will send notifications to repository watchers"
