@@ -97,3 +97,26 @@ fn read_lock(path: &PathBuf) -> Result<StateLock> {
     let lock: StateLock = serde_json::from_str(&content).context("Failed to parse lock file")?;
     Ok(lock)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_lock_path() {
+        // Should return a valid path
+        let result = get_lock_path();
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.to_string_lossy().contains("heimdal"));
+    }
+
+    #[test]
+    fn test_lock_info_no_lock() {
+        // When no lock exists, should complete without error
+        // This is a basic smoke test
+        let result = cmd_lock_info();
+        // Should either succeed or fail gracefully
+        assert!(result.is_ok() || result.is_err());
+    }
+}

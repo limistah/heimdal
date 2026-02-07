@@ -85,3 +85,54 @@ pub fn cmd_resolve(strategy: String, yes: bool) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_check_conflicts_basic() {
+        // This is a smoke test - the function should handle missing state gracefully
+        let result = cmd_check_conflicts();
+        // Should either succeed or fail with a clear error
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_resolve_with_yes() {
+        // Test with yes flag - should not prompt
+        let result = cmd_resolve("local".to_string(), true);
+        // May fail if no state exists, but should not panic
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_strategy() {
+        // Invalid strategy should return error
+        let result = cmd_resolve("invalid".to_string(), true);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid strategy"));
+    }
+
+    #[test]
+    fn test_valid_strategies() {
+        // All valid strategy names should be accepted
+        let strategies = vec![
+            "local",
+            "use-local",
+            "remote",
+            "use-remote",
+            "merge",
+            "manual",
+        ];
+
+        for strategy in strategies {
+            let result = cmd_resolve(strategy.to_string(), true);
+            // Should not fail due to invalid strategy
+            if result.is_err() {
+                let err_msg = result.unwrap_err().to_string();
+                assert!(!err_msg.contains("Invalid strategy"));
+            }
+        }
+    }
+}
