@@ -145,7 +145,7 @@ impl PackageProfile {
                     LinuxDistro::Arch | LinuxDistro::Manjaro => {
                         packages.extend(self.arch_packages.clone());
                     }
-                    LinuxDistro::Fedora | LinuxDistro::RHEL | LinuxDistro::CentOS => {
+                    LinuxDistro::Fedora | LinuxDistro::Rhel | LinuxDistro::CentOS => {
                         packages.extend(self.fedora_packages.clone());
                     }
                     _ => {}
