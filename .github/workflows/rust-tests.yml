@@ -1,0 +1,142 @@
+name: Rust CLI Tests
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Test on ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-latest
+            os: ubuntu-latest
+            
+          - platform: ubuntu-20.04
+            os: ubuntu-20.04
+            
+          - platform: macos-latest
+            os: macos-latest
+            
+          - platform: macos-13
+            os: macos-13
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      
+      - name: Install Git (for tests)
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt-get update && sudo apt-get install -y git
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            git --version  # git is pre-installed on macOS runners
+          fi
+        shell: bash
+      
+      - name: Run Cargo Tests
+        run: cargo test --test integration_test --verbose
+      
+      - name: Run Unit Tests
+        run: cargo test --lib --verbose
+      
+      - name: Test Report
+        if: always()
+        run: |
+          echo "## Test Results for ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Platform: ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo "OS: ${{ matrix.os }}" >> $GITHUB_STEP_SUMMARY
+
+  # Test on Linux containers (different distros)
+  test-linux-containers:
+    name: Test on ${{ matrix.distro }}
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: Fedora
+            container: fedora:latest
+            install_cmd: dnf install -y git gcc
+            
+          - distro: Arch
+            container: archlinux:latest
+            install_cmd: pacman -Sy --noconfirm git gcc
+            
+          - distro: Alpine
+            container: alpine:latest
+            install_cmd: apk add --no-cache git gcc musl-dev
+    
+    container: ${{ matrix.container }}
+    
+    steps:
+      - name: Install Dependencies
+        run: ${{ matrix.install_cmd }}
+      
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      
+      - name: Run Integration Tests
+        run: |
+          source $HOME/.cargo/env
+          cargo test --test integration_test --verbose
+      
+      - name: Test Report
+        if: always()
+        run: |
+          echo "## Test Results for ${{ matrix.distro }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Distribution: ${{ matrix.distro }}" >> $GITHUB_STEP_SUMMARY
+
+  # Summary job
+  test-summary:
+    name: Test Summary
+    needs: [test, test-linux-containers]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Summary
+        run: |
+          echo "## 🎯 Heimdal Test Suite Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All platform tests completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tested Platforms:" >> $GITHUB_STEP_SUMMARY
+          echo "- Ubuntu 20.04, Ubuntu Latest" >> $GITHUB_STEP_SUMMARY
+          echo "- macOS Latest, macOS 13" >> $GITHUB_STEP_SUMMARY
+          echo "- Fedora, Arch Linux, Alpine" >> $GITHUB_STEP_SUMMARY
