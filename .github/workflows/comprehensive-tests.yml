@@ -20,8 +20,6 @@ jobs:
       matrix:
         target:
           - x86_64-unknown-linux-gnu
-          - x86_64-unknown-linux-musl
-          - x86_64-apple-darwin
     
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +28,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      
+      - name: Install musl tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
       
       - name: Cache Cargo
         uses: actions/cache@v4
@@ -110,18 +114,33 @@ jobs:
       - name: Install Dependencies (Alpine Container)
         if: matrix.platform == 'alpine'
         run: |
-          apk add --no-cache git curl bash findutils coreutils
+          apk add --no-cache git curl bash findutils coreutils rust cargo musl-dev
       
       - name: Install Dependencies (macOS)
         if: matrix.platform == 'macos'
         run: |
-          brew install git curl bash
+          brew install git curl bash rust
       
-      - name: Download Heimdal Binary
+      - name: Download Heimdal Binary (Linux GNU only)
+        if: matrix.platform != 'alpine' && matrix.platform != 'macos'
         uses: actions/download-artifact@v4
         with:
           name: heimdal-${{ matrix.target }}
           path: ./bin
+      
+      - name: Build Heimdal (Alpine)
+        if: matrix.platform == 'alpine'
+        run: |
+          cargo build --release --target x86_64-unknown-linux-musl
+          mkdir -p ./bin
+          cp target/x86_64-unknown-linux-musl/release/heimdal ./bin/heimdal
+      
+      - name: Build Heimdal (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          cargo build --release
+          mkdir -p ./bin
+          cp target/release/heimdal ./bin/heimdal
       
       - name: Setup Heimdal
         run: |
