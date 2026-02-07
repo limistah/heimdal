@@ -73,7 +73,7 @@ test_header "Test 11.5: Initialize heimdal with existing setup"
 cd "$TEST_DIR"
 
 # Initialize heimdal (this should work even with existing files)
-if heimdal init "$TEST_REPO" > /dev/null 2>&1; then
+if heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1; then
     test_pass "Initialized heimdal successfully"
 else
     test_fail "Failed to initialize heimdal"

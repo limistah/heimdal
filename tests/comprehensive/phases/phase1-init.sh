@@ -51,7 +51,7 @@ test_header "Test 1.3: Init without repo field in heimdal.yaml (v1.1.1 bugfix)"
 # In v1.1.0 this would fail with "missing field repo" error
 # In v1.1.1 this should succeed
 
-if output=$(heimdal init "$TEST_REPO" 2>&1); then
+if output=$(heimdal init --repo "$TEST_REPO" --profile test 2>&1); then
     test_pass "heimdal init succeeded without repo field"
     
     # Verify the error message is NOT present
@@ -150,7 +150,7 @@ cleanup_test_dir "$INVALID_TEST_DIR"
 mkdir -p "$INVALID_TEST_DIR"
 cd "$INVALID_TEST_DIR"
 
-EXPECTED_ERROR="not found\|does not exist\|failed" run_failure heimdal init "invalid/nonexistent-repo-12345"
+EXPECTED_ERROR="not found\|does not exist\|failed" run_failure heimdal init --repo "invalid/nonexistent-repo-12345" --profile test
 
 cd "$TEST_DIR"
 cleanup_test_dir "$INVALID_TEST_DIR"
@@ -164,7 +164,7 @@ cd "$TEST_DIR"
 
 # Try to init again in the same directory
 # This should either succeed (idempotent) or fail gracefully
-if heimdal init "$TEST_REPO" > /dev/null 2>&1; then
+if heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1; then
     test_pass "Re-init succeeded (idempotent behavior)"
 else
     # Failure is acceptable if error message is reasonable

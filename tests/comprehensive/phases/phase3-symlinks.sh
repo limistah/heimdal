@@ -16,7 +16,7 @@ mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
 # Initialize heimdal
-heimdal init "$TEST_REPO" > /dev/null 2>&1 || {
+heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || {
     test_error "Failed to initialize heimdal for symlink tests"
     phase_summary
 }

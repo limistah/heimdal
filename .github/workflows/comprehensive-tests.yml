@@ -131,6 +131,7 @@ jobs:
       - name: Build Heimdal (Alpine)
         if: matrix.platform == 'alpine'
         run: |
+          rustup target add x86_64-unknown-linux-musl
           cargo build --release --target x86_64-unknown-linux-musl
           mkdir -p ./bin
           cp target/x86_64-unknown-linux-musl/release/heimdal ./bin/heimdal
