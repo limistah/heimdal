@@ -7,7 +7,7 @@ source "$SCRIPT_DIR/../lib/test-lib.sh"
 init_test_phase "Phase 8: State Management" "8"
 setup_test_env
 
-TEST_REPO="limistah/heimdal-dotfiles-test"
+TEST_REPO="https://github.com/limistah/heimdal-dotfiles-test.git"
 TEST_DIR="$HOME/heimdal-test-state"
 DOTFILES_DIR="$TEST_DIR/dotfiles"
 
@@ -15,7 +15,7 @@ cleanup_test_dir "$TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
-heimdal init --repo "$TEST_REPO" --profile test > /dev/null 2>&1 || {
+heimdal init --repo "$TEST_REPO" --profile test --path "$DOTFILES_DIR" > /dev/null 2>&1 || {
     test_error "Failed to initialize heimdal for state tests"
     phase_summary
 }
