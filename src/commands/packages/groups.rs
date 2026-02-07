@@ -158,7 +158,9 @@ pub fn add_group(id: &str, include_optional: bool, dry_run: bool, no_install: bo
             not_found.push(pkg_name.to_string());
 
             if !no_install {
-                warning("  Skipping installation (use --force to attempt anyway)");
+                warning(
+                    "  Skipping installation because the package was not found in the database",
+                );
             }
             continue;
         }
@@ -168,9 +170,23 @@ pub fn add_group(id: &str, include_optional: bool, dry_run: bool, no_install: bo
             continue;
         }
 
+        // NOTE: Group installation is not yet fully implemented
+        // This is a simulation for demonstration purposes
+        warning(&format!(
+            "Note: Package installation from groups is not yet implemented ({})",
+            pkg_name
+        ));
+        failed.push((
+            pkg_name.to_string(),
+            "group installation not implemented".to_string(),
+        ));
+        continue;
+
+        // TODO: Implement actual package installation
+        // This should integrate with the existing package manager logic
+        // e.g., reuse the logic from commands/packages/add.rs
+        /*
         // Install the package using the package manager
-        // For now, we'll simulate installation
-        // In a real implementation, this would call the actual package manager
         info(&format!("Installing: {}", display_name));
 
         // Simulate installation check
@@ -190,6 +206,7 @@ pub fn add_group(id: &str, include_optional: bool, dry_run: bool, no_install: bo
                 }
             }
         }
+        */
     }
 
     // Print summary

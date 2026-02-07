@@ -9,6 +9,131 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Week 10: Smart Package Management
+
+- **Enhanced Package Search with Fuzzy Matching** (Day 1)
+  - **Fuzzy Search Algorithm**: Intelligent package discovery with typo tolerance
+    - Uses `fuzzy-matcher` crate for similarity-based matching
+    - Tiered scoring system prioritizes exact matches over fuzzy matches
+    - Score breakdown: Exact (10,000+), Name contains (5,000+), Description (2,500+), Tags (1,500+), Fuzzy (variable)
+    - Popularity bonus applied for tie-breaking between similar matches
+  
+  - **Installation Status Detection**: Real-time package installation checking
+    - **macOS**: Checks Homebrew formulae and casks (`brew list`)
+    - **Linux**: Supports APT (`dpkg-query`), DNF (`rpm`), Pacman (`pacman -Q`)
+    - Visual indicators: ✓ installed / ○ not installed
+    - Optimized with single batch query per search (no per-package overhead)
+  
+  - **Tag-Based Filtering**: Refined search with `--tag` flag
+    - Filter by specific tags (e.g., `--tag k8s` for Kubernetes tools)
+    - Works alongside existing category filters
+    - Case-insensitive tag matching with substring support
+  
+  - **Rich Display Output**:
+    - Relevance indicators (★ highly relevant / ☆ relevant / · fuzzy match)
+    - Installation status per package
+    - Popularity scores
+    - Alternative packages section
+    - Helpful legend and tips when no results found
+  
+  - **Test Coverage**: 10 new tests (exact match, typos, partial, descriptions, tags, scoring)
+
+- **Smart Package Suggestions** (Day 2)
+  - **Automatic Tool Detection**: Scans project directories for technology indicators
+    - Detects 15+ development tools (Node.js, Python, Rust, Go, Docker, etc.)
+    - Pattern matching: `package.json`, `Cargo.toml`, `requirements.txt`, `go.mod`, etc.
+    - Recursive directory traversal (configurable depth, default: 3 levels)
+    - Returns tool name, detected files, and relevance score
+  
+  - **Context-Aware Suggestions**: Recommends packages based on detected tools
+    - **Node.js projects** → suggests `node`, `npm`, `yarn`
+    - **Python projects** → suggests `python3`, `pip`, `virtualenv`
+    - **Rust projects** → suggests `rust`, `cargo`
+    - **Docker projects** → suggests `docker`, `docker-compose`
+    - And 11 more tool categories...
+  
+  - **Relevance Scoring**: Prioritizes suggestions by context
+    - Higher scores for multiple detected files
+    - Essential packages ranked higher than optional
+    - De-duplication of overlapping suggestions
+  
+  - **CLI Command**: `heimdal packages suggest [--directory <dir>]`
+    - Defaults to current directory if not specified
+    - Shows detected tools with file evidence
+    - Groups suggestions by relevance
+    - Displays installation status for each suggestion
+  
+  - **Test Coverage**: 6 new tests (Node.js, Rust, Python, multi-tool detection)
+
+- **Package Groups & Bulk Operations** (Day 3)
+  - **15 Curated Package Groups**: Pre-configured collections for common workflows
+    - `essential`: Core system utilities (git, curl, wget, vim)
+    - `web-dev`: Web development stack (node, npm, yarn, typescript)
+    - `rust-dev`: Rust development tools (rust, cargo, rust-analyzer)
+    - `python-dev`: Python environment (python3, pip, black, pytest)
+    - `go-dev`: Go development (go, gopls, delve)
+    - `docker`: Container ecosystem (docker, docker-compose, kubectl)
+    - `editors`: Modern editors (neovim, emacs, vscode)
+    - `shells`: Shell enhancements (zsh, fish, starship, oh-my-zsh)
+    - `terminal-tools`: CLI utilities (tmux, fzf, ripgrep, bat)
+    - `network`: Network debugging (nmap, wireshark, tcpdump)
+    - `monitoring`: System monitoring (htop, btop, glances)
+    - `security`: Security tools (gpg, age, pass, bitwarden-cli)
+    - `cloud`: Cloud CLIs (aws-cli, gcloud, azure-cli)
+    - `database`: Database tools (postgresql, mysql, redis)
+    - `media`: Media processing (ffmpeg, imagemagick, youtube-dl)
+  
+  - **Smart Group Management**:
+    - Each group has description, category, essential and optional packages
+    - Automatic conflict detection (warns if package not in database)
+    - Optional packages can be excluded with `--no-optional`
+    - Dry-run mode shows what would be installed
+  
+  - **CLI Commands**:
+    - `heimdal packages list-groups [--category <cat>]` - List available groups
+    - `heimdal packages show-group <id>` - Show group details with package lists
+    - `heimdal packages search-groups <query>` - Fuzzy search for groups
+    - `heimdal packages add-group <id> [--include-optional] [--dry-run]` - Install group
+  
+  - **Rich Display**:
+    - Group cards with name, description, and package counts
+    - Color-coded categories (Development, Tools, Infrastructure, etc.)
+    - Installation preview with package breakdown
+    - Summary statistics after installation
+  
+  - **Test Coverage**: 9 new tests (registry, profiles, package resolution)
+
+- **Package Version Management** (Day 4)
+  - **Version Information System**: Track and compare package versions
+    - Stores: name, installed version, latest version, manager, update availability
+    - Per-package version tracking across different managers
+    - Human-readable version comparisons
+  
+  - **Outdated Package Detection**: Find packages with available updates
+    - Cross-platform version checking (Homebrew, APT, DNF, Pacman)
+    - Colored output: red for outdated, green for up-to-date
+    - Shows both installed and available versions
+    - `--all` flag to check all packages (default: only profile packages)
+  
+  - **Upgrade Operations**: Update packages individually or in bulk
+    - `heimdal packages upgrade [package]` - Upgrade specific package
+    - `heimdal packages upgrade --all` - Upgrade all outdated packages
+    - Dry-run support to preview updates
+    - Automatic package manager detection
+    - Confirmation prompts for safety
+  
+  - **CLI Commands**:
+    - `heimdal packages outdated [--all]` - List outdated packages
+    - `heimdal packages upgrade [package] [--all] [--dry-run]` - Perform upgrades
+    - `heimdal packages update-all [--dry-run] [--yes]` - Update all packages
+  
+  - **Platform Support**:
+    - **macOS**: Homebrew with `brew outdated` and `brew upgrade`
+    - **Linux**: APT, DNF, Pacman with native version checks
+    - Graceful fallback if package manager not available
+  
+  - **Test Coverage**: 5 new tests (version parsing, diff calculation, outdated detection)
+
 #### Week 9: Enhanced Import System
 
 - **Extended Tool Support** (Days 1-2)
