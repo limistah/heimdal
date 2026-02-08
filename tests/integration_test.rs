@@ -7,6 +7,7 @@
 /// - Use actual commands that exist in the binary
 mod helpers;
 mod test_basic;
+mod test_git_commands;
 mod test_init;
 mod test_packages;
 mod test_profile;
