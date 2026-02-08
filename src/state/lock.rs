@@ -328,7 +328,7 @@ impl LockManager {
         // Check if remote has changes
         let diff_output = std::process::Command::new("git")
             .current_dir(repo_path)
-            .args(["diff", "HEAD", "origin/main", "--", "state.json"])
+            .args(["diff", "HEAD", "origin/main", "--", "heimdal.state.json"])
             .output()?;
 
         if diff_output.stdout.is_empty() {
@@ -414,7 +414,7 @@ impl LockManager {
         // Add and commit state file
         let _add_output = std::process::Command::new("git")
             .current_dir(repo_path)
-            .args(["add", "state.json"])
+            .args(["add", "heimdal.state.json"])
             .output()?;
 
         let commit_output = std::process::Command::new("git")
