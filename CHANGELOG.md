@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-02-08
+
+### Fixed
+
+- **Critical: Fixed state file format incompatibility** ([6aab053](https://github.com/limistah/heimdal/commit/6aab053))
+  - Resolved issue where `heimdal init` created V1 state but `heimdal sync` expected V2 state
+  - Error: "missing field `version` at line 7 column 1" is now fixed
+  - All state operations now use unified HeimdalState format
+  
+- **Fixed naming inconsistency: Heimdall → Heimdal** 
+  - Renamed all struct types: `HeimdallState` → `HeimdalState`
+  - Renamed config types: `HeimdallConfig` → `HeimdalConfig`, `HeimdallMeta` → `HeimdalMeta`
+  - Fixed 19 source files and 5 test files
+  - Consistent with project name "Heimdal" (one 'l')
+
+### Changed
+
+- **State management unified to single format**
+  - Removed legacy V1 state format completely
+  - Removed duplicate `HeimdallState` V1 struct from `state/mod.rs`
+  - All commands now use `HeimdalState` (formerly V2)
+  - State includes: version, machine metadata, lineage tracking, conflict detection
+  
+- **State file location change**
+  - State now stored in dotfiles directory (`~/.dotfiles/heimdal.state.json`)
+  - Enables Git synchronization across machines
+  - Bootstrap fallback: `~/.heimdal/heimdal.state.json` still checked for loading
+  - **Migration:** Run `heimdal init` again or manually move state file to dotfiles directory
+
+- **Updated init command state creation**
+  - `heimdal init` now creates proper V2 state format
+  - Includes all required fields: version, machine, heimdal_version, lineage, history, checksums
+  - Fixed DateTime<Utc> to String conversion in status command
+
+### Removed
+
+- Legacy V1 state format support (removed from codebase)
+- Backward compatibility code for old state format
+- Comprehensive test suite files (moved to Rust integration tests)
+
+### Testing
+
+- ✅ 235 unit tests passing
+- ✅ 157 integration tests passing
+- Fixed test fixtures to use proper V2 state structure
+- Updated init tests to expect state in dotfiles directory
+
+### Breaking Changes
+
+- **State file format:** V1 state files are no longer supported. Users must reinitialize or manually migrate.
+- **State file location:** State file moved from `~/.heimdal/` to dotfiles directory for Git sync.
+- **Struct naming:** Code using `HeimdallState`, `HeimdallConfig`, or `HeimdallMeta` must update to `HeimdalState`, `HeimdalConfig`, `HeimdalMeta`.
+
+### Migration Guide
+
+If upgrading from v1.1.2 or earlier:
+
+1. **Backup your current state:**
+   ```bash
+   cp ~/.heimdal/heimdal.state.json ~/.heimdal/heimdal.state.json.backup
+   ```
+
+2. **Upgrade heimdal:**
+   ```bash
+   cargo install heimdal --version 1.2.0
+   # or: brew upgrade heimdal
+   # or: sudo apt update && sudo apt upgrade heimdal
+   ```
+
+3. **Reinitialize (recommended):**
+   ```bash
+   rm ~/.heimdal/heimdal.state.json
+   heimdal init --profile <your-profile> --repo <your-repo>
+   ```
+
+4. **Or manually migrate state:**
+   - The new state format requires additional fields
+   - See state structure in `src/state/versioned.rs:22`
+   - Move state file to your dotfiles directory
+
 ## [1.1.1] - 2026-02-07
 
 ### Fixed
