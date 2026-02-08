@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-02-08
+
+### Fixed
+
+- **Fixed "Could not commit state" warning** ([b44a79d](https://github.com/limistah/heimdal/commit/b44a79d))
+  - Lock manager was using wrong state filename (`state.json` instead of `heimdal.state.json`)
+  - Git operations now correctly stage and commit the state file
+  - Eliminates persistent warning after sync/commit/push operations
+
 ## [1.2.1] - 2026-02-08
 
 ### Fixed
