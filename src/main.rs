@@ -1403,18 +1403,174 @@ fn cmd_remote_setup() -> Result<()> {
     Ok(())
 }
 
-fn cmd_config_get(_key: &str) -> Result<()> {
-    error("Not yet implemented - coming in Phase 4");
+fn cmd_config_get(key: &str) -> Result<()> {
+    // Try to load state first for profile-related info
+    let state = state::HeimdalState::load().ok();
+
+    // Try to load config file
+    let config_paths = vec!["heimdal.yaml", "~/.dotfiles/heimdal.yaml"];
+    let mut config_path = None;
+
+    for path_str in config_paths {
+        let expanded = shellexpand::tilde(path_str);
+        let path = std::path::Path::new(expanded.as_ref());
+        if path.exists() {
+            config_path = Some(path.to_path_buf());
+            break;
+        }
+    }
+
+    // Handle state-based keys
+    match key {
+        "profile" | "active_profile" => {
+            if let Some(state) = state {
+                println!("{}", state.active_profile);
+                return Ok(());
+            } else {
+                anyhow::bail!("No state found. Run 'heimdal init' first.");
+            }
+        }
+        "dotfiles" | "dotfiles_path" => {
+            if let Some(state) = state {
+                println!("{}", state.dotfiles_path.display());
+                return Ok(());
+            } else {
+                anyhow::bail!("No state found. Run 'heimdal init' first.");
+            }
+        }
+        "repo" | "repo_url" => {
+            if let Some(state) = state {
+                println!("{}", state.repo_url);
+                return Ok(());
+            } else {
+                anyhow::bail!("No state found. Run 'heimdal init' first.");
+            }
+        }
+        "version" | "heimdal_version" => {
+            if let Some(state) = state {
+                println!("{}", state.heimdal_version);
+                return Ok(());
+            } else {
+                println!("{}", env!("CARGO_PKG_VERSION"));
+                return Ok(());
+            }
+        }
+        _ => {}
+    }
+
+    // Handle config file keys
+    if let Some(config_path) = config_path {
+        let config = config::load_config(&config_path)?;
+
+        match key {
+            "stow_compat" => {
+                println!("{}", config.heimdal.stow_compat);
+                return Ok(());
+            }
+            "profiles" => {
+                for profile_name in config.profiles.keys() {
+                    println!("{}", profile_name);
+                }
+                return Ok(());
+            }
+            _ => {}
+        }
+
+        // Try to get value from active profile config
+        if let Some(state) = &state {
+            if let Some(profile) = config.profiles.get(&state.active_profile) {
+                match key {
+                    "use_stowrc" => {
+                        println!("{}", profile.dotfiles.use_stowrc);
+                        return Ok(());
+                    }
+                    "symlink_all" => {
+                        println!("{}", profile.dotfiles.symlink_all);
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    error(&format!("Unknown configuration key: {}", key));
+    info("Available keys:");
+    info("  - profile, active_profile");
+    info("  - dotfiles, dotfiles_path");
+    info("  - repo, repo_url");
+    info("  - version, heimdal_version");
+    info("  - stow_compat");
+    info("  - profiles");
+    info("  - use_stowrc");
+    info("  - symlink_all");
+
     Ok(())
 }
 
-fn cmd_config_set(_key: &str, _value: &str) -> Result<()> {
-    error("Not yet implemented - coming in Phase 4");
+fn cmd_config_set(key: &str, value: &str) -> Result<()> {
+    warning("Direct configuration modification is not yet implemented");
+    info(&format!("To set {}: {}", key, value));
+    info("Please edit your heimdal.yaml file directly:");
+
+    // Try to find config file
+    let config_paths = vec!["heimdal.yaml", "~/.dotfiles/heimdal.yaml"];
+
+    for path_str in config_paths {
+        let expanded = shellexpand::tilde(path_str);
+        let path = std::path::Path::new(expanded.as_ref());
+        if path.exists() {
+            info(&format!("  vim {}", path.display()));
+            info(&format!("  nano {}", path.display()));
+            return Ok(());
+        }
+    }
+
+    error("No heimdal.yaml found");
+    info("Run 'heimdal init' to create one");
+
     Ok(())
 }
 
 fn cmd_config_show() -> Result<()> {
-    error("Not yet implemented - coming in Phase 4");
+    header("Configuration");
+
+    // Try to find heimdal.yaml in common locations
+    let config_paths = vec!["heimdal.yaml", "~/.dotfiles/heimdal.yaml"];
+
+    let mut found = false;
+    for path_str in config_paths {
+        let expanded = shellexpand::tilde(path_str);
+        let path = std::path::Path::new(expanded.as_ref());
+
+        if path.exists() {
+            found = true;
+            info(&format!("Config file: {}", path.display()));
+            println!();
+
+            // Read and display the file
+            let content = std::fs::read_to_string(path)
+                .with_context(|| format!("Failed to read config file: {}", path.display()))?;
+
+            println!("{}", content);
+
+            // Also parse and show active profile from state if available
+            if let Ok(state) = state::HeimdalState::load() {
+                println!();
+                info(&format!("Active profile: {}", state.active_profile));
+                info(&format!("Dotfiles path: {}", state.dotfiles_path.display()));
+                info(&format!("Repo URL: {}", state.repo_url));
+            }
+
+            return Ok(());
+        }
+    }
+
+    if !found {
+        error("No heimdal.yaml found in current directory or ~/.dotfiles");
+        info("Run 'heimdal init' to set up Heimdal on this machine");
+    }
+
     Ok(())
 }
 
