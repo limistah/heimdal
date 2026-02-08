@@ -6,6 +6,7 @@
 /// - Test edge cases
 /// - Use actual commands that exist in the binary
 mod helpers;
+mod test_apply;
 mod test_basic;
 mod test_git_commands;
 mod test_init;
@@ -13,4 +14,5 @@ mod test_packages;
 mod test_profile;
 mod test_profiles;
 mod test_status;
+mod test_utility_commands;
 mod test_validate;
