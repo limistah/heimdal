@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::os::unix::fs as unix_fs;
 use std::path::{Path, PathBuf};
-use walkdir::WalkDir;
 
 use super::conflict::{
     create_backup, detect_conflict, resolve_conflict, ConflictResolution, ConflictStrategy,
@@ -53,6 +52,21 @@ impl SymlinkResult {
 }
 
 /// Symlink manager for creating dotfile symlinks
+///
+/// The linker uses a recursive file-level symlinking strategy:
+/// - Individual files are symlinked (not directories)
+/// - Directory structures are recreated in the target
+/// - This allows fine-grained control (e.g., track only specific files in ~/.config)
+///
+/// Example:
+/// ```
+/// Source:                          Target:
+/// ~/.dotfiles/config/nvim/init.lua → ~/.config/nvim/init.lua (symlink)
+/// ~/.dotfiles/config/tmux.conf     → ~/.config/tmux.conf     (symlink)
+///
+/// The ~/.config directory is NOT symlinked as a whole, allowing users
+/// to track only specific config files without overriding everything.
+/// ```
 pub struct Linker {
     dotfiles_dir: PathBuf,
     target_dir: PathBuf,
@@ -78,14 +92,17 @@ impl Linker {
         self
     }
 
-    /// Symlink all files in dotfiles directory (stow-style)
+    /// Symlink all files in dotfiles directory (recursive file-level symlinking)
+    ///
+    /// Instead of symlinking entire directories (which would override everything),
+    /// this recursively symlinks individual files within directories. This allows
+    /// users to track only specific files (e.g., ~/.config/nvim/init.lua) without
+    /// overriding their entire ~/.config directory.
     pub fn link_all(
         &self,
         ignore_patterns: &[String],
         dry_run: bool,
     ) -> Result<Vec<SymlinkResult>> {
-        let mut results = Vec::new();
-
         // Verify dotfiles directory exists
         if !self.dotfiles_dir.exists() {
             let error_msg = crate::utils::config_error(
@@ -99,28 +116,70 @@ impl Linker {
             );
         }
 
-        // Walk through dotfiles directory
-        for entry in WalkDir::new(&self.dotfiles_dir).min_depth(1).max_depth(1) {
+        // Start recursive symlinking from dotfiles root
+        self.link_directory_recursive(
+            &self.dotfiles_dir,
+            &self.target_dir,
+            ignore_patterns,
+            dry_run,
+        )
+    }
+
+    /// Recursively symlink files in a directory
+    ///
+    /// For each entry in the source directory:
+    /// - If it's a file: create a symlink
+    /// - If it's a directory: recurse into it (creating target directories as needed)
+    ///
+    /// This ensures we never symlink entire directories, only individual files.
+    fn link_directory_recursive(
+        &self,
+        source_dir: &Path,
+        target_dir: &Path,
+        ignore_patterns: &[String],
+        dry_run: bool,
+    ) -> Result<Vec<SymlinkResult>> {
+        let mut results = Vec::new();
+
+        // Read directory entries
+        let entries = fs::read_dir(source_dir)
+            .with_context(|| format!("Failed to read directory: {}", source_dir.display()))?;
+
+        for entry in entries {
             let entry = entry.with_context(|| {
-                format!(
-                    "Failed to read directory entry in {}",
-                    self.dotfiles_dir.display()
-                )
+                format!("Failed to read directory entry in {}", source_dir.display())
             })?;
-            let path = entry.path();
+
+            let source_path = entry.path();
 
             // Check if should be ignored
-            if should_ignore(path, ignore_patterns) {
+            if should_ignore(&source_path, ignore_patterns) {
                 continue;
             }
 
-            // Get relative path from dotfiles_dir
-            let rel_path = path.strip_prefix(&self.dotfiles_dir)?;
-            let target = self.target_dir.join(rel_path);
+            // Get the file/directory name
+            let name = match source_path.file_name() {
+                Some(n) => n,
+                None => continue,
+            };
 
-            // Create symlink
-            let result = self.create_symlink(path, &target, dry_run)?;
-            results.push(result);
+            let target_path = target_dir.join(name);
+
+            if source_path.is_dir() {
+                // It's a directory - recurse into it
+                // Don't symlink the directory itself, recurse and symlink files inside
+                let sub_results = self.link_directory_recursive(
+                    &source_path,
+                    &target_path,
+                    ignore_patterns,
+                    dry_run,
+                )?;
+                results.extend(sub_results);
+            } else {
+                // It's a file - create symlink
+                let result = self.create_symlink(&source_path, &target_path, dry_run)?;
+                results.push(result);
+            }
         }
 
         Ok(results)
