@@ -15,6 +15,7 @@ pub struct GitRepo {
     path: PathBuf,
 }
 
+#[allow(dead_code)]
 impl GitRepo {
     /// Create a new GitRepo instance
     pub fn new(path: &Path) -> Result<Self> {

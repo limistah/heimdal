@@ -19,7 +19,7 @@ pub enum Commands {
 
     /// Import from existing dotfile managers (Stow, dotbot, etc.)
     Import {
-        /// Path to dotfiles directory (defaults to ~/dotfiles)
+        /// Path to dotfiles directory (defaults to ~/.dotfiles)
         #[arg(short, long)]
         path: Option<String>,
 
@@ -93,13 +93,9 @@ pub enum Commands {
 
     /// Commit changes to dotfiles repository
     Commit {
-        /// Commit message
+        /// Commit message (if not provided, message will be auto-generated)
         #[arg(short, long)]
         message: Option<String>,
-
-        /// Auto-generate commit message based on changes
-        #[arg(short, long)]
-        auto: bool,
 
         /// Push to remote after committing
         #[arg(short, long)]
@@ -107,36 +103,6 @@ pub enum Commands {
 
         /// Specific files to commit (defaults to all changes)
         files: Vec<String>,
-    },
-
-    /// Push committed changes to remote
-    Push {
-        /// Remote name (defaults to 'origin')
-        #[arg(short, long)]
-        remote: Option<String>,
-
-        /// Branch name (defaults to current branch)
-        #[arg(short, long)]
-        branch: Option<String>,
-    },
-
-    /// Pull changes from remote repository
-    Pull {
-        /// Use rebase instead of merge
-        #[arg(short, long)]
-        rebase: bool,
-    },
-
-    /// Manage git branches
-    Branch {
-        #[command(subcommand)]
-        action: BranchAction,
-    },
-
-    /// Manage git remotes
-    Remote {
-        #[command(subcommand)]
-        action: RemoteAction,
     },
 
     /// List available profiles
@@ -394,71 +360,6 @@ pub enum ConfigAction {
     },
     /// Show all configuration
     Show,
-}
-
-#[derive(Subcommand, Debug)]
-pub enum BranchAction {
-    /// Show current branch
-    Current,
-
-    /// List all branches
-    List,
-
-    /// Create and switch to a new branch
-    Create {
-        /// Branch name
-        name: String,
-    },
-
-    /// Switch to a branch
-    Switch {
-        /// Branch name
-        name: String,
-    },
-
-    /// Show tracking information
-    Info,
-}
-
-#[derive(Subcommand, Debug)]
-pub enum RemoteAction {
-    /// List all remotes
-    List {
-        /// Show URLs
-        #[arg(short, long)]
-        verbose: bool,
-    },
-
-    /// Add a new remote
-    Add {
-        /// Remote name (e.g., origin, upstream)
-        name: String,
-        /// Remote URL
-        url: String,
-    },
-
-    /// Remove a remote
-    Remove {
-        /// Remote name
-        name: String,
-    },
-
-    /// Change remote URL
-    SetUrl {
-        /// Remote name
-        name: String,
-        /// New URL
-        url: String,
-    },
-
-    /// Show remote details
-    Show {
-        /// Remote name
-        name: String,
-    },
-
-    /// Interactive remote setup
-    Setup,
 }
 
 #[derive(Subcommand, Debug)]

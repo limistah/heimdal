@@ -34,6 +34,7 @@ impl Default for SyncOptions {
     }
 }
 
+#[allow(dead_code)]
 impl GitRepo {
     /// Sync repository with remote (pull and optionally push)
     pub fn sync(&self, options: &SyncOptions) -> Result<SyncResult> {
@@ -290,6 +291,7 @@ impl GitRepo {
 
 /// Branch tracking information
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct TrackingInfo {
     pub branch: String,
     pub upstream: Option<String>,
@@ -297,6 +299,7 @@ pub struct TrackingInfo {
     pub behind: usize,
 }
 
+#[allow(dead_code)]
 impl TrackingInfo {
     /// Check if in sync with upstream
     pub fn is_in_sync(&self) -> bool {

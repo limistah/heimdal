@@ -3,12 +3,12 @@ use colored::Colorize;
 
 use crate::config::loader::load_config;
 use crate::config::profile::resolve_profile;
-use crate::state::HeimdallState;
+use crate::state::HeimdalState;
 
 /// Switch to a different profile
 pub fn switch_profile(profile_name: &str, auto_apply: bool) -> Result<(bool, String)> {
     // Load state and config
-    let mut state = HeimdallState::load()?;
+    let mut state = HeimdalState::load()?;
     let config_path = state.dotfiles_path.join("heimdal.yaml");
     let config = load_config(&config_path)?;
 
@@ -54,13 +54,13 @@ pub fn switch_profile(profile_name: &str, auto_apply: bool) -> Result<(bool, Str
 
 /// Get the currently active profile name
 pub fn get_current_profile() -> Result<String> {
-    let state = HeimdallState::load()?;
+    let state = HeimdalState::load()?;
     Ok(state.active_profile)
 }
 
 /// Show detailed information about a profile
 pub fn show_profile_info(profile_name: Option<&str>, show_resolved: bool) -> Result<()> {
-    let state = HeimdallState::load()?;
+    let state = HeimdalState::load()?;
     let config_path = state.dotfiles_path.join("heimdal.yaml");
     let config = load_config(&config_path)?;
 
@@ -173,7 +173,7 @@ pub fn show_profile_info(profile_name: Option<&str>, show_resolved: bool) -> Res
 
 /// List all available profiles
 pub fn list_profiles(verbose: bool) -> Result<()> {
-    let state = HeimdallState::load()?;
+    let state = HeimdalState::load()?;
     let config_path = state.dotfiles_path.join("heimdal.yaml");
     let config = load_config(&config_path)?;
 
@@ -232,7 +232,7 @@ pub fn list_profiles(verbose: bool) -> Result<()> {
 
 /// Compare two profiles
 pub fn diff_profiles(profile1: Option<&str>, profile2: &str) -> Result<()> {
-    let state = HeimdallState::load()?;
+    let state = HeimdalState::load()?;
     let config_path = state.dotfiles_path.join("heimdal.yaml");
     let config = load_config(&config_path)?;
 
@@ -362,8 +362,8 @@ mod tests {
             },
         );
 
-        let config = HeimdallConfig {
-            heimdal: HeimdallMeta {
+        let config = HeimdalConfig {
+            heimdal: HeimdalMeta {
                 version: "1.0".to_string(),
                 repo: Some("test".to_string()),
                 stow_compat: true,
@@ -382,11 +382,11 @@ mod tests {
         std::fs::write(&config_path, config_str)?;
 
         // Create state
-        let state = HeimdallState::new(
+        let state = HeimdalState::new(
             "default".to_string(),
             dotfiles_path.clone(),
             "test".to_string(),
-        );
+        )?;
 
         let state_dir = temp.path().join(".heimdal");
         std::fs::create_dir_all(&state_dir)?;

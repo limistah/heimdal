@@ -360,10 +360,10 @@ fn get_all_installed_packages(pm_name: &str) -> Result<Vec<String>> {
 /// Get packages from current profile
 fn get_profile_packages() -> Result<Vec<String>> {
     use crate::config;
-    use crate::state::HeimdallState;
+    use crate::state::HeimdalState;
 
     // Load state to get current profile
-    let state = HeimdallState::load()?;
+    let state = HeimdalState::load()?;
     let profile_name = &state.active_profile;
 
     // Load config
@@ -456,7 +456,7 @@ profiles:
 "#;
         fs::write(dotfiles_path.join("heimdal.yaml"), config_content)?;
 
-        // Create a minimal state file
+        // Create a minimal state file with proper V2 structure
         let state_content = serde_json::json!({
             "version": 2,
             "active_profile": "default",
@@ -464,12 +464,26 @@ profiles:
             "repo_url": "",
             "last_sync": null,
             "last_apply": null,
+            "machine": {
+                "id": "test-machine-123",
+                "hostname": "test-host",
+                "os": "test-os",
+                "os_version": "1.0",
+                "arch": "x86_64",
+                "user": "test-user",
+                "first_seen": "2024-01-01T00:00:00Z",
+                "last_seen": "2024-01-01T00:00:00Z"
+            },
+            "heimdal_version": "1.1.2",
             "lineage": {
+                "id": "test-lineage-id",
                 "serial": 1,
                 "parent_serial": 0,
-                "timestamp": "2024-01-01T00:00:00Z",
-                "source": "test"
-            }
+                "git_commit": null,
+                "machines": ["test-machine-123"]
+            },
+            "history": [],
+            "checksums": {}
         });
         fs::write(&state_path, serde_json::to_string_pretty(&state_content)?)?;
 

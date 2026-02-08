@@ -66,7 +66,7 @@ The interactive wizard guides you through:
 **Migrating from Stow, dotbot, chezmoi, yadm, or homesick?**
 ```bash
 heimdal wizard  # Choose "Import existing dotfiles"
-heimdal import --path ~/dotfiles --preview  # Preview before importing
+heimdal import --path ~/.dotfiles --preview  # Preview before importing
 ```
 
 **Cloning to a new machine?**
@@ -255,7 +255,7 @@ profiles:
       - terraform
     dotfiles:
       targets:
-        - path: ~/dotfiles/work
+        - path: ~/.dotfiles/work
           stow: true
     templates:
       email: "work@example.com"
@@ -265,7 +265,7 @@ profiles:
       - spotify
     dotfiles:
       targets:
-        - path: ~/dotfiles/personal
+        - path: ~/.dotfiles/personal
           stow: true
     templates:
       email: "personal@example.com"

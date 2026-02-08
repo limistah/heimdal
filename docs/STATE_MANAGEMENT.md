@@ -456,7 +456,7 @@ heimdal state resolve --manual
 1. Edit: `vim ~/.heimdal/state.json`
 2. Validate: `heimdal state version`
 3. Commit: `heimdal commit -m "Fix state conflicts"`
-4. Push: `heimdal push`
+4. Push: `git push` or `heimdal commit --push`
 
 ### Automatic Resolution
 
@@ -647,8 +647,7 @@ Migration Summary:
 1. **On Machine A** (existing):
    ```bash
    # Ensure state is committed and pushed
-   heimdal commit -m "Current state"
-   heimdal push
+   heimdal commit -m "Current state" --push
    ```
 
 2. **On Machine B** (new):
@@ -694,13 +693,13 @@ heimdal sync
    **Option A** - Automatic merge (recommended):
    ```bash
    heimdal state resolve --merge
-   heimdal push
+   git push
    ```
    
    **Option B** - Keep local changes:
    ```bash
    heimdal state resolve --use-local
-   heimdal push --force
+   git push --force
    ```
    
    **Option C** - Keep remote changes:
@@ -712,8 +711,7 @@ heimdal sync
 3. **Sync other machine**:
    ```bash
    # On the other machine
-   heimdal pull
-   heimdal apply
+   heimdal sync    # Pulls and applies changes
    ```
 
 ### Scenario 3: Removing a Machine
@@ -725,8 +723,7 @@ heimdal sync
 1. **On machine to remove**:
    ```bash
    # Commit any pending changes
-   heimdal commit -m "Final changes from old-machine"
-   heimdal push
+   heimdal commit -m "Final changes from old-machine" --push
    
    # Remove Heimdal (optional)
    rm -rf ~/.heimdal
@@ -735,7 +732,7 @@ heimdal sync
 2. **On remaining machines**:
    ```bash
    # Pull the final changes
-   heimdal pull
+   heimdal sync
    
    # The old machine will remain in history but won't make new changes
    ```
@@ -869,8 +866,7 @@ Modified Files (1):
 
 1. **Accept the changes** (keep modified version):
    ```bash
-   heimdal commit -m "Accept .bashrc changes"
-   heimdal push
+   heimdal commit -m "Accept .bashrc changes" --push
    ```
 
 2. **Restore from dotfiles** (revert changes):
@@ -1034,7 +1030,7 @@ heimdal state version  # Verify
 ```bash
 # After making changes
 heimdal commit -m "Add new shell aliases"
-heimdal push
+git push
 ```
 
 ### 2. Sync Before Major Changes
@@ -1043,8 +1039,7 @@ heimdal push
 heimdal sync
 # Make changes...
 heimdal apply
-heimdal commit -m "Updated vim config"
-heimdal push
+heimdal commit -m "Updated vim config" --push
 ```
 
 ### 3. Use Meaningful Commit Messages
@@ -1063,7 +1058,7 @@ heimdal sync
 # If conflicts detected:
 heimdal state check-conflicts
 heimdal state resolve --merge
-heimdal push
+git push
 ```
 
 ### 5. Monitor State Health

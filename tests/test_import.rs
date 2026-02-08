@@ -1,6 +1,9 @@
 /// Test import command functionality
 ///
 /// Tests importing from existing dotfile managers (Stow, dotbot, chezmoi, yadm, homesick)
+#[path = "helpers/mod.rs"]
+mod helpers;
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 use std::fs;

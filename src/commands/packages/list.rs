@@ -2,13 +2,13 @@ use anyhow::Result;
 use colored::*;
 
 use crate::config;
-use crate::state::HeimdallState;
+use crate::state::HeimdalState;
 use crate::utils::header;
 
 /// Run the packages list command
 pub fn run_list(installed_only: bool, profile: Option<&str>) -> Result<()> {
     // Load state to get current profile
-    let state = HeimdallState::load()?;
+    let state = HeimdalState::load()?;
     let profile_name = profile.unwrap_or(&state.active_profile);
 
     header(&format!("Packages in Profile: {}", profile_name));
