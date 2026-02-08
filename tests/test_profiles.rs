@@ -5,7 +5,7 @@
 /// - Listing profiles after init
 /// - Listing without init (should fail)
 /// - Multiple profiles display
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use assert_fs::prelude::*;
 use predicates::prelude::*;
 use serial_test::serial;
@@ -14,8 +14,7 @@ const TEST_REPO: &str = "https://github.com/limistah/heimdal-dotfiles-test.git";
 
 #[test]
 fn test_profiles_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("profiles")
         .arg("--help")
         .assert()
@@ -31,8 +30,7 @@ fn test_profiles_without_init_fails() {
 
     // Try to list profiles without initializing (no heimdal.yaml in current dir)
     // The command succeeds but shows a warning message
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("profiles")
         .current_dir(temp.path())
         .env("HOME", temp.path())
@@ -47,8 +45,7 @@ fn test_profiles_list_after_init() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Initialize with test repo
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -61,8 +58,7 @@ fn test_profiles_list_after_init() {
     let dotfiles_dir = temp.path().join(".dotfiles");
 
     // List profiles should succeed and show test profile (from dotfiles dir)
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("profiles")
         .current_dir(&dotfiles_dir)
         .env("HOME", temp.path())
@@ -77,8 +73,7 @@ fn test_profiles_shows_multiple() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Initialize with test repo
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -91,8 +86,7 @@ fn test_profiles_shows_multiple() {
     let dotfiles_dir = temp.path().join(".dotfiles");
 
     // List profiles from dotfiles directory
-    let output = Command::cargo_bin("heimdal")
-        .unwrap()
+    let output = cargo_bin_cmd!()
         .arg("profiles")
         .current_dir(&dotfiles_dir)
         .env("HOME", temp.path())
@@ -114,8 +108,7 @@ fn test_profiles_verbose_flag() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Initialize with test repo
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -128,8 +121,7 @@ fn test_profiles_verbose_flag() {
     let dotfiles_dir = temp.path().join(".dotfiles");
 
     // Test verbose flag works
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("profiles")
         .arg("--verbose")
         .current_dir(&dotfiles_dir)

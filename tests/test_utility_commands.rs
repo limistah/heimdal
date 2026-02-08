@@ -7,7 +7,7 @@
 // - auto-sync command (manage auto-sync)
 // - sync command (sync from remote)
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use assert_fs::prelude::*;
 use predicates::prelude::*;
 use serial_test::serial;
@@ -18,8 +18,7 @@ const TEST_REPO: &str = "https://github.com/limistah/heimdal-dotfiles-test.git";
 
 #[test]
 fn test_rollback_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("rollback")
         .arg("--help")
         .assert()
@@ -34,8 +33,7 @@ fn test_rollback_without_init() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Rollback should fail when not initialized
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("rollback")
         .env("HOME", temp.path())
         .assert()
@@ -50,16 +48,14 @@ fn test_rollback_after_init() {
     let dotfiles_dir = temp.child(".dotfiles");
 
     // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Try rollback (should fail or show error - no previous state to rollback to)
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("rollback")
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
@@ -73,8 +69,7 @@ fn test_rollback_after_init() {
 
 #[test]
 fn test_history_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("history")
         .arg("--help")
         .assert()
@@ -89,8 +84,7 @@ fn test_history_without_init() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // History should fail when not initialized
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("history")
         .env("HOME", temp.path())
         .assert()
@@ -105,16 +99,14 @@ fn test_history_after_init() {
     let dotfiles_dir = temp.child(".dotfiles");
 
     // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Show history
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("history")
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
@@ -129,16 +121,14 @@ fn test_history_with_limit() {
     let dotfiles_dir = temp.child(".dotfiles");
 
     // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Show history with limit
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .args(&["history", "--limit", "5"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
@@ -150,8 +140,7 @@ fn test_history_with_limit() {
 
 #[test]
 fn test_config_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("config")
         .arg("--help")
         .assert()
@@ -164,8 +153,7 @@ fn test_config_help() {
 
 #[test]
 fn test_config_show_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .args(&["config", "show", "--help"])
         .assert()
         .success()
@@ -178,8 +166,7 @@ fn test_config_show_without_init() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Config show succeeds even without init (may show default or local config)
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .args(&["config", "show"])
         .env("HOME", temp.path())
         .assert()
@@ -193,16 +180,14 @@ fn test_config_show_after_init() {
     let dotfiles_dir = temp.child(".dotfiles");
 
     // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Show config
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .args(&["config", "show"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
@@ -214,8 +199,7 @@ fn test_config_show_after_init() {
 
 #[test]
 fn test_auto_sync_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("auto-sync")
         .arg("--help")
         .assert()
@@ -232,8 +216,7 @@ fn test_auto_sync_status_without_init() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Auto-sync status succeeds and shows it's disabled
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .args(&["auto-sync", "status"])
         .env("HOME", temp.path())
         .assert()
@@ -248,16 +231,14 @@ fn test_auto_sync_status_after_init() {
     let dotfiles_dir = temp.child(".dotfiles");
 
     // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Check auto-sync status
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .args(&["auto-sync", "status"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
@@ -269,8 +250,7 @@ fn test_auto_sync_status_after_init() {
 
 #[test]
 fn test_sync_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("sync")
         .arg("--help")
         .assert()
@@ -286,8 +266,7 @@ fn test_sync_without_init() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Sync should fail when not initialized
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("sync")
         .env("HOME", temp.path())
         .assert()
@@ -302,16 +281,14 @@ fn test_sync_dry_run_after_init() {
     let dotfiles_dir = temp.child(".dotfiles");
 
     // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Sync with dry-run (safer, won't actually apply changes)
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .args(&["sync", "--dry-run"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
