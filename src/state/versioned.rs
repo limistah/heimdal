@@ -17,9 +17,9 @@ use std::path::PathBuf;
 /// Current state schema version
 pub const STATE_VERSION: u32 = 2;
 
-/// Enhanced Heimdal state with versioning and metadata
+/// Heimdal state with versioning and metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HeimdallStateV2 {
+pub struct HeimdalState {
     /// State schema version
     pub version: u32,
 
@@ -220,7 +220,7 @@ pub struct StateOperation {
     pub serial: u64,
 }
 
-impl HeimdallStateV2 {
+impl HeimdalState {
     /// Create a new state
     pub fn new(profile: String, dotfiles_path: PathBuf, repo_url: String) -> Result<Self> {
         let machine = MachineMetadata::current()?;
@@ -256,7 +256,7 @@ impl HeimdallStateV2 {
         let content = fs::read_to_string(&state_path)
             .with_context(|| format!("Failed to read state file: {}", state_path.display()))?;
 
-        let mut state = serde_json::from_str::<HeimdallStateV2>(&content)
+        let mut state = serde_json::from_str::<HeimdalState>(&content)
             .with_context(|| "Failed to parse state file")?;
 
         // Update machine metadata
@@ -518,7 +518,7 @@ mod tests {
 
     #[test]
     fn test_version_parsing() {
-        let ver = HeimdallStateV2::parse_version("1.2.3").unwrap();
+        let ver = HeimdalState::parse_version("1.2.3").unwrap();
         assert_eq!(ver, (1, 2, 3));
     }
 }

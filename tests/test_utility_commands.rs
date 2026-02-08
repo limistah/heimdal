@@ -177,14 +177,13 @@ fn test_config_show_help() {
 fn test_config_show_without_init() {
     let temp = assert_fs::TempDir::new().unwrap();
 
-    // Config show succeeds but shows "not yet implemented"
+    // Config show succeeds even without init (may show default or local config)
     Command::cargo_bin("heimdal")
         .unwrap()
         .args(&["config", "show"])
         .env("HOME", temp.path())
         .assert()
-        .success()
-        .stderr(predicates::str::contains("Not yet implemented"));
+        .success();
 }
 
 #[test]

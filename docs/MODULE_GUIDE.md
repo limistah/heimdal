@@ -140,15 +140,18 @@ src/
 - `mod.rs` - Module exports
 - `operations.rs` - Git command wrappers
 - `sync.rs` - Sync operations
-- `remote.rs` - Remote management
 
-**Purpose:** Wrap Git operations for dotfile syncing.
+**Purpose:** Wrap Git operations for internal use by `heimdal commit` and `heimdal sync`.
 
-**Key Functions:**
-- `git_commit()` - Commit changes
-- `git_push()` - Push to remote
-- `git_pull()` - Pull from remote
-- `git_status()` - Check status
+> **Note (v2.0.0):** The Git module functions are for internal use only. CLI commands 
+> `push`, `pull`, `branch`, and `remote` were removed in v2.0.0. Users should use native 
+> Git commands for these operations. Heimdal focuses on dotfiles-specific workflows.
+
+**Key Functions (Internal):**
+- `git_commit()` - Used by `heimdal commit` command
+- `git_status()` - Used by `heimdal status` command  
+- `sync_pull()` - Used by `heimdal sync` command
+- Other functions remain for potential future use or internal operations
 
 **Dependencies:**
 - `git2` crate for Git operations

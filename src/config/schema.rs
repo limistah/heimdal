@@ -3,8 +3,8 @@ use std::collections::HashMap;
 
 /// Root configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HeimdallConfig {
-    pub heimdal: HeimdallMeta,
+pub struct HeimdalConfig {
+    pub heimdal: HeimdalMeta,
     #[serde(default)]
     pub sources: Sources,
     pub profiles: HashMap<String, Profile>,
@@ -22,7 +22,7 @@ pub struct HeimdallConfig {
 
 /// Metadata section
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HeimdallMeta {
+pub struct HeimdalMeta {
     pub version: String,
     #[serde(default)]
     pub repo: Option<String>,

@@ -4,7 +4,7 @@ use dialoguer::{Confirm, Select};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::state::HeimdallState;
+use crate::state::HeimdalState;
 use crate::utils::{header, info, success, warning};
 
 /// Type of change detected
@@ -207,7 +207,7 @@ pub fn run_diff(verbose: bool, interactive: bool) -> Result<()> {
     header("Dotfile Changes");
 
     // Load state
-    let state = HeimdallState::load()?;
+    let state = HeimdalState::load()?;
 
     info(&format!("Repository: {}", state.dotfiles_path.display()));
     info(&format!("Profile: {}", state.active_profile));

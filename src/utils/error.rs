@@ -50,7 +50,7 @@ pub fn symlink_error(file: &str, dest: &str, existing_type: SymlinkErrorType) ->
             ],
             vec![
                 "Back it up: heimdal apply --backup".to_string(),
-                format!("See the difference: diff {} ~/dotfiles/{}", dest, file),
+                format!("See the difference: diff {} ~/.dotfiles/{}", dest, file),
                 "Force overwrite: heimdal apply --force".to_string(),
             ],
         ),
