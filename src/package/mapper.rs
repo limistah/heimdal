@@ -54,6 +54,7 @@ static BUILTIN_MAPPINGS: Lazy<HashMap<&'static str, PackageNames>> = Lazy::new(|
             brew: Some("docker".to_string()),
             dnf: Some("docker".to_string()),
             pacman: Some("docker".to_string()),
+            apk: Some("docker".to_string()),
         },
     );
 
@@ -68,6 +69,7 @@ static BUILTIN_MAPPINGS: Lazy<HashMap<&'static str, PackageNames>> = Lazy::new(|
             brew: Some("kubectl".to_string()),
             dnf: Some("kubernetes-client".to_string()),
             pacman: Some("kubectl".to_string()),
+            apk: Some("kubectl".to_string()),
         },
     );
 
@@ -82,6 +84,7 @@ static BUILTIN_MAPPINGS: Lazy<HashMap<&'static str, PackageNames>> = Lazy::new(|
             brew: Some("gcc".to_string()),
             dnf: Some("gcc".to_string()),
             pacman: Some("gcc".to_string()),
+            apk: Some("gcc".to_string()),
         },
     );
 
@@ -99,6 +102,7 @@ static BUILTIN_MAPPINGS: Lazy<HashMap<&'static str, PackageNames>> = Lazy::new(|
             brew: Some("node".to_string()),
             dnf: Some("nodejs".to_string()),
             pacman: Some("nodejs".to_string()),
+            apk: Some("nodejs".to_string()),
         },
     );
 
@@ -110,6 +114,7 @@ static BUILTIN_MAPPINGS: Lazy<HashMap<&'static str, PackageNames>> = Lazy::new(|
             brew: Some("python".to_string()),
             dnf: Some("python3".to_string()),
             pacman: Some("python".to_string()),
+            apk: Some("python3".to_string()),
         },
     );
 
@@ -122,6 +127,7 @@ static BUILTIN_MAPPINGS: Lazy<HashMap<&'static str, PackageNames>> = Lazy::new(|
             brew: Some("go".to_string()),
             dnf: Some("golang".to_string()),
             pacman: Some("go".to_string()),
+            apk: Some("go".to_string()),
         },
     );
 
@@ -147,6 +153,7 @@ static BUILTIN_MAPPINGS: Lazy<HashMap<&'static str, PackageNames>> = Lazy::new(|
             brew: Some("postgresql".to_string()),
             dnf: Some("postgresql-server".to_string()),
             pacman: Some("postgresql".to_string()),
+            apk: Some("postgresql".to_string()),
         },
     );
 
@@ -158,6 +165,7 @@ static BUILTIN_MAPPINGS: Lazy<HashMap<&'static str, PackageNames>> = Lazy::new(|
             brew: Some("mysql".to_string()),
             dnf: Some("mysql-server".to_string()),
             pacman: Some("mysql".to_string()),
+            apk: Some("mysql".to_string()),
         },
     );
     map.insert(
@@ -176,6 +184,7 @@ static BUILTIN_MAPPINGS: Lazy<HashMap<&'static str, PackageNames>> = Lazy::new(|
             brew: Some("nmap".to_string()),
             dnf: Some("nmap".to_string()),
             pacman: Some("nmap".to_string()),
+            apk: Some("nmap".to_string()),
         },
     );
 
@@ -257,6 +266,7 @@ pub struct PackageNames {
     pub brew: Option<String>,
     pub dnf: Option<String>,
     pub pacman: Option<String>,
+    pub apk: Option<String>,
 }
 
 impl PackageNames {
@@ -267,6 +277,7 @@ impl PackageNames {
             brew: Some(name.to_string()),
             dnf: Some(name.to_string()),
             pacman: Some(name.to_string()),
+            apk: Some(name.to_string()),
         }
     }
 
@@ -291,6 +302,12 @@ impl PackageNames {
         self.dnf = Some(name.to_string());
         self
     }
+
+    #[allow(dead_code)]
+    fn with_apk(mut self, name: &str) -> Self {
+        self.apk = Some(name.to_string());
+        self
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -299,6 +316,7 @@ pub enum PackageManagerType {
     Homebrew,
     Dnf,
     Pacman,
+    Apk,
 }
 
 /// Normalize a package name to its canonical form
@@ -373,6 +391,7 @@ pub fn map_package_name(
             PackageManagerType::Homebrew => &mapping.brew,
             PackageManagerType::Dnf => &mapping.dnf,
             PackageManagerType::Pacman => &mapping.pacman,
+            PackageManagerType::Apk => &mapping.apk,
         };
         if let Some(name) = pkg {
             return name.clone();
@@ -389,6 +408,7 @@ pub fn map_package_name(
             PackageManagerType::Homebrew => &names.brew,
             PackageManagerType::Dnf => &names.dnf,
             PackageManagerType::Pacman => &names.pacman,
+            PackageManagerType::Apk => &names.apk,
         };
         if let Some(name) = pkg {
             return name.clone();
@@ -403,6 +423,7 @@ pub fn map_package_name(
                 PackageManagerType::Homebrew => &names.brew,
                 PackageManagerType::Dnf => &names.dnf,
                 PackageManagerType::Pacman => &names.pacman,
+                PackageManagerType::Apk => &names.apk,
             };
             if let Some(name) = pkg {
                 return name.clone();

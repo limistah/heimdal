@@ -18,6 +18,7 @@ pub enum LinuxDistro {
     RedHat,
     Arch,
     Manjaro,
+    Alpine,
     Other(String),
 }
 
@@ -53,6 +54,7 @@ fn detect_linux_distro() -> LinuxDistro {
                     "redhat" => LinuxDistro::RedHat,
                     "arch" => LinuxDistro::Arch,
                     "manjaro" => LinuxDistro::Manjaro,
+                    "alpine" => LinuxDistro::Alpine,
                     other => LinuxDistro::Other(other.to_string()),
                 };
             }
@@ -71,6 +73,7 @@ fn detect_linux_distro() -> LinuxDistro {
                 "fedora" => LinuxDistro::Fedora,
                 "redhat" => LinuxDistro::RedHat,
                 "arch" => LinuxDistro::Arch,
+                "alpine" => LinuxDistro::Alpine,
                 other => LinuxDistro::Other(other.to_string()),
             };
         }

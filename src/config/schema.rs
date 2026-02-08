@@ -50,6 +50,8 @@ pub struct Sources {
     #[serde(default)]
     pub pacman: Option<PacmanSource>,
     #[serde(default)]
+    pub apk: Option<ApkSource>,
+    #[serde(default)]
     pub github: Vec<GitHubRepo>,
     #[serde(default)]
     pub custom: Vec<CustomInstall>,
@@ -101,6 +103,15 @@ pub struct DnfSource {
 /// Pacman source configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PacmanSource {
+    #[serde(default)]
+    pub packages: Vec<String>,
+    #[serde(default)]
+    pub hooks: Hooks,
+}
+
+/// APK source configuration (Alpine Linux)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApkSource {
     #[serde(default)]
     pub packages: Vec<String>,
     #[serde(default)]
@@ -344,6 +355,7 @@ pub struct PackageMapping {
     pub brew: Option<String>,
     pub dnf: Option<String>,
     pub pacman: Option<String>,
+    pub apk: Option<String>,
 }
 
 fn default_true() -> bool {

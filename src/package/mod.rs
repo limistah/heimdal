@@ -1,3 +1,4 @@
+pub mod apk;
 pub mod apt;
 pub mod database;
 pub mod dependencies;
@@ -77,6 +78,13 @@ pub fn detect_package_manager() -> Option<Arc<dyn PackageManager>> {
                         None
                     }
                 }
+                LinuxDistro::Alpine => {
+                    if apk::ApkManager::new().is_available() {
+                        Some(Arc::new(apk::ApkManager::new()))
+                    } else {
+                        None
+                    }
+                }
                 _ => None,
             }
         }
@@ -114,6 +122,7 @@ pub fn install_packages(
         "homebrew" => PackageManagerType::Homebrew,
         "dnf" => PackageManagerType::Dnf,
         "pacman" => PackageManagerType::Pacman,
+        "apk" => PackageManagerType::Apk,
         _ => {
             warning(&format!("Unknown package manager: {}", pm.name()));
             return Ok(report);
@@ -333,6 +342,41 @@ pub fn install_packages(
                     info("Running Pacman post-install hooks...");
                     let hook_results = crate::hooks::execute_hooks(
                         &pacman_source.hooks.post_install,
+                        dry_run,
+                        crate::hooks::HookContext::PostInstall,
+                    )?;
+                    report.hook_results.extend(hook_results);
+                }
+            }
+        }
+        PackageManagerType::Apk => {
+            if let Some(apk_source) = &profile.sources.apk {
+                // Execute pre-install hooks
+                if !apk_source.hooks.pre_install.is_empty() {
+                    info("Running APK pre-install hooks...");
+                    let hook_results = crate::hooks::execute_hooks(
+                        &apk_source.hooks.pre_install,
+                        dry_run,
+                        crate::hooks::HookContext::PreInstall,
+                    )?;
+                    report.hook_results.extend(hook_results);
+                }
+
+                // Install packages
+                if !apk_source.packages.is_empty() {
+                    info(&format!(
+                        "Installing {} APK packages...",
+                        apk_source.packages.len()
+                    ));
+                    let results = pm.install_many(&apk_source.packages, dry_run)?;
+                    report.add_results(results);
+                }
+
+                // Execute post-install hooks
+                if !apk_source.hooks.post_install.is_empty() {
+                    info("Running APK post-install hooks...");
+                    let hook_results = crate::hooks::execute_hooks(
+                        &apk_source.hooks.post_install,
                         dry_run,
                         crate::hooks::HookContext::PostInstall,
                     )?;

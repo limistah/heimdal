@@ -258,3 +258,17 @@ pub fn pacman_config() -> ManagerConfig {
         supports_batch: true,
     }
 }
+
+/// Create apk configuration
+pub fn apk_config() -> ManagerConfig {
+    ManagerConfig {
+        name: "apk",
+        command: "apk",
+        check_command: Some("apk"),
+        install_cmd: vec!["add", "--no-cache"],
+        list_cmd: vec!["info", "-e"],
+        update_cmd: vec!["update"],
+        use_sudo: true,
+        supports_batch: true,
+    }
+}
