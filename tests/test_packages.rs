@@ -79,6 +79,7 @@ fn test_packages_list_after_init() {
 }
 
 #[test]
+#[ignore] // Requires network access and package database download - run manually with --ignored
 fn test_packages_update_database() {
     let temp = assert_fs::TempDir::new().unwrap();
 
@@ -93,6 +94,7 @@ fn test_packages_update_database() {
 }
 
 #[test]
+#[ignore] // Requires network access and package database update - run manually with --ignored
 fn test_packages_search() {
     let temp = assert_fs::TempDir::new().unwrap();
 
@@ -115,6 +117,7 @@ fn test_packages_search() {
 }
 
 #[test]
+#[ignore] // Requires network access and package database update - run manually with --ignored
 fn test_packages_search_no_results() {
     let temp = assert_fs::TempDir::new().unwrap();
 
@@ -137,6 +140,7 @@ fn test_packages_search_no_results() {
 }
 
 #[test]
+#[ignore] // Requires network access and package database update - run manually with --ignored
 fn test_packages_info() {
     let temp = assert_fs::TempDir::new().unwrap();
 
@@ -159,6 +163,7 @@ fn test_packages_info() {
 }
 
 #[test]
+#[ignore] // Requires network access and package database update - run manually with --ignored
 fn test_packages_cache_info() {
     let temp = assert_fs::TempDir::new().unwrap();
 
@@ -181,6 +186,7 @@ fn test_packages_cache_info() {
 }
 
 #[test]
+#[ignore] // Requires network access and package database update - run manually with --ignored
 fn test_packages_cache_clear() {
     let temp = assert_fs::TempDir::new().unwrap();
 
@@ -202,6 +208,7 @@ fn test_packages_cache_clear() {
 }
 
 #[test]
+#[ignore] // Requires network access and package database update - run manually with --ignored
 fn test_packages_list_groups() {
     let temp = assert_fs::TempDir::new().unwrap();
 
@@ -223,6 +230,7 @@ fn test_packages_list_groups() {
 }
 
 #[test]
+#[ignore] // Requires network access and package database update - run manually with --ignored
 fn test_packages_search_groups() {
     let temp = assert_fs::TempDir::new().unwrap();
 
