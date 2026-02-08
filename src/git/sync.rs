@@ -34,7 +34,6 @@ impl Default for SyncOptions {
     }
 }
 
-#[allow(dead_code)]
 impl GitRepo {
     /// Sync repository with remote (pull and optionally push)
     pub fn sync(&self, options: &SyncOptions) -> Result<SyncResult> {
@@ -198,6 +197,7 @@ impl GitRepo {
     }
 
     /// Get current branch tracking information
+    #[cfg(test)]
     pub fn get_tracking_info(&self) -> Result<TrackingInfo> {
         let branch = self.current_branch()?;
         let ahead = self.commits_ahead()?;
@@ -213,6 +213,7 @@ impl GitRepo {
     }
 
     /// Get upstream branch name
+    #[cfg(test)]
     fn get_upstream_branch(&self) -> Result<Option<String>> {
         let output = Command::new("git")
             .arg("-C")
@@ -231,6 +232,7 @@ impl GitRepo {
     }
 
     /// Get number of commits ahead of remote
+    #[cfg(test)]
     fn commits_ahead(&self) -> Result<usize> {
         let output = Command::new("git")
             .arg("-C")
@@ -250,6 +252,7 @@ impl GitRepo {
     }
 
     /// Get number of commits behind remote
+    #[cfg(test)]
     fn commits_behind(&self) -> Result<usize> {
         let output = Command::new("git")
             .arg("-C")
@@ -267,31 +270,11 @@ impl GitRepo {
             _ => Ok(0),
         }
     }
-
-    /// Fetch from remote
-    #[allow(dead_code)]
-    pub fn fetch(&self) -> Result<()> {
-        step("Fetching from remote...");
-
-        let output = Command::new("git")
-            .arg("-C")
-            .arg(&self.path)
-            .arg("fetch")
-            .output()
-            .context("Failed to fetch from remote")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Fetch failed: {}", stderr);
-        }
-
-        Ok(())
-    }
 }
 
 /// Branch tracking information
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
+#[cfg(test)]
 pub struct TrackingInfo {
     pub branch: String,
     pub upstream: Option<String>,
@@ -299,7 +282,7 @@ pub struct TrackingInfo {
     pub behind: usize,
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 impl TrackingInfo {
     /// Check if in sync with upstream
     pub fn is_in_sync(&self) -> bool {
