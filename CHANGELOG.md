@@ -421,7 +421,7 @@ If upgrading from v1.1.2 or earlier:
   
   - **Usage Examples**:
     ```bash
-    heimdal import --path ~/dotfiles --preview
+    heimdal import --path ~/.dotfiles --preview
     heimdal import --from chezmoi --preview
     heimdal import --from yadm --path ~/.yadm --preview
     ```
@@ -871,7 +871,7 @@ If upgrading from v1.1.2 or earlier:
   - Git repository setup assistance
 
 - **Import System** - Effortless migration from other dotfile managers
-  - Import command: `heimdal import --path ~/dotfiles`
+  - Import command: `heimdal import --path ~/.dotfiles`
   - Auto-detection of existing tools (Stow, dotbot, manual)
   - Direct conversion to Heimdal format
   - Preserves compatibility settings (e.g., Stow compatibility mode)
