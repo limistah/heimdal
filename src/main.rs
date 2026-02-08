@@ -1144,13 +1144,11 @@ fn cmd_config_show() -> Result<()> {
     // Try to find heimdal.yaml in common locations
     let config_paths = vec!["heimdal.yaml", "~/.dotfiles/heimdal.yaml"];
 
-    let mut found = false;
     for path_str in config_paths {
         let expanded = shellexpand::tilde(path_str);
         let path = std::path::Path::new(expanded.as_ref());
 
         if path.exists() {
-            found = true;
             info(&format!("Config file: {}", path.display()));
             println!();
 
@@ -1172,10 +1170,9 @@ fn cmd_config_show() -> Result<()> {
         }
     }
 
-    if !found {
-        error("No heimdal.yaml found in current directory or ~/.dotfiles");
-        info("Run 'heimdal init' to set up Heimdal on this machine");
-    }
+    // If we get here, no config file was found
+    error("No heimdal.yaml found in current directory or ~/.dotfiles");
+    info("Run 'heimdal init' to set up Heimdal on this machine");
 
     Ok(())
 }
