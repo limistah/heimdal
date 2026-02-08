@@ -8,15 +8,15 @@
 #[path = "helpers/mod.rs"]
 mod helpers;
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 
 use crate::helpers::{TestEnv, TEST_REPO};
 
 #[test]
 fn test_secret_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("secret")
         .arg("--help")
         .assert()
@@ -30,8 +30,8 @@ fn test_secret_help() {
 
 #[test]
 fn test_secret_verbose_flag() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("secret")
         .arg("--verbose")
         .arg("--help")
@@ -386,8 +386,8 @@ fn test_secret_update_existing() {
 
 #[test]
 fn test_secret_add_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("secret")
         .arg("add")
         .arg("--help")
@@ -398,8 +398,8 @@ fn test_secret_add_help() {
 
 #[test]
 fn test_secret_get_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("secret")
         .arg("get")
         .arg("--help")
@@ -410,8 +410,8 @@ fn test_secret_get_help() {
 
 #[test]
 fn test_secret_remove_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("secret")
         .arg("remove")
         .arg("--help")
@@ -422,8 +422,8 @@ fn test_secret_remove_help() {
 
 #[test]
 fn test_secret_list_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("secret")
         .arg("list")
         .arg("--help")

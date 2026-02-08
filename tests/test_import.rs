@@ -4,7 +4,7 @@
 #[path = "helpers/mod.rs"]
 mod helpers;
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use std::fs;
 
@@ -12,8 +12,7 @@ use crate::helpers::TestEnv;
 
 #[test]
 fn test_import_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("import")
         .arg("--help")
         .assert()
@@ -29,8 +28,7 @@ fn test_import_help() {
 
 #[test]
 fn test_import_verbose_flag() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("import")
         .arg("--verbose")
         .arg("--help")

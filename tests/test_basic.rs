@@ -1,13 +1,12 @@
 /// Test basic CLI functionality (--version, --help, invalid commands)
 ///
 /// These are sanity tests to ensure the binary runs and provides expected output.
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 
 #[test]
 fn test_version_flag() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("--version")
         .assert()
         .success()
@@ -17,8 +16,7 @@ fn test_version_flag() {
 
 #[test]
 fn test_help_flag() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("--help")
         .assert()
         .success()
@@ -28,8 +26,7 @@ fn test_help_flag() {
 
 #[test]
 fn test_invalid_command() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("nonexistent-command-xyz")
         .assert()
         .failure()
@@ -42,8 +39,7 @@ fn test_invalid_command() {
 #[test]
 fn test_no_arguments_shows_help() {
     // Heimdal shows help to stderr and exits with error code when no command given
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .assert()
         .failure() // Exit code 2
         .stderr(predicate::str::contains("Usage:"))
@@ -52,8 +48,7 @@ fn test_no_arguments_shows_help() {
 
 #[test]
 fn test_verbose_flag() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
         .arg("--verbose")
         .arg("--help")
         .assert()

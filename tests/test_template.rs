@@ -4,7 +4,7 @@
 #[path = "helpers/mod.rs"]
 mod helpers;
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use std::fs;
 
@@ -12,8 +12,8 @@ use crate::helpers::{TestEnv, TEST_REPO};
 
 #[test]
 fn test_template_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("template")
         .arg("--help")
         .assert()
@@ -26,8 +26,8 @@ fn test_template_help() {
 
 #[test]
 fn test_template_verbose_flag() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("template")
         .arg("--verbose")
         .arg("--help")
@@ -239,8 +239,8 @@ fn test_template_list_with_template_files() {
 
 #[test]
 fn test_template_preview_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("template")
         .arg("preview")
         .arg("--help")
@@ -253,8 +253,8 @@ fn test_template_preview_help() {
 
 #[test]
 fn test_template_list_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("template")
         .arg("list")
         .arg("--help")
@@ -265,8 +265,8 @@ fn test_template_list_help() {
 
 #[test]
 fn test_template_variables_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("template")
         .arg("variables")
         .arg("--help")
