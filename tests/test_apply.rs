@@ -277,8 +277,10 @@ fn test_apply_detects_package_manager() {
             || stdout.contains("brew")
             || stdout.contains("apt")
             || stdout.contains("pacman")
-            || stdout.contains("dnf"),
-        "Apply should show which package manager is detected"
+            || stdout.contains("dnf")
+            || stdout.contains("apk"),
+        "Apply should show which package manager is detected. Got: {}",
+        stdout
     );
 }
 
