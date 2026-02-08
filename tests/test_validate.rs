@@ -6,7 +6,7 @@
 /// - Invalid configuration
 /// - Missing configuration
 /// - Custom config path
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use assert_fs::prelude::*;
 use predicates::prelude::*;
 
@@ -14,8 +14,8 @@ const TEST_REPO: &str = "https://github.com/limistah/heimdal-dotfiles-test.git";
 
 #[test]
 fn test_validate_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("validate")
         .arg("--help")
         .assert()
@@ -29,8 +29,8 @@ fn test_validate_missing_config() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Try to validate in directory without heimdal.yaml
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("validate")
         .current_dir(temp.path())
         .assert()
@@ -47,8 +47,8 @@ fn test_validate_valid_config_from_repo() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // First initialize with test repo to get a valid config
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -61,8 +61,8 @@ fn test_validate_valid_config_from_repo() {
     let dotfiles_dir = temp.child(".dotfiles");
 
     // Validate should succeed for valid config
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("validate")
         .current_dir(dotfiles_dir.path())
         .assert()
@@ -83,11 +83,11 @@ fn test_validate_invalid_yaml() {
     let config_file = temp.child("heimdal.yaml");
     config_file
         .write_str("this is not: valid: yaml: syntax")
-        .unwrap();
+        ;
 
     // Validate should fail
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("validate")
         .current_dir(temp.path())
         .assert()
@@ -113,11 +113,11 @@ profiles:
       files: []
 "#,
         )
-        .unwrap();
+        ;
 
     // Should validate successfully
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("validate")
         .current_dir(temp.path())
         .assert()
@@ -128,7 +128,7 @@ profiles:
 fn test_validate_with_custom_path() {
     let temp = assert_fs::TempDir::new().unwrap();
     let config_dir = temp.child("custom-location");
-    config_dir.create_dir_all().unwrap();
+    config_dir.create_dir_all();
 
     // Create valid config in custom location
     let config_file = config_dir.child("heimdal.yaml");
@@ -145,11 +145,11 @@ profiles:
       files: []
 "#,
         )
-        .unwrap();
+        ;
 
     // Validate with custom config path
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("validate")
         .arg("--config")
         .arg(config_file.path())
@@ -163,11 +163,11 @@ fn test_validate_empty_file() {
 
     // Create empty config file
     let config_file = temp.child("heimdal.yaml");
-    config_file.write_str("").unwrap();
+    config_file.write_str("");
 
     // Should fail validation
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("validate")
         .current_dir(temp.path())
         .assert()
@@ -187,11 +187,11 @@ fn test_validate_config_missing_profiles() {
 some_other_key: value
 "#,
         )
-        .unwrap();
+        ;
 
     // Should fail validation
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("validate")
         .current_dir(temp.path())
         .assert()

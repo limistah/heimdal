@@ -5,7 +5,7 @@
 /// - switch, current, show, list subcommands
 /// - Error handling without init
 /// - Profile switching
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use assert_fs::prelude::*;
 use predicates::prelude::*;
 use serial_test::serial;
@@ -14,8 +14,8 @@ const TEST_REPO: &str = "https://github.com/limistah/heimdal-dotfiles-test.git";
 
 #[test]
 fn test_profile_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("profile")
         .arg("--help")
         .assert()
@@ -31,8 +31,8 @@ fn test_profile_help() {
 fn test_profile_list_without_init_fails() {
     let temp = assert_fs::TempDir::new().unwrap();
 
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("profile")
         .arg("list")
         .env("HOME", temp.path())
@@ -46,8 +46,8 @@ fn test_profile_list_after_init() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Initialize
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -58,8 +58,8 @@ fn test_profile_list_after_init() {
         .success();
 
     // List profiles
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("profile")
         .arg("list")
         .env("HOME", temp.path())
@@ -74,8 +74,8 @@ fn test_profile_current_shows_active() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Initialize with test profile
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -86,8 +86,8 @@ fn test_profile_current_shows_active() {
         .success();
 
     // Get current profile
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("profile")
         .arg("current")
         .env("HOME", temp.path())
@@ -102,8 +102,8 @@ fn test_profile_show_displays_info() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Initialize
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -114,8 +114,8 @@ fn test_profile_show_displays_info() {
         .success();
 
     // Show profile details
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("profile")
         .arg("show")
         .arg("test")
@@ -131,8 +131,8 @@ fn test_profile_show_nonexistent_fails() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Initialize
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -143,8 +143,8 @@ fn test_profile_show_nonexistent_fails() {
         .success();
 
     // Try to show nonexistent profile
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("profile")
         .arg("show")
         .arg("nonexistent-profile-xyz")
@@ -159,8 +159,8 @@ fn test_profile_switch_to_development() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Initialize with test profile
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -171,8 +171,8 @@ fn test_profile_switch_to_development() {
         .success();
 
     // Switch to development profile (if it exists in test repo)
-    let result = Command::cargo_bin("heimdal")
-        .unwrap()
+    let result = cargo_bin_cmd!()
+        
         .arg("profile")
         .arg("switch")
         .arg("development")
@@ -189,8 +189,8 @@ fn test_profile_switch_nonexistent_fails() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Initialize
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -201,8 +201,8 @@ fn test_profile_switch_nonexistent_fails() {
         .success();
 
     // Try to switch to nonexistent profile
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("profile")
         .arg("switch")
         .arg("nonexistent-profile-xyz")
@@ -216,8 +216,8 @@ fn test_profile_switch_nonexistent_fails() {
 fn test_profile_current_without_init_fails() {
     let temp = assert_fs::TempDir::new().unwrap();
 
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("profile")
         .arg("current")
         .env("HOME", temp.path())
