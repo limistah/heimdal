@@ -16,7 +16,6 @@ const TEST_REPO: &str = "https://github.com/limistah/heimdal-dotfiles-test.git";
 #[test]
 fn test_init_help() {
     cargo_bin_cmd!()
-        
         .arg("init")
         .arg("--help")
         .assert()
@@ -32,7 +31,6 @@ fn test_init_without_repo_fails() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     cargo_bin_cmd!()
-        
         .arg("init")
         .arg("--profile")
         .arg("test")
@@ -48,7 +46,6 @@ fn test_init_without_profile_fails() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     cargo_bin_cmd!()
-        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -64,7 +61,6 @@ fn test_init_with_invalid_repo_fails() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     cargo_bin_cmd!()
-        
         .arg("init")
         .arg("--repo")
         .arg("https://github.com/nonexistent-user-12345/nonexistent-repo-67890.git")
@@ -81,7 +77,6 @@ fn test_init_basic_success() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     cargo_bin_cmd!()
-        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -114,7 +109,6 @@ fn test_init_creates_correct_state_content() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     cargo_bin_cmd!()
-        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -127,7 +121,7 @@ fn test_init_creates_correct_state_content() {
     // Read state file from dotfiles directory and verify content
     let dotfiles_dir = temp.child(".dotfiles");
     let state_file = dotfiles_dir.child("heimdal.state.json");
-    let state_content = std::fs::read_to_string(state_file.path());
+    let state_content = std::fs::read_to_string(state_file.path()).unwrap();
 
     assert!(
         state_content.contains(TEST_REPO),
@@ -146,7 +140,6 @@ fn test_init_with_custom_path() {
     let custom_path = temp.child("custom-dotfiles");
 
     cargo_bin_cmd!()
-        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -173,7 +166,6 @@ fn test_init_twice_fails() {
 
     // First init should succeed
     cargo_bin_cmd!()
-        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -185,7 +177,6 @@ fn test_init_twice_fails() {
 
     // Second init should fail
     cargo_bin_cmd!()
-        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)
@@ -204,7 +195,6 @@ fn test_init_with_nonexistent_profile() {
     // Initialize with a profile that doesn't exist in the config
     // This might succeed during init but fail later during operations
     let result = cargo_bin_cmd!()
-        
         .arg("init")
         .arg("--repo")
         .arg(TEST_REPO)

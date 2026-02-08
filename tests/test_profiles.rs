@@ -6,7 +6,6 @@
 /// - Listing without init (should fail)
 /// - Multiple profiles display
 use assert_cmd::cargo::cargo_bin_cmd;
-use assert_fs::prelude::*;
 use predicates::prelude::*;
 use serial_test::serial;
 

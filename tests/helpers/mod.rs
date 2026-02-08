@@ -60,6 +60,8 @@
 //!     .arg("init")
 //! ```
 
+#![allow(dead_code)] // Test helpers may not be used in all test files
+
 use assert_cmd::cargo::cargo_bin_cmd;
 use assert_cmd::Command;
 use assert_fs::TempDir;

@@ -30,7 +30,7 @@ fn test_packages_help() {
 #[test]
 fn test_packages_list_help() {
     cargo_bin_cmd!()
-        .args(&["packages", "list", "--help"])
+        .args(["packages", "list", "--help"])
         .assert()
         .success()
         .stdout(predicates::str::contains("List all packages"));
@@ -43,7 +43,7 @@ fn test_packages_list_without_init() {
 
     // List fails when not initialized
     cargo_bin_cmd!()
-        .args(&["packages", "list"])
+        .args(["packages", "list"])
         .env("HOME", temp.path())
         .assert()
         .failure()
@@ -58,14 +58,14 @@ fn test_packages_list_after_init() {
 
     // Initialize heimdal
     cargo_bin_cmd!()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // List packages from the test profile
     cargo_bin_cmd!()
-        .args(&["packages", "list"])
+        .args(["packages", "list"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
         .assert()
@@ -80,7 +80,7 @@ fn test_packages_update_database() {
 
     // Update package database (downloads package info)
     cargo_bin_cmd!()
-        .args(&["packages", "update"])
+        .args(["packages", "update"])
         .env("HOME", temp.path())
         .assert()
         .success()
@@ -94,14 +94,14 @@ fn test_packages_search() {
 
     // Update database first
     cargo_bin_cmd!()
-        .args(&["packages", "update"])
+        .args(["packages", "update"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Search for a common package
     cargo_bin_cmd!()
-        .args(&["packages", "search", "git"])
+        .args(["packages", "search", "git"])
         .env("HOME", temp.path())
         .assert()
         .success()
@@ -115,14 +115,14 @@ fn test_packages_search_no_results() {
 
     // Update database first
     cargo_bin_cmd!()
-        .args(&["packages", "update"])
+        .args(["packages", "update"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Search for non-existent package
     cargo_bin_cmd!()
-        .args(&["packages", "search", "thisdoesnotexist999999"])
+        .args(["packages", "search", "thisdoesnotexist999999"])
         .env("HOME", temp.path())
         .assert()
         .success()
@@ -136,14 +136,14 @@ fn test_packages_info() {
 
     // Update database first
     cargo_bin_cmd!()
-        .args(&["packages", "update"])
+        .args(["packages", "update"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Get info for a known package
     cargo_bin_cmd!()
-        .args(&["packages", "info", "git"])
+        .args(["packages", "info", "git"])
         .env("HOME", temp.path())
         .assert()
         .success()
@@ -157,14 +157,14 @@ fn test_packages_cache_info() {
 
     // Update database first to create cache
     cargo_bin_cmd!()
-        .args(&["packages", "update"])
+        .args(["packages", "update"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Check cache info
     cargo_bin_cmd!()
-        .args(&["packages", "cache-info"])
+        .args(["packages", "cache-info"])
         .env("HOME", temp.path())
         .assert()
         .success()
@@ -178,14 +178,14 @@ fn test_packages_cache_clear() {
 
     // Update database first to create cache
     cargo_bin_cmd!()
-        .args(&["packages", "update"])
+        .args(["packages", "update"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Clear cache
     cargo_bin_cmd!()
-        .args(&["packages", "cache-clear"])
+        .args(["packages", "cache-clear"])
         .env("HOME", temp.path())
         .assert()
         .success();
@@ -198,14 +198,14 @@ fn test_packages_list_groups() {
 
     // Update database first
     cargo_bin_cmd!()
-        .args(&["packages", "update"])
+        .args(["packages", "update"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // List package groups
     cargo_bin_cmd!()
-        .args(&["packages", "list-groups"])
+        .args(["packages", "list-groups"])
         .env("HOME", temp.path())
         .assert()
         .success();
@@ -218,14 +218,14 @@ fn test_packages_search_groups() {
 
     // Update database first
     cargo_bin_cmd!()
-        .args(&["packages", "update"])
+        .args(["packages", "update"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Search groups
     cargo_bin_cmd!()
-        .args(&["packages", "search-groups", "dev"])
+        .args(["packages", "search-groups", "dev"])
         .env("HOME", temp.path())
         .assert()
         .success();

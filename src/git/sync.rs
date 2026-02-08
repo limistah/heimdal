@@ -275,6 +275,7 @@ impl GitRepo {
 /// Branch tracking information
 #[derive(Debug, Clone)]
 #[cfg(test)]
+#[allow(dead_code)] // Test-only struct, not all fields/methods used in current tests
 pub struct TrackingInfo {
     pub branch: String,
     pub upstream: Option<String>,
@@ -283,6 +284,7 @@ pub struct TrackingInfo {
 }
 
 #[cfg(test)]
+#[allow(dead_code)] // Test utility methods
 impl TrackingInfo {
     /// Check if in sync with upstream
     pub fn is_in_sync(&self) -> bool {

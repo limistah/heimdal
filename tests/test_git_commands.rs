@@ -6,7 +6,6 @@
 
 use assert_cmd::cargo::cargo_bin_cmd;
 use assert_fs::prelude::*;
-use predicates::prelude::*;
 use serial_test::serial;
 
 const TEST_REPO: &str = "https://github.com/limistah/heimdal-dotfiles-test.git";
@@ -47,7 +46,7 @@ fn test_diff_after_init() {
 
     // Initialize heimdal
     cargo_bin_cmd!()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
@@ -82,7 +81,7 @@ fn test_commit_without_init() {
 
     // Commit should fail when not initialized
     cargo_bin_cmd!()
-        .args(&["commit", "-m", "test"])
+        .args(["commit", "-m", "test"])
         .env("HOME", temp.path())
         .assert()
         .failure()

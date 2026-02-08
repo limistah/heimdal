@@ -8,7 +8,6 @@
 
 use assert_cmd::cargo::cargo_bin_cmd;
 use assert_fs::prelude::*;
-use predicates::prelude::*;
 use serial_test::serial;
 
 const TEST_REPO: &str = "https://github.com/limistah/heimdal-dotfiles-test.git";
@@ -49,7 +48,7 @@ fn test_status_after_init() {
     // Initialize heimdal
     cargo_bin_cmd!()
         
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
@@ -75,7 +74,7 @@ fn test_status_shows_profile_info() {
     // Initialize with test profile
     cargo_bin_cmd!()
         
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
@@ -100,7 +99,7 @@ fn test_status_verbose_flag() {
     // Initialize heimdal
     cargo_bin_cmd!()
         
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
@@ -108,7 +107,7 @@ fn test_status_verbose_flag() {
     // Test verbose flag
     let output = cargo_bin_cmd!()
         
-        .args(&["status", "--verbose"])
+        .args(["status", "--verbose"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
         .assert()
@@ -133,7 +132,7 @@ fn test_status_shows_dotfiles_directory() {
     // Initialize heimdal
     cargo_bin_cmd!()
         
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
