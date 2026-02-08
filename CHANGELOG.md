@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-02-08
+
+### BREAKING CHANGES
+
+#### Removed Commands
+
+Heimdal v2.0.0 removes redundant Git wrapper commands to focus on what Git cannot do: dotfiles management, configuration sync, and package management.
+
+- **Removed `heimdal push`** 
+  - **Migration:** Use `git push` for direct Git operations, or `heimdal commit --push` to commit and push in one step
+  
+- **Removed `heimdal pull`**
+  - **Migration:** Use `git pull` for direct Git operations, or `heimdal sync` to pull and apply configuration changes
+  
+- **Removed `heimdal branch`** (all subcommands: current, list, create, switch, info)
+  - **Migration:** Use native Git commands: `git branch`, `git checkout`, `git switch`
+  
+- **Removed `heimdal remote`** (all subcommands: list, add, remove, set-url, show, setup)
+  - **Migration:** Use native Git commands: `git remote -v`, `git remote add`, `git remote remove`, etc.
+
+#### Changed Behavior
+
+- **`heimdal commit` now auto-generates commit messages by default**
+  - If no `-m` flag is provided, commit messages are automatically generated based on file changes
+  - Use `-m "message"` to override with a custom commit message
+  - **Removed `--auto` flag** (no longer needed, this is now the default behavior)
+
+#### Rationale
+
+Heimdal now focuses exclusively on dotfiles management capabilities that Git cannot provide:
+- Symlink management with GNU Stow
+- Configuration file templating
+- Package installation across multiple managers
+- Profile-based configuration switching
+- State synchronization and conflict resolution
+
+For Git operations like branching, remote management, and granular push/pull control, users should use Git directly for better control, flexibility, and access to the full Git feature set.
+
+### Changed
+
+- Simplified CLI surface by removing ~340 lines of redundant Git wrapper code
+- Improved commit workflow: auto-generation is now the default, reducing friction for quick commits
+- Updated documentation and examples to reflect new command structure
+
 ## [1.2.2] - 2026-02-08
 
 ### Fixed
