@@ -19,7 +19,7 @@ pub enum Commands {
 
     /// Import from existing dotfile managers (Stow, dotbot, etc.)
     Import {
-        /// Path to dotfiles directory (defaults to ~/dotfiles)
+        /// Path to dotfiles directory (defaults to ~/.dotfiles)
         #[arg(short, long)]
         path: Option<String>,
 
