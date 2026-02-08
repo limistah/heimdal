@@ -9,6 +9,7 @@ mod helpers;
 mod test_apply;
 mod test_basic;
 mod test_git_commands;
+mod test_import;
 mod test_init;
 mod test_packages;
 mod test_profile;
