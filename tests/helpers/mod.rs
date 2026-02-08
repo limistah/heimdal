@@ -1,4 +1,3 @@
-pub mod fixtures;
 /// Common test helpers for heimdal CLI testing
 ///
 /// This module provides utilities for testing heimdal CLI commands
@@ -21,8 +20,8 @@ pub fn heimdal_cmd() -> Command {
 
 /// Setup a test environment with temp directories
 pub struct TestEnv {
+    #[allow(dead_code)] // Needed for RAII cleanup on drop
     pub temp_dir: TempDir,
-    pub dotfiles_path: PathBuf,
     pub home_path: PathBuf,
 }
 
@@ -30,14 +29,12 @@ impl TestEnv {
     /// Create a new test environment
     pub fn new() -> Self {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
-        let dotfiles_path = temp_dir.path().join(".dotfiles");
         let home_path = temp_dir.path().join("home");
 
         std::fs::create_dir_all(&home_path).expect("Failed to create home dir");
 
         Self {
             temp_dir,
-            dotfiles_path,
             home_path,
         }
     }
@@ -52,75 +49,5 @@ impl TestEnv {
         let mut cmd = heimdal_cmd();
         cmd.env("HOME", self.home_dir());
         cmd
-    }
-}
-
-/// Platform detection helpers
-pub mod platform {
-    use std::env;
-
-    pub fn is_linux() -> bool {
-        env::consts::OS == "linux"
-    }
-
-    pub fn is_macos() -> bool {
-        env::consts::OS == "macos"
-    }
-
-    pub fn is_windows() -> bool {
-        env::consts::OS == "windows"
-    }
-
-    /// Get the package manager for the current platform
-    pub fn package_manager() -> Option<&'static str> {
-        if is_macos() {
-            Some("brew")
-        } else if is_linux() {
-            // Try to detect Linux package manager
-            if std::process::Command::new("apt").output().is_ok() {
-                Some("apt")
-            } else if std::process::Command::new("pacman").output().is_ok() {
-                Some("pacman")
-            } else if std::process::Command::new("dnf").output().is_ok() {
-                Some("dnf")
-            } else if std::process::Command::new("apk").output().is_ok() {
-                Some("apk")
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-}
-
-/// Assertion helpers
-pub mod assertions {
-    use std::path::Path;
-
-    /// Check if a symlink exists and points to the expected target
-    pub fn assert_symlink_exists(link: &Path, target: &Path) -> bool {
-        if !link.exists() {
-            return false;
-        }
-
-        if !link.is_symlink() {
-            return false;
-        }
-
-        if let Ok(link_target) = std::fs::read_link(link) {
-            link_target == target
-        } else {
-            false
-        }
-    }
-
-    /// Check if a file contains a specific string
-    pub fn file_contains(path: &Path, needle: &str) -> bool {
-        if let Ok(content) = std::fs::read_to_string(path) {
-            content.contains(needle)
-        } else {
-            false
-        }
     }
 }
