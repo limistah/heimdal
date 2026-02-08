@@ -1030,7 +1030,7 @@ heimdal state version  # Verify
 ```bash
 # After making changes
 heimdal commit -m "Add new shell aliases"
-heimdal push
+git push
 ```
 
 ### 2. Sync Before Major Changes
