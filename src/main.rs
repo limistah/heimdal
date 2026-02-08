@@ -393,13 +393,13 @@ fn cmd_init(profile: &str, repo: &str, path: Option<&str>) -> Result<()> {
 
     // Save state
     info("Saving state...");
-    let state =
-        state::HeimdallState::new(profile.to_string(), dotfiles_path.clone(), repo.to_string());
+    let mut state =
+        state::HeimdalState::new(profile.to_string(), dotfiles_path.clone(), repo.to_string())?;
     state.save()?;
 
     success(&format!(
         "State saved to: {}",
-        state::HeimdallState::state_path()?.display()
+        state::HeimdalState::state_path()?.display()
     ));
 
     // Print next steps
@@ -421,9 +421,9 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
     // Acquire state lock (unless dry-run)
     let _guard = if !dry_run {
         // Load state V2
-        let state_v2 = state::HeimdallStateV2::load().unwrap_or_else(|_| {
+        let state_v2 = state::HeimdalState::load().unwrap_or_else(|_| {
             // Create new V2 state as fallback
-            state::HeimdallStateV2::new("default".to_string(), PathBuf::from("."), "".to_string())
+            state::HeimdalState::new("default".to_string(), PathBuf::from("."), "".to_string())
                 .expect("Failed to create default state - this should never fail")
         });
 
@@ -443,7 +443,7 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
     };
 
     // Try to load state first
-    let state_result = state::HeimdallState::load();
+    let state_result = state::HeimdalState::load();
 
     let (config_path, profile_name) = if let Ok(state) = state_result {
         // Use state file for profile and path
@@ -577,7 +577,7 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
 
     // Update state with apply time (if not dry-run)
     if !dry_run {
-        if let Ok(mut state) = state::HeimdallState::load() {
+        if let Ok(mut state) = state::HeimdalState::load() {
             state.update_apply_time();
             state.save()?;
         }
@@ -596,7 +596,7 @@ fn cmd_sync(quiet: bool, dry_run: bool) -> Result<()> {
     // Acquire state lock (unless dry-run)
     let _guard = if !dry_run {
         // Load state V2
-        let state_v2 = state::HeimdallStateV2::load()?;
+        let state_v2 = state::HeimdalState::load()?;
 
         let lock_config = state::lock::LockConfig::default();
         let guard = state::lock::StateGuard::acquire(
@@ -616,7 +616,7 @@ fn cmd_sync(quiet: bool, dry_run: bool) -> Result<()> {
     };
 
     // Load state
-    let mut state = state::HeimdallState::load()?;
+    let mut state = state::HeimdalState::load()?;
 
     if !quiet {
         info(&format!("Dotfiles path: {}", state.dotfiles_path.display()));
@@ -678,14 +678,14 @@ fn cmd_sync(quiet: bool, dry_run: bool) -> Result<()> {
                 }
 
                 // Try to load both local and remote state (from git)
-                if let Ok(local_state_v2) = state::HeimdallStateV2::load() {
+                if let Ok(local_state_v2) = state::HeimdalState::load() {
                     // Check if state.json was updated in the pull
                     let state_file = state.dotfiles_path.join("state.json");
                     if state_file.exists() {
                         // Read remote state from the file
                         if let Ok(remote_content) = std::fs::read_to_string(&state_file) {
                             if let Ok(remote_state_v2) =
-                                serde_json::from_str::<state::HeimdallStateV2>(&remote_content)
+                                serde_json::from_str::<state::HeimdalState>(&remote_content)
                             {
                                 // Detect conflicts
                                 let detection = state::conflict::ConflictResolver::detect_conflicts(
@@ -839,7 +839,7 @@ fn cmd_rollback(target: Option<&str>) -> Result<()> {
     header("Rolling Back Configuration");
 
     // Load state
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
 
     info(&format!("Dotfiles path: {}", state.dotfiles_path.display()));
 
@@ -912,7 +912,7 @@ fn cmd_auto_sync_enable(interval: &str) -> Result<()> {
     info(&format!("Interval: {}", interval));
 
     // Verify Heimdal is initialized
-    let _state = state::HeimdallState::load()?;
+    let _state = state::HeimdalState::load()?;
 
     // Enable auto-sync
     sync::enable_auto_sync(interval).with_context(|| "Failed to enable auto-sync")?;
@@ -1011,7 +1011,7 @@ fn cmd_commit(message: Option<&str>, auto: bool, push: bool, files: Vec<String>)
     header("Commit Changes");
 
     // Load state to get dotfiles path
-    let state = state::HeimdallStateV2::load()?;
+    let state = state::HeimdalState::load()?;
 
     // Acquire state lock
     let lock_config = state::lock::LockConfig::default();
@@ -1064,7 +1064,7 @@ fn cmd_push(_remote: Option<&str>, _branch: Option<&str>) -> Result<()> {
     header("Push to Remote");
 
     // Load state to get dotfiles path
-    let state = state::HeimdallStateV2::load()?;
+    let state = state::HeimdalState::load()?;
 
     // Acquire state lock
     let lock_config = state::lock::LockConfig::default();
@@ -1095,7 +1095,7 @@ fn cmd_pull(rebase: bool) -> Result<()> {
     header("Pull from Remote");
 
     // Load state to get dotfiles path
-    let state = state::HeimdallStateV2::load()?;
+    let state = state::HeimdalState::load()?;
 
     // Acquire state lock
     let lock_config = state::lock::LockConfig::default();
@@ -1122,7 +1122,7 @@ fn cmd_pull(rebase: bool) -> Result<()> {
 }
 
 fn cmd_branch_current() -> Result<()> {
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     let branch = repo.current_branch()?;
@@ -1134,7 +1134,7 @@ fn cmd_branch_current() -> Result<()> {
 fn cmd_branch_list() -> Result<()> {
     header("Git Branches");
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     let current = repo.current_branch()?;
@@ -1154,7 +1154,7 @@ fn cmd_branch_list() -> Result<()> {
 fn cmd_branch_create(name: &str) -> Result<()> {
     header("Create Branch");
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     info(&format!("Creating branch '{}'...", name));
@@ -1171,7 +1171,7 @@ fn cmd_branch_create(name: &str) -> Result<()> {
 fn cmd_branch_switch(name: &str) -> Result<()> {
     header("Switch Branch");
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     info(&format!("Switching to branch '{}'...", name));
@@ -1184,7 +1184,7 @@ fn cmd_branch_switch(name: &str) -> Result<()> {
 fn cmd_branch_info() -> Result<()> {
     header("Branch Information");
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     let tracking = repo.get_tracking_info()?;
@@ -1200,7 +1200,7 @@ fn cmd_remote_list(verbose: bool) -> Result<()> {
         header("Git Remotes");
     }
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     let remotes = repo.list_remotes()?;
@@ -1229,7 +1229,7 @@ fn cmd_remote_list(verbose: bool) -> Result<()> {
 fn cmd_remote_add(name: &str, url: &str) -> Result<()> {
     header("Add Remote");
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     // Check if remote already exists
@@ -1252,7 +1252,7 @@ fn cmd_remote_add(name: &str, url: &str) -> Result<()> {
 fn cmd_remote_remove(name: &str) -> Result<()> {
     header("Remove Remote");
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     // Check if remote exists
@@ -1271,7 +1271,7 @@ fn cmd_remote_remove(name: &str) -> Result<()> {
 fn cmd_remote_set_url(name: &str, url: &str) -> Result<()> {
     header("Set Remote URL");
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     // Check if remote exists
@@ -1294,7 +1294,7 @@ fn cmd_remote_set_url(name: &str, url: &str) -> Result<()> {
 fn cmd_remote_show(name: &str) -> Result<()> {
     header(&format!("Remote: {}", name));
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     // Check if remote exists
@@ -1314,7 +1314,7 @@ fn cmd_remote_setup() -> Result<()> {
 
     header("Interactive Remote Setup");
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let repo = git::GitRepo::new(&state.dotfiles_path)?;
 
     // Check current remotes
@@ -1418,7 +1418,7 @@ fn cmd_history(limit: usize) -> Result<()> {
     header("Change History");
 
     // Load state
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
 
     info(&format!(
         "Showing last {} commits from {}",
@@ -1742,7 +1742,7 @@ fn cmd_profile_templates() -> Result<()> {
 fn cmd_profile_create(profile_name: &str, template_name: &str) -> Result<()> {
     header("Create Profile from Template");
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let config_path = state.dotfiles_path.join("heimdal.yaml");
 
     // Load existing config
@@ -1788,7 +1788,7 @@ fn cmd_profile_create(profile_name: &str, template_name: &str) -> Result<()> {
 fn cmd_profile_clone(source_name: &str, target_name: &str) -> Result<()> {
     header("Clone Profile");
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let config_path = state.dotfiles_path.join("heimdal.yaml");
 
     // Load existing config
@@ -1974,7 +1974,7 @@ fn cmd_secret_list(verbose: bool) -> Result<()> {
 fn cmd_template_preview(file_path: &str, profile_name: Option<&str>) -> Result<()> {
     header("Template Preview");
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let config_path = state.dotfiles_path.join("heimdal.yaml");
     let config = config::load_config(&config_path)?;
 
@@ -2040,7 +2040,7 @@ fn cmd_template_preview(file_path: &str, profile_name: Option<&str>) -> Result<(
 fn cmd_template_list(verbose: bool) -> Result<()> {
     header("Template Files");
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let config_path = state.dotfiles_path.join("heimdal.yaml");
     let config = config::load_config(&config_path)?;
 
@@ -2111,7 +2111,7 @@ fn cmd_template_list(verbose: bool) -> Result<()> {
 fn cmd_template_variables(profile_name: Option<&str>) -> Result<()> {
     header("Template Variables");
 
-    let state = state::HeimdallState::load()?;
+    let state = state::HeimdalState::load()?;
     let config_path = state.dotfiles_path.join("heimdal.yaml");
     let config = config::load_config(&config_path)?;
 

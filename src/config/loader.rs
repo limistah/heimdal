@@ -2,22 +2,22 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::path::Path;
 
-use super::schema::HeimdallConfig;
+use super::schema::HeimdalConfig;
 
 /// Load configuration from YAML file
-pub fn load_config<P: AsRef<Path>>(path: P) -> Result<HeimdallConfig> {
+pub fn load_config<P: AsRef<Path>>(path: P) -> Result<HeimdalConfig> {
     let path = path.as_ref();
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read config file: {}", path.display()))?;
 
-    let config: HeimdallConfig = serde_yaml::from_str(&content)
+    let config: HeimdalConfig = serde_yaml::from_str(&content)
         .with_context(|| format!("Failed to parse YAML config: {}", path.display()))?;
 
     Ok(config)
 }
 
 /// Validate configuration
-pub fn validate_config(config: &HeimdallConfig) -> Result<()> {
+pub fn validate_config(config: &HeimdalConfig) -> Result<()> {
     // Check version format
     if config.heimdal.version.is_empty() {
         anyhow::bail!("heimdal.version cannot be empty");
@@ -71,8 +71,8 @@ mod tests {
         use crate::config::schema::*;
         use std::collections::HashMap;
 
-        let config = HeimdallConfig {
-            heimdal: HeimdallMeta {
+        let config = HeimdalConfig {
+            heimdal: HeimdalMeta {
                 version: "".to_string(),
                 repo: Some("test".to_string()),
                 stow_compat: true,

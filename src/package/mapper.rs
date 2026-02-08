@@ -514,6 +514,7 @@ mod tests {
                 brew: Some("mytool-brew".to_string()),
                 dnf: None,
                 pacman: None,
+                apk: None,
             },
         );
 

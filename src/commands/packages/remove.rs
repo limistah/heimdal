@@ -4,9 +4,9 @@ use dialoguer::Confirm;
 use std::fs;
 use std::path::Path;
 
-use crate::config::{self, schema::HeimdallConfig};
+use crate::config::{self, schema::HeimdalConfig};
 use crate::package::dependencies::DependencyAnalyzer;
-use crate::state::HeimdallState;
+use crate::state::HeimdalState;
 use crate::utils::{error, header, info, success, warning};
 
 /// Run the packages remove command
@@ -19,7 +19,7 @@ pub fn run_remove(
     header(&format!("Removing Package: {}", package_name));
 
     // Load state to get dotfiles path and current profile
-    let state = HeimdallState::load()?;
+    let state = HeimdalState::load()?;
     let profile_name = profile.unwrap_or(&state.active_profile);
 
     info(&format!("Profile: {}", profile_name));
@@ -238,7 +238,7 @@ fn find_dependents(
 
 /// Remove package from configuration
 fn remove_package_from_config(
-    config: &mut HeimdallConfig,
+    config: &mut HeimdalConfig,
     _profile_name: &str,
     package_name: &str,
     manager: &str,
@@ -277,7 +277,7 @@ fn remove_package_from_config(
 }
 
 /// Save configuration to file
-fn save_config(config: &HeimdallConfig, path: &Path) -> Result<()> {
+fn save_config(config: &HeimdalConfig, path: &Path) -> Result<()> {
     let yaml = serde_yaml::to_string(config).context("Failed to serialize config")?;
     fs::write(path, yaml).context("Failed to write config file")?;
     Ok(())
@@ -341,6 +341,7 @@ mod tests {
                 apt: None,
                 dnf: None,
                 pacman: None,
+                apk: None,
                 mas: None,
                 packages: vec![],
                 github: vec![],

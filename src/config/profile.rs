@@ -1,11 +1,11 @@
 use anyhow::{Context, Result};
 
 use super::schema::{
-    DotfilesConfig, HeimdallConfig, Profile, ProfileHooks, ProfileSource, SourceOverride, Sources,
+    DotfilesConfig, HeimdalConfig, Profile, ProfileHooks, ProfileSource, SourceOverride, Sources,
 };
 
 /// Resolve a profile by merging with its parents (additive)
-pub fn resolve_profile(config: &HeimdallConfig, profile_name: &str) -> Result<ResolvedProfile> {
+pub fn resolve_profile(config: &HeimdalConfig, profile_name: &str) -> Result<ResolvedProfile> {
     let _profile = config
         .profiles
         .get(profile_name)
@@ -138,8 +138,8 @@ mod tests {
             },
         );
 
-        let config = HeimdallConfig {
-            heimdal: HeimdallMeta {
+        let config = HeimdalConfig {
+            heimdal: HeimdalMeta {
                 version: "1.0".to_string(),
                 repo: Some("test".to_string()),
                 stow_compat: true,

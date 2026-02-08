@@ -1,11 +1,11 @@
 use anyhow::Result;
 use colored::Colorize;
 
-use crate::state::versioned::HeimdallStateV2;
+use crate::state::HeimdalState;
 
 /// Show state version information
 pub fn cmd_version() -> Result<()> {
-    let state = HeimdallStateV2::load()?;
+    let state = HeimdalState::load()?;
 
     println!("{}", "State Version Information:".cyan().bold());
     println!(
@@ -54,7 +54,7 @@ pub fn cmd_migrate(_no_backup: bool, _force: bool) -> Result<()> {
 
 /// Show operation history
 pub fn cmd_history(limit: usize) -> Result<()> {
-    let state = HeimdallStateV2::load()?;
+    let state = HeimdalState::load()?;
 
     if state.history.is_empty() {
         println!("{}", "No operation history found".yellow());

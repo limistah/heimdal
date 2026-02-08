@@ -5,6 +5,9 @@
 /// NOTE: Most tests are marked as #[ignore] because they require system keychain access
 /// which may not be available in CI environments or requires user authentication.
 /// Run with: cargo test -- --ignored
+#[path = "helpers/mod.rs"]
+mod helpers;
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 

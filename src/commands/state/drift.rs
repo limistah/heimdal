@@ -2,14 +2,14 @@ use anyhow::{anyhow, Result};
 use colored::Colorize;
 
 use crate::state::conflict::ConflictResolver;
-use crate::state::versioned::HeimdallStateV2;
+use crate::state::HeimdalState;
 
 /// Check for file drift (modifications outside heimdal)
 pub fn cmd_check_drift(_all: bool) -> Result<()> {
     println!("{}", "Checking for file drift...".cyan());
 
     // Load current state
-    let state = HeimdallStateV2::load().map_err(|e| anyhow!("Failed to load state: {}", e))?;
+    let state = HeimdalState::load().map_err(|e| anyhow!("Failed to load state: {}", e))?;
 
     // Check drift
     let drifts = ConflictResolver::check_drift(&state)?;

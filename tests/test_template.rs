@@ -1,6 +1,9 @@
 /// Test template command functionality
 ///
 /// Tests template preview, list, and variables subcommands
+#[path = "helpers/mod.rs"]
+mod helpers;
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 use std::fs;

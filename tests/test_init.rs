@@ -91,13 +91,13 @@ fn test_init_basic_success() {
         .assert()
         .success();
 
-    // Verify state file was created
-    let state_file = temp.child(".heimdal/heimdal.state.json");
-    state_file.assert(predicate::path::exists());
-
     // Verify dotfiles directory was created
     let dotfiles_dir = temp.child(".dotfiles");
     dotfiles_dir.assert(predicate::path::exists());
+
+    // Verify state file was created in dotfiles directory
+    let state_file = dotfiles_dir.child("heimdal.state.json");
+    state_file.assert(predicate::path::exists());
 
     // Verify git repo was cloned
     let git_dir = dotfiles_dir.child(".git");
@@ -124,8 +124,9 @@ fn test_init_creates_correct_state_content() {
         .assert()
         .success();
 
-    // Read state file and verify content
-    let state_file = temp.child(".heimdal/heimdal.state.json");
+    // Read state file from dotfiles directory and verify content
+    let dotfiles_dir = temp.child(".dotfiles");
+    let state_file = dotfiles_dir.child("heimdal.state.json");
     let state_content = std::fs::read_to_string(state_file.path()).unwrap();
 
     assert!(

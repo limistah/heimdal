@@ -304,7 +304,7 @@ impl LockManager {
 
     /// Pull remote state
     fn pull_remote_state(&self) -> Result<RemotePullResult> {
-        let state = crate::state::versioned::HeimdallStateV2::load()?;
+        let state = crate::state::HeimdalState::load()?;
         let repo_path = &state.dotfiles_path;
 
         // Check if we're in a git repo
@@ -355,7 +355,7 @@ impl LockManager {
     /// Check for state conflicts after remote update
     fn check_remote_conflicts(&self, _lock: &StateLock) -> Result<()> {
         // Load both local and remote state
-        let local_state = crate::state::versioned::HeimdallStateV2::load()?;
+        let local_state = crate::state::HeimdalState::load()?;
 
         // Check if state was modified by another machine
         let last_machine = local_state.lineage.machines.last();
@@ -404,7 +404,7 @@ impl LockManager {
 
     /// Push state to remote repository
     fn push_state_to_remote(&self) -> Result<()> {
-        let state = crate::state::versioned::HeimdallStateV2::load()?;
+        let state = crate::state::HeimdalState::load()?;
         let repo_path = &state.dotfiles_path;
 
         if !repo_path.join(".git").exists() {
@@ -557,7 +557,7 @@ impl LockManager {
     }
 
     pub fn lock_path() -> Result<PathBuf> {
-        let state_dir = crate::state::versioned::HeimdallStateV2::state_dir()?;
+        let state_dir = crate::state::HeimdalState::state_dir()?;
         Ok(state_dir.join("heimdal.state.lock"))
     }
 }

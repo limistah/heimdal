@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use colored::Colorize;
 
 use crate::state::conflict::ResolutionStrategy;
-use crate::state::versioned::HeimdallStateV2;
+use crate::state::HeimdalState;
 
 /// Check for state conflicts between local and remote
 pub fn cmd_check_conflicts() -> Result<()> {
@@ -10,7 +10,7 @@ pub fn cmd_check_conflicts() -> Result<()> {
 
     // Load local state
     let local_state =
-        HeimdallStateV2::load().map_err(|e| anyhow!("Failed to load local state: {}", e))?;
+        HeimdalState::load().map_err(|e| anyhow!("Failed to load local state: {}", e))?;
 
     // Try to load remote state (this would involve fetching from git)
     // For now, we'll just check if we can detect any obvious issues
@@ -56,7 +56,7 @@ pub fn cmd_resolve(strategy: String, yes: bool) -> Result<()> {
 
     // Load local state (TODO: use this in actual conflict resolution)
     let _local_state =
-        HeimdallStateV2::load().map_err(|e| anyhow!("Failed to load local state: {}", e))?;
+        HeimdalState::load().map_err(|e| anyhow!("Failed to load local state: {}", e))?;
 
     // Confirm if not yes
     if !yes {
