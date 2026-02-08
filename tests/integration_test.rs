@@ -13,6 +13,7 @@ mod test_init;
 mod test_packages;
 mod test_profile;
 mod test_profiles;
+mod test_secret;
 mod test_status;
 mod test_template;
 mod test_utility_commands;
