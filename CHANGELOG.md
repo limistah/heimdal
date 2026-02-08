@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-02-08
+
+### Fixed
+
+- **Critical: Fixed lock deadlock in `heimdal sync`** ([0aed37b](https://github.com/limistah/heimdal/commit/0aed37b))
+  - Resolved deadlock where `cmd_sync` would fail with "State is locked by another operation"
+  - The sync operation was trying to acquire a lock while already holding one
+  - Split `cmd_apply` into public and internal versions to allow lock-free calls from `cmd_sync`
+  - Sync operations now complete successfully without manual unlock required
+
+### Changed
+
+- Refactored `cmd_apply` to separate lock acquisition from apply logic
+  - `cmd_apply()` - Public interface that acquires lock
+  - `cmd_apply_internal()` - Internal function without locking
+  - `cmd_sync()` now calls `cmd_apply_internal()` to avoid double-locking
+
 ## [1.2.0] - 2026-02-08
 
 ### Fixed
