@@ -2,6 +2,7 @@
 ///
 /// This module provides utilities for testing heimdal CLI commands
 /// across different platforms and scenarios.
+use assert_cmd::cargo::cargo_bin_cmd;
 use assert_cmd::Command;
 use assert_fs::TempDir;
 use std::path::PathBuf;
@@ -15,7 +16,7 @@ pub const TEST_REPO_DRIFT_BRANCH: &str = "drift-test";
 
 /// Helper to create a heimdal command with proper environment
 pub fn heimdal_cmd() -> Command {
-    Command::cargo_bin("heimdal").expect("Failed to find heimdal binary")
+    cargo_bin_cmd!()
 }
 
 /// Setup a test environment with temp directories
