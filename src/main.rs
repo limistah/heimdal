@@ -442,6 +442,10 @@ fn cmd_apply(dry_run: bool, force: bool) -> Result<()> {
         None
     };
 
+    cmd_apply_internal(dry_run, force)
+}
+
+fn cmd_apply_internal(dry_run: bool, force: bool) -> Result<()> {
     // Try to load state first
     let state_result = state::HeimdalState::load();
 
@@ -762,7 +766,7 @@ fn cmd_sync(quiet: bool, dry_run: bool) -> Result<()> {
         info("Applying configuration...");
     }
 
-    cmd_apply(dry_run, false)?;
+    cmd_apply_internal(dry_run, false)?;
 
     // Execute profile post_sync hooks
     if let Some(profile) = config.profiles.get(&state.active_profile) {
