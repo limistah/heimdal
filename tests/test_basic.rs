@@ -12,7 +12,7 @@ fn test_version_flag() {
         .assert()
         .success()
         .stdout(predicate::str::contains("heimdal"))
-        .stdout(predicate::str::contains("1.1.2"));
+        .stdout(predicate::str::contains("2.0.0"));
 }
 
 #[test]
