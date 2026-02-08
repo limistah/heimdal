@@ -1,6 +1,9 @@
 /// Test state command functionality
 ///
 /// Tests state management: locks, conflicts, migrations, drift detection
+#[path = "helpers/mod.rs"]
+mod helpers;
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 use std::fs;

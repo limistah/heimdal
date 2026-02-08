@@ -8,13 +8,13 @@ use anyhow::{Context, Result};
 use colored::Colorize;
 use std::path::{Path, PathBuf};
 
-use crate::config::schema::{HeimdallConfig, Profile};
+use crate::config::schema::{HeimdalConfig, Profile};
 
 /// Render all templates for a given profile
 /// This function merges system, config, and profile variables, then renders
 /// all template files specified in the configuration
 pub fn render_templates(
-    config: &HeimdallConfig,
+    config: &HeimdalConfig,
     profile: &Profile,
     dotfiles_dir: &Path,
     dry_run: bool,

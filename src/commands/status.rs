@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::config;
-use crate::state::HeimdallState;
+use crate::state::HeimdalState;
 
 /// Status information for a dotfile
 #[derive(Debug, Clone)]
@@ -300,15 +300,15 @@ impl StatusInfo {
 /// Run the status command
 pub fn run_status(verbose: bool) -> Result<()> {
     // Load state
-    let state = HeimdallState::load()?;
+    let state = HeimdalState::load()?;
 
     // Gather status information
     let mut status_info = StatusInfo {
         profile: state.active_profile.clone(),
         dotfiles_path: state.dotfiles_path.clone(),
         repo_url: state.repo_url.clone(),
-        last_sync: state.last_sync.clone(),
-        last_apply: state.last_apply.clone(),
+        last_sync: state.last_sync.map(|dt| dt.to_rfc3339()),
+        last_apply: state.last_apply.map(|dt| dt.to_rfc3339()),
         git_branch: None,
         git_clean: true,
         git_changes: Vec::new(),

@@ -6,7 +6,7 @@ use anyhow::Result;
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
-use super::versioned::HeimdallStateV2;
+use super::versioned::HeimdalState;
 
 /// Conflict detection result
 #[derive(Debug, Clone)]
@@ -120,10 +120,7 @@ pub struct ConflictResolver;
 
 impl ConflictResolver {
     /// Detect conflicts between local and remote state
-    pub fn detect_conflicts(
-        local: &HeimdallStateV2,
-        remote: &HeimdallStateV2,
-    ) -> ConflictDetection {
+    pub fn detect_conflicts(local: &HeimdalState, remote: &HeimdalState) -> ConflictDetection {
         let mut conflicts = Vec::new();
 
         // Check serial divergence
@@ -200,10 +197,10 @@ impl ConflictResolver {
 
     /// Resolve conflicts using specified strategy
     pub fn resolve(
-        local: &HeimdallStateV2,
-        remote: &HeimdallStateV2,
+        local: &HeimdalState,
+        remote: &HeimdalState,
         strategy: ResolutionStrategy,
-    ) -> Result<HeimdallStateV2> {
+    ) -> Result<HeimdalState> {
         match strategy {
             ResolutionStrategy::UseLocal => {
                 println!(
@@ -236,7 +233,7 @@ impl ConflictResolver {
     }
 
     /// Intelligent state merging
-    fn merge_states(local: &HeimdallStateV2, remote: &HeimdallStateV2) -> Result<HeimdallStateV2> {
+    fn merge_states(local: &HeimdalState, remote: &HeimdalState) -> Result<HeimdalState> {
         let mut merged = local.clone();
 
         // Determine merged serials: use higher as current, lower as parent
@@ -305,7 +302,7 @@ impl ConflictResolver {
     }
 
     /// Check for state drift (file changes)
-    pub fn check_drift(state: &HeimdallStateV2) -> Result<Vec<FileDrift>> {
+    pub fn check_drift(state: &HeimdalState) -> Result<Vec<FileDrift>> {
         let mut drifts = Vec::new();
 
         for (file, stored_checksum) in &state.checksums {
@@ -358,7 +355,7 @@ impl ConflictResolver {
 
     /// Update checksums for tracked files
     #[allow(dead_code)]
-    pub fn update_checksums(state: &mut HeimdallStateV2) -> Result<()> {
+    pub fn update_checksums(state: &mut HeimdalState) -> Result<()> {
         state.checksums.clear();
 
         // TODO: Get list of tracked files from config
@@ -407,8 +404,8 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    fn create_test_state(serial: u64, profile: &str) -> HeimdallStateV2 {
-        let mut state = HeimdallStateV2::new(
+    fn create_test_state(serial: u64, profile: &str) -> HeimdalState {
+        let mut state = HeimdalState::new(
             profile.to_string(),
             PathBuf::from("/tmp/dotfiles"),
             "https://github.com/user/dotfiles.git".to_string(),
