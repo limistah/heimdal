@@ -79,7 +79,7 @@ fn wizard_start_fresh() -> Result<()> {
     // Ask for dotfiles location
     let dotfiles_path: String = Input::new()
         .with_prompt("Where should we create your dotfiles?")
-        .default("~/dotfiles".to_string())
+        .default("~/.dotfiles".to_string())
         .interact_text()?;
 
     let expanded_path = shellexpand::tilde(&dotfiles_path);
@@ -576,8 +576,8 @@ fn wizard_import() -> Result<()> {
 
     // Ask where dotfiles are
     let locations = vec![
-        "~/dotfiles",
         "~/.dotfiles",
+        "~/dotfiles",
         "~/dotfiles-local",
         "Custom path...",
     ];

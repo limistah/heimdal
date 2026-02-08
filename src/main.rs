@@ -1235,7 +1235,7 @@ fn cmd_import(path: Option<&str>, from: &str, output: Option<&str>, preview: boo
     let dotfiles_path = if let Some(p) = path {
         shellexpand::tilde(p).to_string()
     } else {
-        shellexpand::tilde("~/dotfiles").to_string()
+        shellexpand::tilde("~/.dotfiles").to_string()
     };
 
     let path_buf = std::path::PathBuf::from(&dotfiles_path);
