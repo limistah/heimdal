@@ -56,14 +56,14 @@ fn test_apply_dry_run_after_init() {
 
     // Initialize heimdal
     cargo_bin_cmd!()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Apply with dry-run (won't actually install or create symlinks)
     cargo_bin_cmd!()
-        .args(&["apply", "--dry-run"])
+        .args(["apply", "--dry-run"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
         .assert()
@@ -80,14 +80,14 @@ fn test_apply_dry_run_shows_packages() {
 
     // Initialize heimdal
     cargo_bin_cmd!()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Apply with dry-run and check that it shows the packages
     let output = cargo_bin_cmd!()
-        .args(&["apply", "--dry-run"])
+        .args(["apply", "--dry-run"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
         .assert()
@@ -112,14 +112,14 @@ fn test_apply_dry_run_shows_symlinks() {
 
     // Initialize heimdal
     cargo_bin_cmd!()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Apply with dry-run and check that it shows symlinks
     let output = cargo_bin_cmd!()
-        .args(&["apply", "--dry-run"])
+        .args(["apply", "--dry-run"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
         .assert()
@@ -150,14 +150,14 @@ fn test_apply_dry_run_development_profile() {
 
     // Initialize with development profile
     cargo_bin_cmd!()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "development"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "development"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Apply with dry-run for development profile
     let output = cargo_bin_cmd!()
-        .args(&["apply", "--dry-run"])
+        .args(["apply", "--dry-run"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
         .assert()
@@ -184,14 +184,14 @@ fn test_apply_dry_run_verbose() {
 
     // Initialize heimdal
     cargo_bin_cmd!()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Apply with dry-run and verbose
     cargo_bin_cmd!()
-        .args(&["apply", "--dry-run", "--verbose"])
+        .args(["apply", "--dry-run", "--verbose"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
         .assert()
@@ -206,14 +206,14 @@ fn test_apply_shows_would_run_commands() {
 
     // Initialize heimdal
     cargo_bin_cmd!()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Apply with dry-run should show what commands would be run
     let output = cargo_bin_cmd!()
-        .args(&["apply", "--dry-run"])
+        .args(["apply", "--dry-run"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
         .assert()
@@ -238,14 +238,14 @@ fn test_apply_detects_package_manager() {
 
     // Initialize heimdal
     cargo_bin_cmd!()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Apply with dry-run should detect and show package manager
     let output = cargo_bin_cmd!()
-        .args(&["apply", "--dry-run"])
+        .args(["apply", "--dry-run"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
         .assert()
@@ -276,14 +276,14 @@ fn test_apply_shows_summary() {
 
     // Initialize heimdal
     cargo_bin_cmd!()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
+        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Apply with dry-run should show a summary
     cargo_bin_cmd!()
-        .args(&["apply", "--dry-run"])
+        .args(["apply", "--dry-run"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
         .assert()

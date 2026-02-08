@@ -6,7 +6,6 @@
 /// - Error handling without init
 /// - Profile switching
 use assert_cmd::cargo::cargo_bin_cmd;
-use assert_fs::prelude::*;
 use predicates::prelude::*;
 use serial_test::serial;
 
