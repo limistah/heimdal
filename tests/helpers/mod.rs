@@ -3,8 +3,6 @@ pub mod fixtures;
 ///
 /// This module provides utilities for testing heimdal CLI commands
 /// across different platforms and scenarios.
-pub mod git;
-
 use assert_cmd::Command;
 use assert_fs::TempDir;
 use std::path::PathBuf;
@@ -44,19 +42,9 @@ impl TestEnv {
         }
     }
 
-    /// Get the path to the dotfiles directory
-    pub fn dotfiles_dir(&self) -> PathBuf {
-        self.dotfiles_path.clone()
-    }
-
     /// Get the path to the fake home directory
     pub fn home_dir(&self) -> PathBuf {
         self.home_path.clone()
-    }
-
-    /// Get the state file path
-    pub fn state_file(&self) -> PathBuf {
-        self.home_path.join(".heimdal").join("heimdal.state.json")
     }
 
     /// Create a heimdal command with this environment
@@ -64,18 +52,6 @@ impl TestEnv {
         let mut cmd = heimdal_cmd();
         cmd.env("HOME", self.home_dir());
         cmd
-    }
-
-    /// Initialize heimdal in this environment
-    pub fn init_heimdal(&self, repo: &str, profile: &str) -> assert_cmd::assert::Assert {
-        self.heimdal_cmd()
-            .arg("init")
-            .arg("--repo")
-            .arg(repo)
-            .arg("--profile")
-            .arg(profile)
-            .current_dir(self.temp_dir.path())
-            .assert()
     }
 }
 
