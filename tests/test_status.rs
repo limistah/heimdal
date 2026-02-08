@@ -6,7 +6,7 @@
 // - Status after initialization
 // - Status with verbose flag
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use assert_fs::prelude::*;
 use predicates::prelude::*;
 use serial_test::serial;
@@ -15,8 +15,8 @@ const TEST_REPO: &str = "https://github.com/limistah/heimdal-dotfiles-test.git";
 
 #[test]
 fn test_status_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("status")
         .arg("--help")
         .assert()
@@ -31,8 +31,8 @@ fn test_status_without_init() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // Status command fails when not initialized
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("status")
         .env("HOME", temp.path())
         .assert()
@@ -47,16 +47,16 @@ fn test_status_after_init() {
     let dotfiles_dir = temp.child(".dotfiles");
 
     // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Check status after initialization
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("status")
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
@@ -73,16 +73,16 @@ fn test_status_shows_profile_info() {
     let dotfiles_dir = temp.child(".dotfiles");
 
     // Initialize with test profile
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Status should show the active profile
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("status")
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
@@ -98,16 +98,16 @@ fn test_status_verbose_flag() {
     let dotfiles_dir = temp.child(".dotfiles");
 
     // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Test verbose flag
-    let output = Command::cargo_bin("heimdal")
-        .unwrap()
+    let output = cargo_bin_cmd!()
+        
         .args(&["status", "--verbose"])
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)
@@ -131,16 +131,16 @@ fn test_status_shows_dotfiles_directory() {
     let dotfiles_dir = temp.child(".dotfiles");
 
     // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
         .env("HOME", temp.path())
         .assert()
         .success();
 
     // Status should show dotfiles directory path
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("status")
         .env("HOME", temp.path())
         .current_dir(&dotfiles_dir)

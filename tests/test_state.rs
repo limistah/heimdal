@@ -4,7 +4,7 @@
 #[path = "helpers/mod.rs"]
 mod helpers;
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use std::fs;
 
@@ -12,8 +12,8 @@ use crate::helpers::{TestEnv, TEST_REPO, TEST_REPO_DRIFT, TEST_REPO_DRIFT_BRANCH
 
 #[test]
 fn test_state_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("state")
         .arg("--help")
         .assert()
@@ -31,8 +31,8 @@ fn test_state_help() {
 
 #[test]
 fn test_state_verbose_flag() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("state")
         .arg("--verbose")
         .arg("--help")
@@ -76,8 +76,8 @@ fn test_state_lock_info_after_init() {
 
 #[test]
 fn test_state_lock_info_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("state")
         .arg("lock-info")
         .arg("--help")
@@ -122,8 +122,8 @@ fn test_state_unlock_after_init() {
 
 #[test]
 fn test_state_unlock_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("state")
         .arg("unlock")
         .arg("--help")
@@ -205,8 +205,8 @@ fn test_state_check_conflicts_with_drift_branch() {
 
 #[test]
 fn test_state_check_conflicts_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("state")
         .arg("check-conflicts")
         .arg("--help")
@@ -235,8 +235,8 @@ fn test_state_resolve_without_init() {
 
 #[test]
 fn test_state_resolve_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("state")
         .arg("resolve")
         .arg("--help")
@@ -347,8 +347,8 @@ fn test_state_check_drift_with_drift_branch() {
 
 #[test]
 fn test_state_check_drift_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("state")
         .arg("check-drift")
         .arg("--help")
@@ -398,8 +398,8 @@ fn test_state_history_after_init() {
 
 #[test]
 fn test_state_history_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("state")
         .arg("history")
         .arg("--help")
@@ -449,8 +449,8 @@ fn test_state_version_after_init() {
 
 #[test]
 fn test_state_version_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("state")
         .arg("version")
         .arg("--help")
@@ -474,8 +474,8 @@ fn test_state_migrate_without_init() {
 
 #[test]
 fn test_state_migrate_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
+    cargo_bin_cmd!()
+        
         .arg("state")
         .arg("migrate")
         .arg("--help")
