@@ -271,16 +271,15 @@ fn test_apply_detects_package_manager() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Should mention which package manager is being used, or report that none was found
+    // Should mention which package manager is being used
     assert!(
         stdout.contains("package manager:")
             || stdout.contains("brew")
             || stdout.contains("apt")
             || stdout.contains("pacman")
             || stdout.contains("dnf")
-            || stdout.contains("apk")
-            || stdout.contains("No supported package manager found"),
-        "Apply should show which package manager is detected or report none found. Got: {}",
+            || stdout.contains("apk"),
+        "Apply should show which package manager is detected. Got: {}",
         stdout
     );
 }
