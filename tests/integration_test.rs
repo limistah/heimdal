@@ -10,4 +10,5 @@ mod test_basic;
 mod test_init;
 mod test_profile;
 mod test_profiles;
+mod test_status;
 mod test_validate;
