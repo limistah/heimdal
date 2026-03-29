@@ -3,7 +3,7 @@ use thiserror::Error;
 
 #[allow(dead_code)]
 #[derive(Debug, Error)]
-pub enum HeimdалError {
+pub enum HeimdallError {
     #[error("Not initialized. Run: heimdal init --repo <url> --profile <name>")]
     NotInitialized,
     #[error("Config error: {0}")]
@@ -26,7 +26,7 @@ pub enum HeimdалError {
     Secret(String),
 }
 
-pub fn print_error_with_help(err: &HeimdалError) {
+pub fn print_error_with_help(err: &HeimdallError) {
     let (causes, solutions) = error_context(err);
     eprintln!("\n{} {}\n", "✗".red().bold(), err.to_string().red().bold());
     if !causes.is_empty() {
@@ -46,21 +46,21 @@ pub fn print_error_with_help(err: &HeimdалError) {
     eprintln!("  {} {}", "Docs:".cyan(), "https://github.com/limistah/heimdal".cyan().bold());
 }
 
-fn error_context(err: &HeimdалError) -> (Vec<&'static str>, Vec<&'static str>) {
+fn error_context(err: &HeimdallError) -> (Vec<&'static str>, Vec<&'static str>) {
     match err {
-        HeimdалError::NotInitialized => (
+        HeimdallError::NotInitialized => (
             vec!["You haven't run 'heimdal init' yet", "The state file was deleted"],
             vec!["heimdal init --repo <git-url> --profile <name>", "heimdal wizard  (interactive setup)"],
         ),
-        HeimdалError::Config(_) => (
+        HeimdallError::Config(_) => (
             vec!["Invalid YAML in heimdal.yaml", "Required field missing"],
             vec!["heimdal validate", "See examples: https://github.com/limistah/heimdal/tree/main/examples"],
         ),
-        HeimdалError::Symlink { .. } => (
+        HeimdallError::Symlink { .. } => (
             vec!["A file already exists at the target path", "Permission denied"],
             vec!["heimdal apply --force  (overwrite)", "heimdal apply --backup  (backup existing)"],
         ),
-        HeimdалError::ProfileNotFound { .. } => (
+        HeimdallError::ProfileNotFound { .. } => (
             vec!["Profile name is wrong", "Profile was deleted from heimdal.yaml"],
             vec!["heimdal profile list", "heimdal profile create <name>"],
         ),

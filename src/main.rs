@@ -24,7 +24,7 @@ fn main() {
         colored::control::set_override(false);
     }
     if let Err(e) = run(cli) {
-        if let Some(heimdal_err) = e.downcast_ref::<error::HeimdалError>() {
+        if let Some(heimdal_err) = e.downcast_ref::<error::HeimdallError>() {
             error::print_error_with_help(heimdal_err);
         } else {
             eprintln!("{} {}", "✗".red().bold(), e);

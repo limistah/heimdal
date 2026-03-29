@@ -31,7 +31,7 @@ fn prints_help() {
 fn all_subcommands_have_help() {
     for cmd in &["init", "apply", "status", "sync", "diff", "commit",
                  "profile", "packages", "template", "secret", "import",
-                 "wizard", "validate", "rollback"] {
+                 "wizard", "validate", "rollback", "state", "auto-sync"] {
         Command::cargo_bin("heimdal").unwrap()
             .args(&[cmd, "--help"])
             .assert()
