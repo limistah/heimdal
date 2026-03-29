@@ -6,9 +6,11 @@ use clap::{Args, Parser, Subcommand};
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
-    #[arg(short, long, global = true, help = "Enable verbose output")]
+    #[arg(short, long, global = true, help = "Enable verbose output",
+          conflicts_with = "quiet")]
     pub verbose: bool,
-    #[arg(short, long, global = true, help = "Suppress all output")]
+    #[arg(short, long, global = true, help = "Suppress all output",
+          conflicts_with = "verbose")]
     pub quiet: bool,
     #[arg(long, global = true, help = "Disable color output")]
     pub no_color: bool,
@@ -77,10 +79,7 @@ pub struct ApplyArgs {
 }
 
 #[derive(Args)]
-pub struct StatusArgs {
-    #[arg(short, long, help = "Show detailed information")]
-    pub verbose: bool,
-}
+pub struct StatusArgs {}
 
 #[derive(Args)]
 pub struct SyncArgs {
@@ -89,10 +88,7 @@ pub struct SyncArgs {
 }
 
 #[derive(Args)]
-pub struct DiffArgs {
-    #[arg(short, long, help = "Show line counts")]
-    pub verbose: bool,
-}
+pub struct DiffArgs {}
 
 #[derive(Args)]
 pub struct CommitArgs {
@@ -123,8 +119,9 @@ pub struct ValidateArgs {
 
 #[derive(Args)]
 pub struct RollbackArgs {
+    #[arg(help = "Commit hash or tag to rollback to (default: previous commit)")]
     pub target: Option<String>,
-    #[arg(short = 'n', long)]
+    #[arg(short = 'n', long, help = "Preview without making changes")]
     pub dry_run: bool,
 }
 

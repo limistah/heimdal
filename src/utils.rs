@@ -22,20 +22,50 @@ pub fn detect_os() -> Os {
     #[cfg(target_os = "linux")]
     {
         if let Ok(content) = std::fs::read_to_string("/etc/os-release") {
+            // First try ID=
             let id = content.lines()
                 .find(|l| l.starts_with("ID="))
                 .map(|l| l.trim_start_matches("ID=").trim_matches('"').to_lowercase());
-            return Os::Linux(match id.as_deref() {
-                Some("debian")  => LinuxDistro::Debian,
-                Some("ubuntu")  => LinuxDistro::Ubuntu,
-                Some("fedora")  => LinuxDistro::Fedora,
-                Some("rhel")    => LinuxDistro::Rhel,
-                Some("centos")  => LinuxDistro::CentOs,
-                Some("arch")    => LinuxDistro::Arch,
-                Some("manjaro") => LinuxDistro::Manjaro,
-                Some("alpine")  => LinuxDistro::Alpine,
-                _               => LinuxDistro::Other,
-            });
+
+            let distro = match id.as_deref() {
+                Some("debian")  => Some(LinuxDistro::Debian),
+                Some("ubuntu")  => Some(LinuxDistro::Ubuntu),
+                Some("fedora")  => Some(LinuxDistro::Fedora),
+                Some("rhel")    => Some(LinuxDistro::Rhel),
+                Some("centos")  => Some(LinuxDistro::CentOs),
+                Some("arch")    => Some(LinuxDistro::Arch),
+                Some("manjaro") => Some(LinuxDistro::Manjaro),
+                Some("alpine")  => Some(LinuxDistro::Alpine),
+                _               => None,
+            };
+
+            if let Some(d) = distro {
+                return Os::Linux(d);
+            }
+
+            // Fallback: check ID_LIKE= for derived distros (e.g. Linux Mint, Pop!_OS)
+            let id_like = content.lines()
+                .find(|l| l.starts_with("ID_LIKE="))
+                .map(|l| l.trim_start_matches("ID_LIKE=").trim_matches('"').to_lowercase());
+
+            if let Some(like_str) = id_like {
+                for part in like_str.split_whitespace() {
+                    let d = match part {
+                        "debian"  => Some(LinuxDistro::Debian),
+                        "ubuntu"  => Some(LinuxDistro::Ubuntu),
+                        "fedora"  => Some(LinuxDistro::Fedora),
+                        "rhel"    => Some(LinuxDistro::Rhel),
+                        "centos"  => Some(LinuxDistro::CentOs),
+                        "arch"    => Some(LinuxDistro::Arch),
+                        _         => None,
+                    };
+                    if let Some(d) = d {
+                        return Os::Linux(d);
+                    }
+                }
+            }
+
+            return Os::Linux(LinuxDistro::Other);
         }
         return Os::Linux(LinuxDistro::Other);
     }
