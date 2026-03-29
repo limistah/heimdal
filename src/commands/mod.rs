@@ -1,7 +1,16 @@
+pub mod apply;
+pub mod autosync;
+pub mod commit;
 pub mod diff;
+pub mod import;
+pub mod init;
 pub mod packages;
+pub mod profile;
+pub mod rollback;
+pub mod secret;
 pub mod state;
 pub mod status;
-
-pub use diff::run_diff;
-pub use status::run_status;
+pub mod sync;
+pub mod template;
+pub mod validate;
+pub mod wizard;
