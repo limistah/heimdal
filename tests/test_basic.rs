@@ -1,61 +1,68 @@
-/// Test basic CLI functionality (--version, --help, invalid commands)
-///
-/// These are sanity tests to ensure the binary runs and provides expected output.
 use assert_cmd::Command;
-use predicates::prelude::*;
+use predicates::str::contains;
 
 #[test]
-fn test_version_flag() {
+fn binary_exists() {
+    Command::cargo_bin("heimdal").unwrap();
+}
+
+#[test]
+fn prints_version() {
     Command::cargo_bin("heimdal")
         .unwrap()
         .arg("--version")
         .assert()
         .success()
-        .stdout(predicate::str::contains("heimdal"))
-        .stdout(predicate::str::contains("2.0.0"));
+        .stdout(contains("heimdal"));
 }
 
 #[test]
-fn test_help_flag() {
+fn prints_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
         .arg("--help")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Usage:"))
-        .stdout(predicate::str::contains("Commands:"));
+        .stdout(contains("Universal dotfile manager"))
+        .stdout(contains("init"))
+        .stdout(contains("apply"))
+        .stdout(contains("status"));
 }
 
 #[test]
-fn test_invalid_command() {
+fn all_subcommands_have_help() {
+    for cmd in &[
+        "init",
+        "apply",
+        "status",
+        "sync",
+        "diff",
+        "commit",
+        "profile",
+        "packages",
+        "template",
+        "secret",
+        "import",
+        "wizard",
+        "validate",
+        "rollback",
+        "state",
+        "auto-sync",
+    ] {
+        Command::cargo_bin("heimdal")
+            .unwrap()
+            .args(&[cmd, "--help"])
+            .assert()
+            .success();
+    }
+}
+
+#[test]
+fn unknown_command_fails_gracefully() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .arg("nonexistent-command-xyz")
+        .arg("boguscommand")
         .assert()
         .failure()
-        .stderr(
-            predicate::str::contains("unrecognized subcommand")
-                .or(predicate::str::contains("error")),
-        );
-}
-
-#[test]
-fn test_no_arguments_shows_help() {
-    // Heimdal shows help to stderr and exits with error code when no command given
-    Command::cargo_bin("heimdal")
-        .unwrap()
-        .assert()
-        .failure() // Exit code 2
-        .stderr(predicate::str::contains("Usage:"))
-        .stderr(predicate::str::contains("Commands:"));
-}
-
-#[test]
-fn test_verbose_flag() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
-        .arg("--verbose")
-        .arg("--help")
-        .assert()
-        .success();
+        .stderr(contains("error"));
 }

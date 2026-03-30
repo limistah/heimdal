@@ -59,7 +59,7 @@ jobs:
         run: cargo build --verbose
       
       - name: Run Integration Tests
-        run: cargo test --test integration_test --verbose
+        run: cargo test --verbose
       
       - name: Test Report
         if: always()
@@ -115,7 +115,7 @@ jobs:
         shell: bash
         run: |
           source $HOME/.cargo/env
-          cargo test --test integration_test --verbose
+          cargo test --verbose
       
       - name: Test Report
         if: always()
