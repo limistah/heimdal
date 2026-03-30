@@ -277,10 +277,7 @@ fn search(query: &str) -> Result<()> {
             .map(|o| o.status.success())
             .unwrap_or(false);
         if available {
-            info(&format!(
-                "Searching {} packages for '{}'...",
-                label, query
-            ));
+            info(&format!("Searching {} packages for '{}'...", label, query));
             let status = std::process::Command::new(cmd)
                 .args(*args)
                 .status()
