@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::Utc;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -55,12 +56,36 @@ pub fn apply_mappings(
         }
 
         let src = ctx.dotfiles_dir.join(src_rel);
+
+        // Guard against path traversal (e.g., source: "../../etc/passwd")
+        if let (Ok(canonical_src), Ok(canonical_dir)) = (
+            src.canonicalize().or_else(|_| Ok::<_, std::io::Error>(src.clone())),
+            ctx.dotfiles_dir.canonicalize()
+        ) {
+            if !canonical_src.starts_with(&canonical_dir) {
+                results.push(LinkResult::Skipped {
+                    dest: expand_path(&dest_str),
+                    reason: format!("source '{}' escapes dotfiles directory — skipped for safety", src_rel),
+                });
+                continue;
+            }
+        }
+
         let dest = expand_path(&dest_str);
         results.push(link_one(&src, &dest, ctx)?);
     }
     Ok(results)
 }
 
+/// GNU Stow-style walk: symlink top-level entries from dotfiles_dir into home_dir.
+///
+/// Only top-level entries are processed (depth 1). Each entry becomes a single
+/// symlink in home_dir at the same relative path. This means:
+///   - `.vimrc` in dotfiles → `~/.vimrc` symlink
+///   - `.config/` directory → `~/.config` symlink (the whole dir, not its contents)
+///
+/// If you need file-level control within subdirectories, use explicit `dotfiles:`
+/// mappings in heimdal.yaml instead.
 pub fn apply_stow_walk(ctx: &ApplyContext) -> Result<Vec<LinkResult>> {
     let mut results = Vec::new();
     for entry in WalkDir::new(&ctx.dotfiles_dir)
@@ -74,6 +99,8 @@ pub fn apply_stow_walk(ctx: &ApplyContext) -> Result<Vec<LinkResult>> {
             continue;
         }
         let rel = entry.path().strip_prefix(&ctx.dotfiles_dir).unwrap();
+        // home_dir is already a resolved absolute path from dirs::home_dir(),
+        // so no shellexpand needed here unlike apply_mappings which takes strings from config.
         let dest = ctx.home_dir.join(rel);
         results.push(link_one(entry.path(), &dest, ctx)?);
     }
@@ -110,16 +137,28 @@ pub fn link_one(src: &Path, dest: &Path, ctx: &ApplyContext) -> Result<LinkResul
             // fall through to create symlink
         } else if ctx.backup {
             let backup_dir = ctx.dotfiles_dir.join(".heimdal").join("backups");
-            let backup_name = dest.file_name().unwrap_or_else(|| std::ffi::OsStr::new("backup"));
-            let backup = backup_dir.join(backup_name);
-            if !ctx.dry_run {
-                std::fs::create_dir_all(&backup_dir)?;
-                std::fs::rename(dest, &backup)?;
-                if let Some(parent) = dest.parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
-                create_symlink(src, dest)?;
+            let ts = Utc::now().format("%Y%m%dT%H%M%SZ");
+            let base_name = dest
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("backup");
+            let backup_name = format!("{}.{}", base_name, ts);
+            let backup = backup_dir.join(&backup_name);
+
+            if ctx.dry_run {
+                // In dry-run, show what would happen but don't actually do it
+                return Ok(LinkResult::Skipped {
+                    dest: dest.to_owned(),
+                    reason: format!("[preview] would back up to {}", backup.display()),
+                });
             }
+
+            std::fs::create_dir_all(&backup_dir)?;
+            std::fs::rename(dest, &backup)?;
+            if let Some(parent) = dest.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            create_symlink(src, dest)?;
             return Ok(LinkResult::Backed {
                 dest: dest.to_owned(),
                 backup,
@@ -184,10 +223,19 @@ pub fn should_link(
         return false;
     }
     if let Some(pattern) = &cond.hostname {
-        let pat = glob::Pattern::new(pattern)
-            .unwrap_or_else(|_| glob::Pattern::new("*").unwrap());
-        if !pat.matches(hostname) {
-            return false;
+        match glob::Pattern::new(pattern) {
+            Ok(pat) => {
+                if !pat.matches(hostname) {
+                    return false;
+                }
+            }
+            Err(_) => {
+                crate::utils::warning(&format!(
+                    "Invalid hostname glob pattern '{}' — skipping dotfile for safety",
+                    pattern
+                ));
+                return false;
+            }
         }
     }
     true

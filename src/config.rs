@@ -162,6 +162,9 @@ fn merge_profiles(base: Profile, child: Profile) -> Profile {
         extends: None,
         dotfiles: { let mut d = base.dotfiles; d.extend(child.dotfiles); d },
         packages: merge_packages(base.packages, child.packages),
+        // Hooks: child completely replaces parent hooks (not merged).
+        // A child profile that wants parent hooks must explicitly repeat them.
+        // This is intentional — lifecycle hooks are profile-specific scripts.
         hooks: child.hooks,
         templates: { let mut t = base.templates; t.extend(child.templates); t },
         ignore: { let mut i = base.ignore; i.extend(child.ignore); i },

@@ -39,7 +39,7 @@ impl State {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let tmp = path.with_extension("tmp");
+        let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
         std::fs::write(&tmp, serde_json::to_string_pretty(self)?)?;
         std::fs::rename(&tmp, &path)?;
         Ok(())
