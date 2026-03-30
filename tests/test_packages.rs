@@ -45,9 +45,8 @@ profiles:
 
 #[test]
 fn test_packages_list_help() {
-    Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["packages", "list", "--help"])
+    Command::cargo_bin("heimdal").unwrap()
+        .args(["packages", "list", "--help"])
         .assert()
         .success();
 }
