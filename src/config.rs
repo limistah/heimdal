@@ -113,10 +113,10 @@ pub struct TemplateEntry {
 }
 
 pub fn load_config(path: &Path) -> anyhow::Result<HeimdalConfig> {
-    let content = std::fs::read_to_string(path).map_err(|_| {
+    let content = std::fs::read_to_string(path).map_err(|e| {
         crate::error::HeimdallError::Config(format!(
-            "Cannot read {}. Run: heimdal init",
-            path.display()
+            "Cannot read {}: {}. Run: heimdal init",
+            path.display(), e
         ))
     })?;
     serde_yaml_ng::from_str(&content)
@@ -200,24 +200,36 @@ pub fn validate_config(config: &HeimdalConfig) -> Vec<String> {
         }
     }
 
-    // Check for circular extends
+    // Check for circular extends — report each cycle only once
+    let mut reported_cycles: std::collections::HashSet<String> = std::collections::HashSet::new();
     for name in config.profiles.keys() {
-        let mut chain = vec![];
+        let mut chain: Vec<&str> = vec![];
         let mut current = name.as_str();
         loop {
-            if chain.contains(&current) {
-                errors.push(format!(
-                    "Circular extends detected in profile '{}': {}",
-                    name,
-                    chain.join(" -> ")
-                ));
+            if let Some(pos) = chain.iter().position(|&n| n == current) {
+                // Build canonical cycle key (sort the cycle nodes to deduplicate)
+                let cycle_nodes = &chain[pos..];
+                let mut sorted_key: Vec<&str> = cycle_nodes.to_vec();
+                sorted_key.sort_unstable();
+                let key = sorted_key.join(",");
+                if reported_cycles.insert(key) {
+                    // Show full cycle with closing node
+                    let mut display = chain[pos..].to_vec();
+                    display.push(current);
+                    errors.push(format!(
+                        "Circular extends detected: {}",
+                        display.join(" → ")
+                    ));
+                }
                 break;
             }
             chain.push(current);
             match config.profiles.get(current).and_then(|p| p.extends.as_deref()) {
                 None => break,
                 Some(next) => {
-                    if !config.profiles.contains_key(next) { break; } // already caught above
+                    if !config.profiles.contains_key(next) {
+                        break; // Unknown extends already reported in previous loop
+                    }
                     current = next;
                 }
             }
@@ -237,10 +249,13 @@ pub fn validate_config(config: &HeimdalConfig) -> Vec<String> {
                     prof_name, src
                 ));
             }
-            // Check for path traversal attempts
-            if src.contains("..") {
+            // Check for path traversal attempts using proper component inspection
+            let has_parent_dir = std::path::Path::new(src)
+                .components()
+                .any(|c| c == std::path::Component::ParentDir);
+            if has_parent_dir {
                 errors.push(format!(
-                    "Profile '{}': dotfile source '{}' must not contain '..'",
+                    "Profile '{}': dotfile source '{}' must not contain '..' components",
                     prof_name, src
                 ));
             }
@@ -253,22 +268,33 @@ pub fn validate_config(config: &HeimdalConfig) -> Vec<String> {
 /// Write a minimal valid heimdal.yaml to `path` for the given profile name.
 #[allow(dead_code)]
 pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyhow::Result<()> {
-    let content = format!(
-        r#"heimdal:
-  version: "1"
-
-profiles:
-  {}:
-    dotfiles: []
-    packages:
-      homebrew: []
-      apt: []
-"#,
-        profile_name
+    let mut profiles = HashMap::new();
+    profiles.insert(
+        profile_name.to_string(),
+        Profile {
+            dotfiles: vec![],
+            packages: PackageMap {
+                homebrew: vec![],
+                apt: vec![],
+                ..Default::default()
+            },
+            ..Default::default()
+        },
     );
+
+    let config = HeimdalConfig {
+        heimdal: HeimdalMeta {
+            version: "1".to_string(),
+            repo: None,
+        },
+        profiles,
+        ignore: vec![],
+    };
+
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
+    let content = serde_yaml_ng::to_string(&config)?;
     std::fs::write(path, content)?;
     Ok(())
 }
