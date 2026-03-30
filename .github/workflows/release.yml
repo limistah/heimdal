@@ -1,140 +1,191 @@
 name: Release
+
 on:
   push:
     tags:
       - 'v*'
 
-permissions:
-  contents: write
+env:
+  CARGO_TERM_COLOR: always
+  BINARY_NAME: heimdal
 
 jobs:
   build:
-    name: Build (${{ matrix.artifact }})
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
         include:
-          - os: macos-latest
-            target: aarch64-apple-darwin
+          - target: aarch64-apple-darwin
+            os: macos-latest
             artifact: heimdal-darwin-arm64
-          - os: macos-latest
-            target: x86_64-apple-darwin
+          - target: x86_64-apple-darwin
+            os: macos-latest
             artifact: heimdal-darwin-amd64
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
             artifact: heimdal-linux-amd64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-musl
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
             artifact: heimdal-linux-arm64
-    runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
       - uses: Swatinem/rust-cache@v2
-      - name: Install musl cross-compilation tools
-        if: contains(matrix.target, 'musl')
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install musl tools (Linux)
+        if: contains(matrix.target, 'linux-musl')
         run: |
           sudo apt-get update -q
           sudo apt-get install -y musl-tools
+          # For aarch64 cross-compilation
           if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
             sudo apt-get install -y gcc-aarch64-linux-gnu
             echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
           fi
-      - name: Build
+
+      - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
-      - name: Package
+
+      - name: Package binary
         run: |
-          cp target/${{ matrix.target }}/release/heimdal .
-          tar czf ${{ matrix.artifact }}.tar.gz heimdal
-          rm heimdal
-      - uses: actions/upload-artifact@v4
+          cd target/${{ matrix.target }}/release
+          tar czf ../../../${{ matrix.artifact }}.tar.gz ${{ env.BINARY_NAME }}
+          cd ../../..
+          sha256sum ${{ matrix.artifact }}.tar.gz > ${{ matrix.artifact }}.tar.gz.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}.tar.gz
-          retention-days: 1
+          path: |
+            ${{ matrix.artifact }}.tar.gz
+            ${{ matrix.artifact }}.tar.gz.sha256
 
   release:
-    name: Create Release
+    name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    permissions:
+      contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: Compute checksums
+
+      - name: Generate checksums file
         run: |
           cd artifacts
+          find . -name "*.tar.gz" | sort | while read f; do
+            # Extract just filename from path
+            fname=$(basename "$f")
+            sha256sum "../artifacts/$(dirname $f)/$fname" | awk '{print $1 "  " $2}' >> ../checksums.txt
+          done || true
+          # Alternative approach
+          cat /dev/null > ../checksums.txt
           for dir in */; do
-            cd "$dir"
-            sha256sum *.tar.gz >> ../checksums.txt
-            cd ..
+            for file in "$dir"*.tar.gz; do
+              [ -f "$file" ] && sha256sum "$file" >> ../checksums.txt
+            done
           done
-          cat checksums.txt
-      - uses: softprops/action-gh-release@v2
-        id: create_release
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             artifacts/**/*.tar.gz
-            artifacts/checksums.txt
-          generate_release_notes: true
-          fail_on_unmatched_files: false
+            checksums.txt
+          body: |
+            ## Installation
+
+            ### Homebrew (macOS/Linux)
+            ```bash
+            brew tap limistah/tap
+            brew install limistah/tap/heimdal
+            ```
+
+            ### Direct download
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/limistah/heimdal/main/install.sh | bash
+            ```
+
+            ### Cargo
+            ```bash
+            cargo install heimdal
+            ```
 
   update-homebrew:
     name: Update Homebrew Formula
     needs: release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: limistah/homebrew-tap
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          path: homebrew-tap
-      - name: Compute new SHAs and update formula
+      - name: Get release version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Update Formula
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          BASE_URL="https://github.com/limistah/heimdal/releases/download/${GITHUB_REF_NAME}"
-
-          ARM_SHA=$(curl -fsSL "${BASE_URL}/checksums.txt" | grep "darwin-arm64" | awk '{print $1}')
-          AMD_SHA=$(curl -fsSL "${BASE_URL}/checksums.txt" | grep "darwin-amd64" | awk '{print $1}')
-
+          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/limistah/homebrew-tap.git
           cd homebrew-tap
 
-          # Update version
-          sed -i "s/version \".*\"/version \"${VERSION}\"/" Formula/heimdal.rb
+          # Download arm64 tarball to get sha256
+          ARM64_URL="https://github.com/limistah/heimdal/releases/download/${VERSION}/heimdal-darwin-arm64.tar.gz"
+          AMD64_URL="https://github.com/limistah/heimdal/releases/download/${VERSION}/heimdal-darwin-amd64.tar.gz"
 
-          # Update arm64 URL and sha
-          sed -i "s|releases/download/v[^/]*/heimdal-darwin-arm64|releases/download/${GITHUB_REF_NAME}/heimdal-darwin-arm64|" Formula/heimdal.rb
+          ARM64_SHA=$(curl -sL "${ARM64_URL}" | sha256sum | cut -d' ' -f1)
+          AMD64_SHA=$(curl -sL "${AMD64_URL}" | sha256sum | cut -d' ' -f1)
 
-          # Update amd64 URL and sha
-          sed -i "s|releases/download/v[^/]*/heimdal-darwin-amd64|releases/download/${GITHUB_REF_NAME}/heimdal-darwin-amd64|" Formula/heimdal.rb
+          # Update version and SHA256 in formula using Python (safer than sed for multi-line)
+          python3 - <<EOF
+          import re
 
-          # Update SHAs — assumes formula has comments "# arm64" and "# amd64"
-          # Use Python for reliable multi-line sed
-          python3 - <<'PYEOF'
-          import re, os
-
-          with open('Formula/heimdal.rb', 'r') as f:
+          with open("Formula/heimdal.rb", "r") as f:
               content = f.read()
 
-          arm_sha = os.environ['ARM_SHA']
-          amd_sha = os.environ['AMD_SHA']
+          # Update version
+          content = re.sub(r'version "[\d.]+"', f'version "${VERSION#v}"', content)
 
-          # Replace sha256 lines with # arm64 / # amd64 comments
-          content = re.sub(r'sha256 "[^"]*" # arm64', f'sha256 "{arm_sha}" # arm64', content)
-          content = re.sub(r'sha256 "[^"]*" # amd64', f'sha256 "{amd_sha}" # amd64', content)
+          # Update URLs
+          content = re.sub(
+              r'(on_arm do.*?url ")[^"]*(")',
+              f'\\g<1>{ARM64_URL}\\2',
+              content, flags=re.DOTALL
+          )
+          content = re.sub(
+              r'(on_intel do.*?url ")[^"]*(")',
+              f'\\g<1>{AMD64_URL}\\2',
+              content, flags=re.DOTALL
+          )
 
-          with open('Formula/heimdal.rb', 'w') as f:
+          # Update SHA256 values (update both — arm first, then intel)
+          sha_pattern = r'(sha256 ")[a-f0-9]{64}(")'
+          shas = [m.start() for m in re.finditer(sha_pattern, content)]
+          if len(shas) >= 2:
+              # Replace from end to avoid offset shifts
+              content = content[:shas[1]] + re.sub(sha_pattern, f'\\g<1>{AMD64_SHA}\\2', content[shas[1]:], count=1)
+              content = content[:shas[0]] + re.sub(sha_pattern, f'\\g<1>{ARM64_SHA}\\2', content[shas[0]:], count=1)
+
+          with open("Formula/heimdal.rb", "w") as f:
               f.write(content)
-          PYEOF
+
+          print("Formula updated successfully")
+          EOF
 
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          git diff --quiet || git commit -am "chore: update heimdal to ${VERSION}"
+          git add Formula/heimdal.rb
+          git diff --cached --quiet || git commit -m "Update heimdal to ${VERSION}"
           git push
-        env:
-          ARM_SHA: ${{ env.ARM_SHA }}
-          AMD_SHA: ${{ env.AMD_SHA }}
