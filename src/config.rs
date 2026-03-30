@@ -1,1 +1,181 @@
-// Config types and loading — implemented in Phase 3
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::Path;
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct HeimdalConfig {
+    pub heimdal: HeimdalMeta,
+    pub profiles: HashMap<String, Profile>,
+    #[serde(default)]
+    pub ignore: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct HeimdalMeta {
+    pub version: String,
+    #[serde(default)]
+    pub repo: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct Profile {
+    #[serde(default)]
+    pub extends: Option<String>,
+    #[serde(default)]
+    pub dotfiles: Vec<DotfileEntry>,
+    #[serde(default)]
+    pub packages: PackageMap,
+    #[serde(default)]
+    pub hooks: ProfileHooks,
+    #[serde(default)]
+    pub templates: Vec<TemplateEntry>,
+    #[serde(default)]
+    pub ignore: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum DotfileEntry {
+    Simple(String),
+    Mapped(DotfileMapping),
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct DotfileMapping {
+    pub source: String,
+    pub target: String,
+    #[serde(default)]
+    pub when: Option<DotfileCondition>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct DotfileCondition {
+    #[serde(default)]
+    pub os: Vec<String>,
+    #[serde(default)]
+    pub hostname: Option<String>,
+    #[serde(default)]
+    pub profile: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct PackageMap {
+    #[serde(default)]
+    pub homebrew: Vec<String>,
+    #[serde(default)]
+    pub homebrew_casks: Vec<String>,
+    #[serde(default)]
+    pub apt: Vec<String>,
+    #[serde(default)]
+    pub dnf: Vec<String>,
+    #[serde(default)]
+    pub pacman: Vec<String>,
+    #[serde(default)]
+    pub apk: Vec<String>,
+    #[serde(default)]
+    pub mas: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ProfileHooks {
+    #[serde(default)]
+    pub pre_apply: Vec<HookEntry>,
+    #[serde(default)]
+    pub post_apply: Vec<HookEntry>,
+    #[serde(default)]
+    pub pre_sync: Vec<HookEntry>,
+    #[serde(default)]
+    pub post_sync: Vec<HookEntry>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum HookEntry {
+    Simple(String),
+    Full {
+        command: String,
+        #[serde(default)]
+        description: Option<String>,
+        #[serde(default)]
+        os: Vec<String>,
+        #[serde(default = "default_true")]
+        fail_on_error: bool,
+    },
+}
+fn default_true() -> bool { true }
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct TemplateEntry {
+    pub src: String,
+    pub dest: String,
+    #[serde(default)]
+    pub vars: HashMap<String, String>,
+}
+
+pub fn load_config(path: &Path) -> anyhow::Result<HeimdalConfig> {
+    let content = std::fs::read_to_string(path).map_err(|_| {
+        crate::error::HeimdallError::Config(format!(
+            "Cannot read {}. Run: heimdal init",
+            path.display()
+        ))
+    })?;
+    serde_yaml_ng::from_str(&content)
+        .map_err(|e| crate::error::HeimdallError::Config(e.to_string()).into())
+}
+
+pub fn resolve_profile(config: &HeimdalConfig, name: &str) -> anyhow::Result<Profile> {
+    resolve_recursive(config, name, &mut Vec::new())
+}
+
+fn resolve_recursive(
+    config: &HeimdalConfig,
+    name: &str,
+    chain: &mut Vec<String>,
+) -> anyhow::Result<Profile> {
+    if chain.contains(&name.to_string()) {
+        return Err(anyhow::anyhow!(
+            "Circular extends detected: {} -> {}",
+            chain.join(" -> "),
+            name
+        ));
+    }
+    let profile = config
+        .profiles
+        .get(name)
+        .ok_or_else(|| crate::error::HeimdallError::ProfileNotFound {
+            name: name.to_string(),
+        })?
+        .clone();
+
+    match &profile.extends.clone() {
+        None => Ok(profile),
+        Some(parent_name) => {
+            chain.push(name.to_string());
+            let parent = resolve_recursive(config, parent_name, chain)?;
+            Ok(merge_profiles(parent, profile))
+        }
+    }
+}
+
+fn merge_profiles(base: Profile, child: Profile) -> Profile {
+    Profile {
+        extends: None,
+        dotfiles: { let mut d = base.dotfiles; d.extend(child.dotfiles); d },
+        packages: merge_packages(base.packages, child.packages),
+        hooks: child.hooks,
+        templates: { let mut t = base.templates; t.extend(child.templates); t },
+        ignore: { let mut i = base.ignore; i.extend(child.ignore); i },
+    }
+}
+
+fn merge_packages(base: PackageMap, child: PackageMap) -> PackageMap {
+    PackageMap {
+        homebrew: { let mut v = base.homebrew; v.extend(child.homebrew); v },
+        homebrew_casks: { let mut v = base.homebrew_casks; v.extend(child.homebrew_casks); v },
+        apt: { let mut v = base.apt; v.extend(child.apt); v },
+        dnf: { let mut v = base.dnf; v.extend(child.dnf); v },
+        pacman: { let mut v = base.pacman; v.extend(child.pacman); v },
+        apk: { let mut v = base.apk; v.extend(child.apk); v },
+        mas: { let mut v = base.mas; v.extend(child.mas); v },
+    }
+}
