@@ -1,310 +1,208 @@
-// Integration tests for heimdal apply command
-//
-// Tests cover:
-// - Package installation (with platform-specific package names)
-// - Symlink creation
-// - Dry-run mode
-// - Force mode
-// - Error handling
-
 use assert_cmd::Command;
 use assert_fs::prelude::*;
 use predicates::prelude::*;
+use predicates::str::contains;
 use serial_test::serial;
 
-const TEST_REPO: &str = "https://github.com/limistah/heimdal-dotfiles-test.git";
+mod common;
 
 #[test]
 fn test_apply_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .arg("apply")
-        .arg("--help")
+        .args(&["apply", "--help"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("Apply configuration"))
-        .stdout(predicates::str::contains("--dry-run"))
-        .stdout(predicates::str::contains("--force"));
+        .stdout(contains("dry-run"))
+        .stdout(contains("force"))
+        .stdout(contains("backup"));
 }
 
 #[test]
 #[serial]
-fn test_apply_without_init() {
-    let temp = assert_fs::TempDir::new().unwrap();
-
-    // Apply should fail when not initialized
-    // The error message can be either "not initialized" or a file system error
-    let result = Command::cargo_bin("heimdal")
+fn test_apply_fails_without_init() {
+    let home = assert_fs::TempDir::new().unwrap();
+    Command::cargo_bin("heimdal")
         .unwrap()
         .arg("apply")
-        .env("HOME", temp.path())
+        .env("HOME", home.path())
+        .assert()
+        .failure()
+        .stderr(contains("init").or(contains("initialized")));
+}
+
+#[test]
+#[serial]
+fn test_apply_dry_run_creates_no_files() {
+    let home = common::setup_home("default");
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&["apply", "--dry-run"])
+        .env("HOME", home.path())
+        .assert()
+        .success()
+        .stdout(
+            contains("Dry-run")
+                .or(contains("dry-run"))
+                .or(contains("preview")),
+        );
+    assert!(
+        !home.path().join(".vimrc").exists(),
+        ".vimrc must NOT exist after dry-run"
+    );
+}
+
+#[test]
+#[serial]
+fn test_apply_creates_symlinks() {
+    let home = common::setup_home("default");
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .arg("apply")
+        .env("HOME", home.path())
+        .assert()
+        .success();
+    let link = home.path().join(".vimrc");
+    assert!(link.is_symlink(), ".vimrc must be a symlink");
+    let target = std::fs::read_link(&link).unwrap();
+    assert!(
+        target.to_string_lossy().contains(".vimrc"),
+        "symlink must point to source .vimrc"
+    );
+}
+
+#[test]
+#[serial]
+fn test_apply_idempotent() {
+    let home = common::setup_home("default");
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .arg("apply")
+        .env("HOME", home.path())
+        .assert()
+        .success();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .arg("apply")
+        .env("HOME", home.path())
+        .assert()
+        .success();
+}
+
+#[test]
+#[serial]
+fn test_apply_force_overwrites_conflict() {
+    let home = common::setup_home("default");
+    std::fs::write(home.path().join(".vimrc"), "existing content").unwrap();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&["apply", "--force"])
+        .env("HOME", home.path())
+        .assert()
+        .success();
+    assert!(
+        home.path().join(".vimrc").is_symlink(),
+        ".vimrc must be a symlink after --force"
+    );
+}
+
+#[test]
+#[serial]
+fn test_apply_conflict_without_force_fails() {
+    let home = common::setup_home("default");
+    std::fs::write(home.path().join(".vimrc"), "existing content").unwrap();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .arg("apply")
+        .env("HOME", home.path())
         .assert()
         .failure();
+}
 
-    // Accept either error message (implementation-dependent)
-    let stderr = String::from_utf8_lossy(&result.get_output().stderr);
+#[test]
+#[serial]
+fn test_apply_backup_preserves_original() {
+    let home = common::setup_home("default");
+    std::fs::write(home.path().join(".vimrc"), "original content").unwrap();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&["apply", "--backup"])
+        .env("HOME", home.path())
+        .assert()
+        .success();
     assert!(
-        stderr.contains("not initialized") || stderr.contains("No such file or directory"),
-        "Expected initialization error, got: {}",
-        stderr
+        home.path().join(".vimrc").is_symlink(),
+        ".vimrc must be a symlink after --backup"
     );
+    let backup_dir = home
+        .path()
+        .join(".dotfiles")
+        .join(".heimdal")
+        .join("backups");
+    assert!(backup_dir.exists(), "backup directory must exist");
 }
 
 #[test]
 #[serial]
-fn test_apply_dry_run_after_init() {
-    let temp = assert_fs::TempDir::new().unwrap();
-    let dotfiles_dir = temp.child(".dotfiles");
-
-    // Initialize heimdal
+fn test_apply_dotfiles_only_flag() {
+    let home = common::setup_home("default");
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
-        .env("HOME", temp.path())
+        .args(&["apply", "--dotfiles-only"])
+        .env("HOME", home.path())
         .assert()
         .success();
-
-    // Apply with dry-run (won't actually install or create symlinks)
-    Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["apply", "--dry-run"])
-        .env("HOME", temp.path())
-        .current_dir(&dotfiles_dir)
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Dry-run mode"))
-        .stdout(predicates::str::contains("Installing Packages"));
 }
 
 #[test]
 #[serial]
-fn test_apply_dry_run_shows_packages() {
-    let temp = assert_fs::TempDir::new().unwrap();
-    let dotfiles_dir = temp.child(".dotfiles");
+fn test_apply_condition_os_filter() {
+    // Dotfile with when.os = [windows] — must be skipped on linux/macos
+    let home = assert_fs::TempDir::new().unwrap();
+    let dotfiles = home.child(".dotfiles");
+    dotfiles.create_dir_all().unwrap();
+    let heimdal_dir = home.child(".heimdal");
+    heimdal_dir.create_dir_all().unwrap();
 
-    // Initialize heimdal
+    heimdal_dir
+        .child("state.json")
+        .write_str(&format!(
+            r#"{{
+        "version": 1, "machine_id": "test-id", "hostname": "testhost",
+        "username": "testuser", "os": "linux", "active_profile": "default",
+        "dotfiles_path": "{}", "repo_url": "https://example.com",
+        "last_apply": null, "last_sync": null, "heimdal_version": "3.0.0"
+    }}"#,
+            dotfiles.path().display()
+        ))
+        .unwrap();
+
+    dotfiles
+        .child("heimdal.yaml")
+        .write_str(
+            r#"
+heimdal:
+  version: "1"
+profiles:
+  default:
+    dotfiles:
+      - source: .vimrc
+        target: ~/.vimrc
+        when:
+          os: [windows]
+"#,
+        )
+        .unwrap();
+    dotfiles.child(".vimrc").write_str("\" vim config").unwrap();
+
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
-        .env("HOME", temp.path())
+        .arg("apply")
+        .env("HOME", home.path())
         .assert()
         .success();
-
-    // Apply with dry-run and check that it shows the packages
-    let output = Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["apply", "--dry-run"])
-        .env("HOME", temp.path())
-        .current_dir(&dotfiles_dir)
-        .assert()
-        .success()
-        .get_output()
-        .clone();
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    // Should show packages from the test profile
     assert!(
-        stdout.contains("git") || stdout.contains("vim") || stdout.contains("curl"),
-        "Apply should show packages to be installed"
+        !home.path().join(".vimrc").exists(),
+        ".vimrc must NOT be linked (os filter)"
     );
-}
-
-#[test]
-#[serial]
-fn test_apply_dry_run_shows_symlinks() {
-    let temp = assert_fs::TempDir::new().unwrap();
-    let dotfiles_dir = temp.child(".dotfiles");
-
-    // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // Apply with dry-run and check that it shows symlinks
-    let output = Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["apply", "--dry-run"])
-        .env("HOME", temp.path())
-        .current_dir(&dotfiles_dir)
-        .assert()
-        .success()
-        .get_output()
-        .clone();
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    // Should show symlinks that would be created
-    assert!(
-        stdout.contains("Creating Symlinks") || stdout.contains("Linking"),
-        "Apply should show symlinks to be created"
-    );
-
-    // Should mention specific files from the test profile
-    assert!(
-        stdout.contains(".bashrc") || stdout.contains(".vimrc"),
-        "Apply should show specific dotfiles"
-    );
-}
-
-#[test]
-#[serial]
-fn test_apply_dry_run_development_profile() {
-    let temp = assert_fs::TempDir::new().unwrap();
-    let dotfiles_dir = temp.child(".dotfiles");
-
-    // Initialize with development profile
-    Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "development"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // Apply with dry-run for development profile
-    let output = Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["apply", "--dry-run"])
-        .env("HOME", temp.path())
-        .current_dir(&dotfiles_dir)
-        .assert()
-        .success()
-        .get_output()
-        .clone();
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    // Development profile should include packages from both base and dev sources
-    // The test repo has: git, vim, curl (base) + additional packages in development profile
-    assert!(
-        stdout.contains("ripgrep") || stdout.contains("rg") || stdout.contains("git") || stdout.contains("vim"),
-        "Development profile should include packages (git, vim, or development-specific packages). Got: {}",
-        stdout
-    );
-}
-
-#[test]
-#[serial]
-fn test_apply_dry_run_verbose() {
-    let temp = assert_fs::TempDir::new().unwrap();
-    let dotfiles_dir = temp.child(".dotfiles");
-
-    // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // Apply with dry-run and verbose
-    Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["apply", "--dry-run", "--verbose"])
-        .env("HOME", temp.path())
-        .current_dir(&dotfiles_dir)
-        .assert()
-        .success();
-}
-
-#[test]
-#[serial]
-fn test_apply_shows_would_run_commands() {
-    let temp = assert_fs::TempDir::new().unwrap();
-    let dotfiles_dir = temp.child(".dotfiles");
-
-    // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // Apply with dry-run should show what commands would be run
-    let output = Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["apply", "--dry-run"])
-        .env("HOME", temp.path())
-        .current_dir(&dotfiles_dir)
-        .assert()
-        .success()
-        .get_output()
-        .clone();
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    // Should show package manager commands that would be executed
-    assert!(
-        stdout.contains("Would run:") || stdout.contains("Would create symlink"),
-        "Dry-run should show commands that would be executed"
-    );
-}
-
-#[test]
-#[serial]
-fn test_apply_detects_package_manager() {
-    let temp = assert_fs::TempDir::new().unwrap();
-    let dotfiles_dir = temp.child(".dotfiles");
-
-    // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // Apply with dry-run should detect and show package manager
-    let output = Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["apply", "--dry-run"])
-        .env("HOME", temp.path())
-        .current_dir(&dotfiles_dir)
-        .assert()
-        .success()
-        .get_output()
-        .clone();
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    // Should mention which package manager is being used
-    assert!(
-        stdout.contains("package manager:")
-            || stdout.contains("brew")
-            || stdout.contains("apt")
-            || stdout.contains("pacman")
-            || stdout.contains("dnf")
-            || stdout.contains("apk"),
-        "Apply should show which package manager is detected. Got: {}",
-        stdout
-    );
-}
-
-#[test]
-#[serial]
-fn test_apply_shows_summary() {
-    let temp = assert_fs::TempDir::new().unwrap();
-    let dotfiles_dir = temp.child(".dotfiles");
-
-    // Initialize heimdal
-    Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["init", "--repo", TEST_REPO, "--profile", "test"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // Apply with dry-run should show a summary
-    Command::cargo_bin("heimdal")
-        .unwrap()
-        .args(&["apply", "--dry-run"])
-        .env("HOME", temp.path())
-        .current_dir(&dotfiles_dir)
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Summary").or(predicates::str::contains("Installed:")));
 }
