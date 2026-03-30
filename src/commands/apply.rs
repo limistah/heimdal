@@ -55,6 +55,18 @@ pub fn run(args: ApplyArgs) -> Result<()> {
         }
     }
 
+    // Render templates
+    if !args.packages_only {
+        for tmpl in &profile.templates {
+            let src = state.dotfiles_path.join(&tmpl.src);
+            let dest = crate::utils::expand_path(&tmpl.dest);
+            let vars = crate::templates::build_vars(&tmpl.vars, "env");
+            if let Err(e) = crate::templates::render_file(&src, &dest, &vars, args.dry_run) {
+                crate::utils::warning(&format!("Template '{}' failed: {}", tmpl.src, e));
+            }
+        }
+    }
+
     if !args.packages_only {
         run_hooks(&profile.hooks.post_apply, args.dry_run)?;
     }
