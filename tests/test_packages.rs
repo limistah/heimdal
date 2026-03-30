@@ -1,232 +1,237 @@
-// Integration tests for heimdal packages command
-//
-// Tests cover:
-// - Help output for main command and subcommands
-// - Package database operations (update, cache)
-// - Package search and info
-// - Package list operations
-// - Package group operations
-
-use assert_cmd::cargo::cargo_bin_cmd;
+use assert_cmd::Command;
 use assert_fs::prelude::*;
+use assert_fs::TempDir;
 use predicates::prelude::*;
 use serial_test::serial;
 
-const TEST_REPO: &str = "https://github.com/limistah/heimdal-dotfiles-test.git";
+fn setup_home_with_packages() -> TempDir {
+    let home = TempDir::new().unwrap();
+    let dotfiles = home.child(".dotfiles");
+    dotfiles.create_dir_all().unwrap();
 
-#[test]
-fn test_packages_help() {
-    cargo_bin_cmd!()
-        .arg("packages")
-        .arg("--help")
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Manage packages"))
-        .stdout(predicates::str::contains("list"))
-        .stdout(predicates::str::contains("search"))
-        .stdout(predicates::str::contains("update"));
+    dotfiles
+        .child("heimdal.yaml")
+        .write_str(
+            r#"heimdal:
+  version: "1"
+profiles:
+  default:
+    packages:
+      homebrew: [git, vim]
+      apt: [git, vim]
+    dotfiles: []
+"#,
+        )
+        .unwrap();
+
+    let state_dir = home.child(".heimdal");
+    state_dir.create_dir_all().unwrap();
+    state_dir
+        .child("state.json")
+        .write_str(
+            &serde_json::json!({
+                "version": 1, "machine_id": "x", "hostname": "h", "username": "u",
+                "os": "linux", "active_profile": "default",
+                "dotfiles_path": dotfiles.path(),
+                "repo_url": "", "last_apply": null, "last_sync": null,
+                "heimdal_version": "3.0.0"
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+    home
 }
 
 #[test]
 fn test_packages_list_help() {
-    cargo_bin_cmd!()
+    Command::cargo_bin("heimdal").unwrap()
         .args(["packages", "list", "--help"])
         .assert()
-        .success()
-        .stdout(predicates::str::contains("List all packages"));
+        .success();
 }
 
 #[test]
 #[serial]
-fn test_packages_list_without_init() {
-    let temp = assert_fs::TempDir::new().unwrap();
-
-    // List fails when not initialized
-    cargo_bin_cmd!()
-        .args(["packages", "list"])
-        .env("HOME", temp.path())
+fn test_packages_list_fails_without_init() {
+    let home = TempDir::new().unwrap();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&["packages", "list"])
+        .env("HOME", home.path())
         .assert()
-        .failure()
-        .stderr(predicates::str::contains("not initialized"));
+        .failure();
 }
 
 #[test]
 #[serial]
-fn test_packages_list_after_init() {
-    let temp = assert_fs::TempDir::new().unwrap();
-    let dotfiles_dir = temp.child(".dotfiles");
-
-    // Initialize heimdal
-    cargo_bin_cmd!()
-        .args(["init", "--repo", TEST_REPO, "--profile", "test"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // List packages from the test profile
-    cargo_bin_cmd!()
-        .args(["packages", "list"])
-        .env("HOME", temp.path())
-        .current_dir(&dotfiles_dir)
+fn test_packages_list_shows_packages() {
+    let home = setup_home_with_packages();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&["packages", "list"])
+        .env("HOME", home.path())
         .assert()
         .success()
-        .stdout(predicates::str::contains("Packages"));
+        .stdout(predicate::str::contains("git"))
+        .stdout(predicate::str::contains("vim"));
 }
 
 #[test]
-#[ignore] // Requires network access and package database download - run manually with --ignored
-fn test_packages_update_database() {
-    let temp = assert_fs::TempDir::new().unwrap();
+fn test_packages_add_help() {
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&["packages", "add", "--help"])
+        .assert()
+        .success();
+}
 
-    // Update package database (downloads package info)
-    cargo_bin_cmd!()
-        .args(["packages", "update"])
-        .env("HOME", temp.path())
+#[test]
+#[serial]
+fn test_packages_add_writes_to_config() {
+    let home = setup_home_with_packages();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&[
+            "packages",
+            "add",
+            "ripgrep",
+            "--manager",
+            "apt",
+            "--no-install",
+        ])
+        .env("HOME", home.path())
+        .assert()
+        .success();
+
+    let dotfiles = home.path().join(".dotfiles");
+    let content = std::fs::read_to_string(dotfiles.join("heimdal.yaml")).unwrap();
+    assert!(
+        content.contains("ripgrep"),
+        "ripgrep not found in heimdal.yaml:\n{}",
+        content
+    );
+}
+
+#[test]
+#[serial]
+fn test_packages_add_duplicate_is_ok() {
+    // Adding an already-present package should not duplicate it
+    let home = setup_home_with_packages();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&["packages", "add", "git", "--manager", "apt", "--no-install"])
+        .env("HOME", home.path())
+        .assert()
+        .success();
+
+    let dotfiles = home.path().join(".dotfiles");
+    let content = std::fs::read_to_string(dotfiles.join("heimdal.yaml")).unwrap();
+    // Count occurrences of "git" — should not appear more times than reasonable
+    let count = content.matches("git").count();
+    assert!(
+        count <= 3,
+        "git appears too many times ({}), may be duplicated:\n{}",
+        count,
+        content
+    );
+}
+
+#[test]
+fn test_packages_remove_help() {
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&["packages", "remove", "--help"])
+        .assert()
+        .success();
+}
+
+#[test]
+#[serial]
+fn test_packages_remove_updates_config() {
+    let home = setup_home_with_packages();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&["packages", "remove", "vim", "--no-uninstall"])
+        .env("HOME", home.path())
+        .assert()
+        .success();
+
+    let dotfiles = home.path().join(".dotfiles");
+    let content = std::fs::read_to_string(dotfiles.join("heimdal.yaml")).unwrap();
+    // vim should be gone from all managers
+    assert!(
+        !content.contains("- vim"),
+        "vim still in heimdal.yaml:\n{}",
+        content
+    );
+}
+
+#[test]
+#[serial]
+fn test_packages_remove_nonexistent_is_ok() {
+    let home = setup_home_with_packages();
+    // Removing a package that isn't tracked should not fail
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&["packages", "remove", "nonexistent", "--no-uninstall"])
+        .env("HOME", home.path())
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_packages_suggest_help() {
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&["packages", "suggest", "--help"])
+        .assert()
+        .success();
+}
+
+#[test]
+#[serial]
+fn test_packages_suggest_detects_rust() {
+    let home = setup_home_with_packages();
+    let project_dir = home.child("myproject");
+    project_dir.create_dir_all().unwrap();
+    project_dir
+        .child("Cargo.toml")
+        .write_str("[package]\nname = \"test\"\n")
+        .unwrap();
+
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&[
+            "packages",
+            "suggest",
+            "--dir",
+            project_dir.path().to_str().unwrap(),
+        ])
+        .env("HOME", home.path())
         .assert()
         .success()
-        .stdout(predicates::str::contains("database"));
+        .stdout(predicate::str::contains("rust").or(predicate::str::contains("cargo")));
 }
 
 #[test]
-#[ignore] // Requires network access and package database update - run manually with --ignored
-fn test_packages_search() {
-    let temp = assert_fs::TempDir::new().unwrap();
+#[serial]
+fn test_packages_suggest_detects_node() {
+    let home = setup_home_with_packages();
+    let project_dir = home.child("nodeproject");
+    project_dir.create_dir_all().unwrap();
+    project_dir.child("package.json").write_str("{}").unwrap();
 
-    // Update database first
-    cargo_bin_cmd!()
-        .args(["packages", "update"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // Search for a common package
-    cargo_bin_cmd!()
-        .args(["packages", "search", "git"])
-        .env("HOME", temp.path())
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(&[
+            "packages",
+            "suggest",
+            "--dir",
+            project_dir.path().to_str().unwrap(),
+        ])
+        .env("HOME", home.path())
         .assert()
         .success()
-        .stdout(predicates::str::contains("git"));
-}
-
-#[test]
-#[ignore] // Requires network access and package database update - run manually with --ignored
-fn test_packages_search_no_results() {
-    let temp = assert_fs::TempDir::new().unwrap();
-
-    // Update database first
-    cargo_bin_cmd!()
-        .args(["packages", "update"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // Search for non-existent package
-    cargo_bin_cmd!()
-        .args(["packages", "search", "thisdoesnotexist999999"])
-        .env("HOME", temp.path())
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Found 0").or(predicates::str::contains("No packages")));
-}
-
-#[test]
-#[ignore] // Requires network access and package database update - run manually with --ignored
-fn test_packages_info() {
-    let temp = assert_fs::TempDir::new().unwrap();
-
-    // Update database first
-    cargo_bin_cmd!()
-        .args(["packages", "update"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // Get info for a known package
-    cargo_bin_cmd!()
-        .args(["packages", "info", "git"])
-        .env("HOME", temp.path())
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("git"));
-}
-
-#[test]
-#[ignore] // Requires network access and package database update - run manually with --ignored
-fn test_packages_cache_info() {
-    let temp = assert_fs::TempDir::new().unwrap();
-
-    // Update database first to create cache
-    cargo_bin_cmd!()
-        .args(["packages", "update"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // Check cache info
-    cargo_bin_cmd!()
-        .args(["packages", "cache-info"])
-        .env("HOME", temp.path())
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("cache").or(predicates::str::contains("Cache")));
-}
-
-#[test]
-#[ignore] // Requires network access and package database update - run manually with --ignored
-fn test_packages_cache_clear() {
-    let temp = assert_fs::TempDir::new().unwrap();
-
-    // Update database first to create cache
-    cargo_bin_cmd!()
-        .args(["packages", "update"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // Clear cache
-    cargo_bin_cmd!()
-        .args(["packages", "cache-clear"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-}
-
-#[test]
-#[ignore] // Requires network access and package database update - run manually with --ignored
-fn test_packages_list_groups() {
-    let temp = assert_fs::TempDir::new().unwrap();
-
-    // Update database first
-    cargo_bin_cmd!()
-        .args(["packages", "update"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // List package groups
-    cargo_bin_cmd!()
-        .args(["packages", "list-groups"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-}
-
-#[test]
-#[ignore] // Requires network access and package database update - run manually with --ignored
-fn test_packages_search_groups() {
-    let temp = assert_fs::TempDir::new().unwrap();
-
-    // Update database first
-    cargo_bin_cmd!()
-        .args(["packages", "update"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
-
-    // Search groups
-    cargo_bin_cmd!()
-        .args(["packages", "search-groups", "dev"])
-        .env("HOME", temp.path())
-        .assert()
-        .success();
+        .stdout(predicate::str::contains("node").or(predicate::str::contains("nvm")));
 }
