@@ -33,12 +33,17 @@ fn preview(src_name: &str, profile_name: Option<&str>) -> Result<()> {
     let prof_name = profile_name.unwrap_or(&state.active_profile);
     let profile = resolve_profile(&config, prof_name)?;
 
-    let entry = profile.templates.iter()
+    let entry = profile
+        .templates
+        .iter()
         .find(|t| t.src == src_name || t.src.ends_with(src_name))
-        .ok_or_else(|| anyhow::anyhow!(
-            "Template '{}' not found in profile '{}'. Use 'heimdal template list'.",
-            src_name, prof_name
-        ))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "Template '{}' not found in profile '{}'. Use 'heimdal template list'.",
+                src_name,
+                prof_name
+            )
+        })?;
 
     let src_path = state.dotfiles_path.join(&entry.src);
     let vars = build_vars(&entry.vars, "env");
@@ -57,14 +62,18 @@ fn variables(profile_name: Option<&str>) -> Result<()> {
     println!("System variables:");
     let mut keys: Vec<_> = sys.keys().collect();
     keys.sort();
-    for k in keys { println!("  {}: {}", k, sys[k]); }
+    for k in keys {
+        println!("  {}: {}", k, sys[k]);
+    }
 
     for tmpl in &profile.templates {
         if !tmpl.vars.is_empty() {
             println!("\nVars for {}:", tmpl.src);
             let mut pairs: Vec<_> = tmpl.vars.iter().collect();
             pairs.sort_by_key(|(k, _)| (*k).clone());
-            for (k, v) in pairs { println!("  {}: {}", k, v); }
+            for (k, v) in pairs {
+                println!("  {}: {}", k, v);
+            }
         }
     }
     Ok(())

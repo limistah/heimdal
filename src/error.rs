@@ -43,25 +43,47 @@ pub fn print_error_with_help(err: &HeimdallError) {
         }
         eprintln!();
     }
-    eprintln!("  {} {}", "Docs:".cyan(), "https://github.com/limistah/heimdal".cyan().bold());
+    eprintln!(
+        "  {} {}",
+        "Docs:".cyan(),
+        "https://github.com/limistah/heimdal".cyan().bold()
+    );
 }
 
 fn error_context(err: &HeimdallError) -> (Vec<&'static str>, Vec<&'static str>) {
     match err {
         HeimdallError::NotInitialized => (
-            vec!["You haven't run 'heimdal init' yet", "The state file was deleted"],
-            vec!["heimdal init --repo <git-url> --profile <name>", "heimdal wizard  (interactive setup)"],
+            vec![
+                "You haven't run 'heimdal init' yet",
+                "The state file was deleted",
+            ],
+            vec![
+                "heimdal init --repo <git-url> --profile <name>",
+                "heimdal wizard  (interactive setup)",
+            ],
         ),
         HeimdallError::Config(_) => (
             vec!["Invalid YAML in heimdal.yaml", "Required field missing"],
-            vec!["heimdal validate", "See examples: https://github.com/limistah/heimdal/tree/main/examples"],
+            vec![
+                "heimdal validate",
+                "See examples: https://github.com/limistah/heimdal/tree/main/examples",
+            ],
         ),
         HeimdallError::Symlink { .. } => (
-            vec!["A file already exists at the target path", "Permission denied"],
-            vec!["heimdal apply --force  (overwrite)", "heimdal apply --backup  (backup existing)"],
+            vec![
+                "A file already exists at the target path",
+                "Permission denied",
+            ],
+            vec![
+                "heimdal apply --force  (overwrite)",
+                "heimdal apply --backup  (backup existing)",
+            ],
         ),
         HeimdallError::ProfileNotFound { .. } => (
-            vec!["Profile name is wrong", "Profile was deleted from heimdal.yaml"],
+            vec![
+                "Profile name is wrong",
+                "Profile was deleted from heimdal.yaml",
+            ],
             vec!["heimdal profile list", "heimdal profile create <name>"],
         ),
         _ => (vec![], vec![]),

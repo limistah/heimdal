@@ -36,10 +36,7 @@ pub fn run_hooks(hooks: &[HookEntry], dry_run: bool) -> Result<()> {
                 }
                 .into());
             } else {
-                crate::utils::warning(&format!(
-                    "Hook failed (ignored): {} (exit {})",
-                    cmd, code
-                ));
+                crate::utils::warning(&format!("Hook failed (ignored): {} (exit {})", cmd, code));
             }
         }
     }

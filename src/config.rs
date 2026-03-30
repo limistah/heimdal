@@ -102,7 +102,9 @@ pub enum HookEntry {
         fail_on_error: bool,
     },
 }
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct TemplateEntry {
@@ -116,7 +118,8 @@ pub fn load_config(path: &Path) -> anyhow::Result<HeimdalConfig> {
     let content = std::fs::read_to_string(path).map_err(|e| {
         crate::error::HeimdallError::Config(format!(
             "Cannot read {}: {}. Run: heimdal init",
-            path.display(), e
+            path.display(),
+            e
         ))
     })?;
     serde_yaml_ng::from_str(&content)
@@ -160,26 +163,66 @@ fn resolve_recursive(
 fn merge_profiles(base: Profile, child: Profile) -> Profile {
     Profile {
         extends: None,
-        dotfiles: { let mut d = base.dotfiles; d.extend(child.dotfiles); d },
+        dotfiles: {
+            let mut d = base.dotfiles;
+            d.extend(child.dotfiles);
+            d
+        },
         packages: merge_packages(base.packages, child.packages),
         // Hooks: child completely replaces parent hooks (not merged).
         // A child profile that wants parent hooks must explicitly repeat them.
         // This is intentional — lifecycle hooks are profile-specific scripts.
         hooks: child.hooks,
-        templates: { let mut t = base.templates; t.extend(child.templates); t },
-        ignore: { let mut i = base.ignore; i.extend(child.ignore); i },
+        templates: {
+            let mut t = base.templates;
+            t.extend(child.templates);
+            t
+        },
+        ignore: {
+            let mut i = base.ignore;
+            i.extend(child.ignore);
+            i
+        },
     }
 }
 
 fn merge_packages(base: PackageMap, child: PackageMap) -> PackageMap {
     PackageMap {
-        homebrew: { let mut v = base.homebrew; v.extend(child.homebrew); v },
-        homebrew_casks: { let mut v = base.homebrew_casks; v.extend(child.homebrew_casks); v },
-        apt: { let mut v = base.apt; v.extend(child.apt); v },
-        dnf: { let mut v = base.dnf; v.extend(child.dnf); v },
-        pacman: { let mut v = base.pacman; v.extend(child.pacman); v },
-        apk: { let mut v = base.apk; v.extend(child.apk); v },
-        mas: { let mut v = base.mas; v.extend(child.mas); v },
+        homebrew: {
+            let mut v = base.homebrew;
+            v.extend(child.homebrew);
+            v
+        },
+        homebrew_casks: {
+            let mut v = base.homebrew_casks;
+            v.extend(child.homebrew_casks);
+            v
+        },
+        apt: {
+            let mut v = base.apt;
+            v.extend(child.apt);
+            v
+        },
+        dnf: {
+            let mut v = base.dnf;
+            v.extend(child.dnf);
+            v
+        },
+        pacman: {
+            let mut v = base.pacman;
+            v.extend(child.pacman);
+            v
+        },
+        apk: {
+            let mut v = base.apk;
+            v.extend(child.apk);
+            v
+        },
+        mas: {
+            let mut v = base.mas;
+            v.extend(child.mas);
+            v
+        },
     }
 }
 
@@ -224,7 +267,11 @@ pub fn validate_config(config: &HeimdalConfig) -> Vec<String> {
                 break;
             }
             chain.push(current);
-            match config.profiles.get(current).and_then(|p| p.extends.as_deref()) {
+            match config
+                .profiles
+                .get(current)
+                .and_then(|p| p.extends.as_deref())
+            {
                 None => break,
                 Some(next) => {
                     if !config.profiles.contains_key(next) {

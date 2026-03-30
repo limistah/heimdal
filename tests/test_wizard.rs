@@ -12,7 +12,13 @@ fn test_wizard_help() {
 
 #[test]
 fn test_state_subcommands_help() {
-    for sub in &["lock-info", "unlock", "check-drift", "check-conflicts", "history"] {
+    for sub in &[
+        "lock-info",
+        "unlock",
+        "check-drift",
+        "check-conflicts",
+        "history",
+    ] {
         Command::cargo_bin("heimdal")
             .unwrap()
             .args(["state", sub, "--help"])
