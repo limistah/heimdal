@@ -254,7 +254,7 @@ pub enum SecretCmd {
     /// Add or update a secret
     Add {
         name: String,
-        #[arg(short, long)]
+        #[arg(long)]
         value: Option<String>,
     },
     /// Get a secret value

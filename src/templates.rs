@@ -1,1 +1,67 @@
-// Template engine — implemented in Phase 8
+use anyhow::Result;
+use once_cell::sync::Lazy;
+use regex::Regex;
+use std::collections::HashMap;
+use std::path::Path;
+
+static VAR_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\{\{\s*([\w.]+)\s*\}\}").unwrap()
+});
+
+/// Substitute {{ variable }} placeholders. Unknown vars are preserved + warned.
+pub fn render_string(content: &str, vars: &HashMap<String, String>) -> String {
+    VAR_RE.replace_all(content, |caps: &regex::Captures| {
+        let key = &caps[1];
+        match vars.get(key) {
+            Some(val) => val.clone(),
+            None => {
+                crate::utils::warning(&format!("Undefined template variable: {}", key));
+                caps[0].to_string()
+            }
+        }
+    }).to_string()
+}
+
+/// System variables: hostname, username, os, home
+pub fn system_vars() -> HashMap<String, String> {
+    let mut vars = HashMap::new();
+    vars.insert("hostname".to_string(),
+        hostname::get().unwrap_or_default().to_string_lossy().to_string());
+    vars.insert("username".to_string(), whoami::username());
+    vars.insert("os".to_string(), crate::utils::os_name().to_string());
+    vars.insert("home".to_string(),
+        dirs::home_dir().unwrap_or_default().to_string_lossy().to_string());
+    vars
+}
+
+/// Build combined variable map. env_prefix is "env" so env vars are {{ env.HOME }}.
+pub fn build_vars(explicit: &HashMap<String, String>, env_prefix: &str) -> HashMap<String, String> {
+    let mut vars = system_vars();
+    for (k, v) in std::env::vars() {
+        vars.insert(format!("{}.{}", env_prefix, k), v);
+    }
+    // Explicit vars override system/env
+    for (k, v) in explicit {
+        vars.insert(k.clone(), v.clone());
+    }
+    vars
+}
+
+/// Render a template file to a destination.
+pub fn render_file(src: &Path, dest: &Path, vars: &HashMap<String, String>, dry_run: bool) -> Result<()> {
+    let content = std::fs::read_to_string(src)
+        .map_err(|e| anyhow::anyhow!("Cannot read template '{}': {}", src.display(), e))?;
+    let rendered = render_string(&content, vars);
+
+    if dry_run {
+        println!("--- [dry-run] Would write: {} ---", dest.display());
+        print!("{}", rendered);
+        return Ok(());
+    }
+
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(dest, rendered)?;
+    Ok(())
+}
