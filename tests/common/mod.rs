@@ -6,7 +6,7 @@ pub fn setup_home(profile: &str) -> TempDir {
     let home = TempDir::new().unwrap();
     let dotfiles = home.child(".dotfiles");
     dotfiles.create_dir_all().unwrap();
-    let heimdal_dir = dotfiles.child(".heimdal");
+    let heimdal_dir = home.child(".heimdal");
     heimdal_dir.create_dir_all().unwrap();
 
     let state_json = format!(
@@ -26,13 +26,22 @@ pub fn setup_home(profile: &str) -> TempDir {
         profile,
         dotfiles.path().display()
     );
-    heimdal_dir.child("state.json").write_str(&state_json).unwrap();
+    heimdal_dir
+        .child("state.json")
+        .write_str(&state_json)
+        .unwrap();
 
-    dotfiles.child("heimdal.yaml").write_str(&format!(
-        "heimdal:\n  version: \"1\"\nprofiles:\n  {}:\n    dotfiles:\n      - .vimrc\n",
-        profile
-    )).unwrap();
+    dotfiles
+        .child("heimdal.yaml")
+        .write_str(&format!(
+            "heimdal:\n  version: \"1\"\nprofiles:\n  {}:\n    dotfiles:\n      - .vimrc\n",
+            profile
+        ))
+        .unwrap();
 
-    dotfiles.child(".vimrc").write_str("\" test vim config").unwrap();
+    dotfiles
+        .child(".vimrc")
+        .write_str("\" test vim config")
+        .unwrap();
     home
 }

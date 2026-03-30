@@ -3,7 +3,7 @@ use crate::config::{create_minimal_config, load_config};
 use crate::error::HeimdallError;
 use crate::git::GitRepo;
 use crate::state::State;
-use crate::utils::{expand_path, home_dir, info, step, success};
+use crate::utils::{expand_path, home_dir, info, step, success, warning};
 use anyhow::Result;
 
 pub fn run(args: InitArgs) -> Result<()> {
@@ -26,6 +26,12 @@ pub fn run(args: InitArgs) -> Result<()> {
             dotfiles_path.display()
         ));
     } else if dotfiles_path.exists() {
+        if !dotfiles_path.join(".git").exists() {
+            warning(&format!(
+                "'{}' exists but does not appear to be a git repository (.git not found).",
+                dotfiles_path.display()
+            ));
+        }
         info(&format!(
             "Directory '{}' already exists, skipping clone.",
             dotfiles_path.display()
@@ -65,14 +71,15 @@ pub fn run(args: InitArgs) -> Result<()> {
                 available.join(", ")
             }
         );
-        return Err(HeimdallError::ProfileNotFound {
-            name: args.profile,
-        }
-        .into());
+        return Err(HeimdallError::ProfileNotFound { name: args.profile }.into());
     }
 
     // 6. Write state file
-    State::create(args.profile.clone(), dotfiles_path.clone(), args.repo.clone())?;
+    State::create(
+        args.profile.clone(),
+        dotfiles_path.clone(),
+        args.repo.clone(),
+    )?;
 
     // 7. Print success + next steps
     success(&format!(

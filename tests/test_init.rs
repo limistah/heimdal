@@ -7,18 +7,33 @@ use std::process;
 
 fn git_init_local_repo(dir: &std::path::Path) {
     // Create a local git repo with a valid heimdal.yaml
-    process::Command::new("git")
+    let out = process::Command::new("git")
         .args(["init", dir.to_str().unwrap()])
         .output()
         .unwrap();
-    process::Command::new("git")
-        .args(["-C", dir.to_str().unwrap(), "config", "user.email", "test@test.com"])
-        .output()
-        .unwrap();
-    process::Command::new("git")
-        .args(["-C", dir.to_str().unwrap(), "config", "user.name", "Test"])
-        .output()
-        .unwrap();
+    assert!(
+        out.status.success(),
+        "git init failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    for args in &[
+        vec![
+            "-C",
+            dir.to_str().unwrap(),
+            "config",
+            "user.email",
+            "test@test.com",
+        ],
+        vec!["-C", dir.to_str().unwrap(), "config", "user.name", "Test"],
+    ] {
+        let out = process::Command::new("git").args(args).output().unwrap();
+        assert!(
+            out.status.success(),
+            "git config failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
 
     let yaml = r#"heimdal:
   version: "1"
@@ -29,14 +44,19 @@ profiles:
     dotfiles: []
 "#;
     std::fs::write(dir.join("heimdal.yaml"), yaml).unwrap();
-    process::Command::new("git")
-        .args(["-C", dir.to_str().unwrap(), "add", "."])
-        .output()
-        .unwrap();
-    process::Command::new("git")
-        .args(["-C", dir.to_str().unwrap(), "commit", "-m", "init"])
-        .output()
-        .unwrap();
+
+    for args in &[
+        vec!["-C", dir.to_str().unwrap(), "add", "."],
+        vec!["-C", dir.to_str().unwrap(), "commit", "-m", "init"],
+    ] {
+        let out = process::Command::new("git").args(args).output().unwrap();
+        assert!(
+            out.status.success(),
+            "git command {:?} failed: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
 }
 
 #[test]
@@ -110,7 +130,7 @@ profiles:
         .stdout(predicate::str::contains("Initialized"));
 
     // State file must exist
-    let state_path = home.path().join(".dotfiles/.heimdal/state.json");
+    let state_path = home.path().join(".heimdal/state.json");
     assert!(state_path.exists(), "state.json must be created");
 
     // State file must be valid JSON with correct fields
@@ -152,9 +172,7 @@ profiles:
         .env("HOME", home.path())
         .assert()
         .failure()
-        .stderr(
-            predicate::str::contains("nonexistent").or(predicate::str::contains("not found")),
-        );
+        .stderr(predicate::str::contains("nonexistent").or(predicate::str::contains("not found")));
 }
 
 #[test]
@@ -197,12 +215,13 @@ fn test_init_clone_from_local_repo() {
         .env("HOME", home.path())
         .assert()
         .success()
-        .stdout(
-            predicate::str::contains("Initialized").or(predicate::str::contains("Cloned")),
-        );
+        .stdout(predicate::str::contains("Initialized").or(predicate::str::contains("Cloned")));
 
-    let state_path = home.path().join(".dotfiles/.heimdal/state.json");
-    assert!(state_path.exists(), "state.json must be created after clone");
+    let state_path = home.path().join(".heimdal/state.json");
+    assert!(
+        state_path.exists(),
+        "state.json must be created after clone"
+    );
 
     let state_str = std::fs::read_to_string(&state_path).unwrap();
     let state: serde_json::Value = serde_json::from_str(&state_str).unwrap();
@@ -243,9 +262,9 @@ profiles:
         .assert()
         .success();
 
-    // State must be inside the custom path, not ~/.dotfiles
-    let state_path = custom_dotfiles.path().join(".heimdal/state.json");
-    assert!(state_path.exists(), "state.json must be at custom path");
+    // State must always be at ~/.heimdal/state.json regardless of --path
+    let state_path = home.path().join(".heimdal/state.json");
+    assert!(state_path.exists(), "state.json must be at ~/.heimdal/state.json");
 }
 
 #[test]
