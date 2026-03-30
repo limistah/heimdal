@@ -35,20 +35,16 @@ impl State {
     }
 
     pub fn save(&self) -> Result<()> {
-        self.save_to(&Self::path()?)
-    }
-
-    pub fn save_to(&self, path: &std::path::Path) -> Result<()> {
+        let path = Self::path()?;
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
         std::fs::write(&tmp, serde_json::to_string_pretty(self)?)?;
-        std::fs::rename(&tmp, path)?;
+        std::fs::rename(&tmp, &path)?;
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn create(
         active_profile: String,
         dotfiles_path: PathBuf,
@@ -64,15 +60,13 @@ impl State {
             username: whoami::username(),
             os: crate::utils::os_name().to_string(),
             active_profile,
-            dotfiles_path: dotfiles_path.clone(),
+            dotfiles_path,
             repo_url,
             last_apply: None,
             last_sync: None,
             heimdal_version: env!("CARGO_PKG_VERSION").to_string(),
         };
-        // Save state relative to the dotfiles_path, not the global HOME-based path
-        let state_path = dotfiles_path.join(".heimdal").join("state.json");
-        state.save_to(&state_path)?;
+        state.save()?;
         Ok(state)
     }
 }

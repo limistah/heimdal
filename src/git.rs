@@ -11,12 +11,15 @@ pub struct GitRepo {
 impl GitRepo {
     /// Clone a remote URL to dest directory.
     pub fn clone(url: &str, dest: &Path) -> Result<Self> {
+        let dest_str = dest.to_str().ok_or_else(|| {
+            crate::error::HeimdallError::Git(
+                "Dotfiles path contains invalid UTF-8".to_string(),
+            )
+        })?;
         let status = Command::new("git")
-            .args(["clone", url, &dest.to_string_lossy()])
+            .args(["clone", "--", url, dest_str])
             .status()
-            .map_err(|e| {
-                crate::error::HeimdallError::Git(format!("Cannot run git: {}", e))
-            })?;
+            .map_err(|e| crate::error::HeimdallError::Git(format!("Cannot run git: {}", e)))?;
 
         if !status.success() {
             return Err(crate::error::HeimdallError::Git(format!(
@@ -47,12 +50,7 @@ impl GitRepo {
         Err(anyhow::anyhow!("git diff not yet implemented"))
     }
 
-    pub fn commit(
-        &self,
-        _message: &str,
-        _files: Option<&[String]>,
-        _dry_run: bool,
-    ) -> Result<()> {
+    pub fn commit(&self, _message: &str, _files: Option<&[String]>, _dry_run: bool) -> Result<()> {
         Err(anyhow::anyhow!("git commit not yet implemented"))
     }
 

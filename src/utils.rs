@@ -5,16 +5,38 @@ use std::borrow::Cow;
 use std::path::PathBuf;
 
 // Terminal output
-pub fn success(msg: &str) { println!("{} {}", "✓".green().bold(), msg); }
-pub fn info(msg: &str)    { println!("{} {}", "ℹ".blue(), msg); }
-pub fn warning(msg: &str) { eprintln!("{} {}", "⚠".yellow(), msg); }
-pub fn step(msg: &str)    { println!("  {} {}", "→".cyan(), msg); }
+pub fn success(msg: &str) {
+    println!("{} {}", "✓".green().bold(), msg);
+}
+pub fn info(msg: &str) {
+    println!("{} {}", "ℹ".blue(), msg);
+}
+pub fn warning(msg: &str) {
+    eprintln!("{} {}", "⚠".yellow(), msg);
+}
+pub fn step(msg: &str) {
+    println!("  {} {}", "→".cyan(), msg);
+}
 
 #[derive(Debug, PartialEq)]
-pub enum LinuxDistro { Debian, Ubuntu, Fedora, Rhel, CentOs, Arch, Manjaro, Alpine, Other }
+pub enum LinuxDistro {
+    Debian,
+    Ubuntu,
+    Fedora,
+    Rhel,
+    CentOs,
+    Arch,
+    Manjaro,
+    Alpine,
+    Other,
+}
 
 #[derive(Debug, PartialEq)]
-pub enum Os { MacOS, Linux(LinuxDistro), Unknown }
+pub enum Os {
+    MacOS,
+    Linux(LinuxDistro),
+    Unknown,
+}
 
 pub fn detect_os() -> Os {
     #[cfg(target_os = "macos")]
@@ -23,20 +45,21 @@ pub fn detect_os() -> Os {
     {
         if let Ok(content) = std::fs::read_to_string("/etc/os-release") {
             // First try ID=
-            let id = content.lines()
+            let id = content
+                .lines()
                 .find(|l| l.starts_with("ID="))
                 .map(|l| l.trim_start_matches("ID=").trim_matches('"').to_lowercase());
 
             let distro = match id.as_deref() {
-                Some("debian")  => Some(LinuxDistro::Debian),
-                Some("ubuntu")  => Some(LinuxDistro::Ubuntu),
-                Some("fedora")  => Some(LinuxDistro::Fedora),
-                Some("rhel")    => Some(LinuxDistro::Rhel),
-                Some("centos")  => Some(LinuxDistro::CentOs),
-                Some("arch")    => Some(LinuxDistro::Arch),
+                Some("debian") => Some(LinuxDistro::Debian),
+                Some("ubuntu") => Some(LinuxDistro::Ubuntu),
+                Some("fedora") => Some(LinuxDistro::Fedora),
+                Some("rhel") => Some(LinuxDistro::Rhel),
+                Some("centos") => Some(LinuxDistro::CentOs),
+                Some("arch") => Some(LinuxDistro::Arch),
                 Some("manjaro") => Some(LinuxDistro::Manjaro),
-                Some("alpine")  => Some(LinuxDistro::Alpine),
-                _               => None,
+                Some("alpine") => Some(LinuxDistro::Alpine),
+                _ => None,
             };
 
             if let Some(d) = distro {
@@ -44,20 +67,25 @@ pub fn detect_os() -> Os {
             }
 
             // Fallback: check ID_LIKE= for derived distros (e.g. Linux Mint, Pop!_OS)
-            let id_like = content.lines()
+            let id_like = content
+                .lines()
                 .find(|l| l.starts_with("ID_LIKE="))
-                .map(|l| l.trim_start_matches("ID_LIKE=").trim_matches('"').to_lowercase());
+                .map(|l| {
+                    l.trim_start_matches("ID_LIKE=")
+                        .trim_matches('"')
+                        .to_lowercase()
+                });
 
             if let Some(like_str) = id_like {
                 for part in like_str.split_whitespace() {
                     let d = match part {
-                        "debian"  => Some(LinuxDistro::Debian),
-                        "ubuntu"  => Some(LinuxDistro::Ubuntu),
-                        "fedora"  => Some(LinuxDistro::Fedora),
-                        "rhel"    => Some(LinuxDistro::Rhel),
-                        "centos"  => Some(LinuxDistro::CentOs),
-                        "arch"    => Some(LinuxDistro::Arch),
-                        _         => None,
+                        "debian" => Some(LinuxDistro::Debian),
+                        "ubuntu" => Some(LinuxDistro::Ubuntu),
+                        "fedora" => Some(LinuxDistro::Fedora),
+                        "rhel" => Some(LinuxDistro::Rhel),
+                        "centos" => Some(LinuxDistro::CentOs),
+                        "arch" => Some(LinuxDistro::Arch),
+                        _ => None,
                     };
                     if let Some(d) = d {
                         return Os::Linux(d);
@@ -94,7 +122,7 @@ pub fn dotfiles_dir() -> anyhow::Result<PathBuf> {
 }
 
 pub fn state_path() -> anyhow::Result<PathBuf> {
-    Ok(home_dir()?.join(".dotfiles").join(".heimdal").join("state.json"))
+    Ok(home_dir()?.join(".heimdal").join("state.json"))
 }
 
 pub fn confirm(prompt: &str) -> bool {
