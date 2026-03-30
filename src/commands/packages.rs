@@ -256,23 +256,86 @@ fn suggest(dir: Option<&str>) -> Result<()> {
 }
 
 fn search(query: &str) -> Result<()> {
-    // No central database — just inform the user
+    let brew_args = ["search", query];
+    let apt_args = ["search", query];
+    let dnf_args = ["search", query];
+    let pacman_args = ["-Ss", query];
+    let apk_args = ["search", query];
+
+    let managers: Vec<(&str, &[&str], &str)> = vec![
+        ("brew", &brew_args[..], "macOS/Linux (Homebrew)"),
+        ("apt-cache", &apt_args[..], "Debian/Ubuntu (apt)"),
+        ("dnf", &dnf_args[..], "Fedora/RHEL (dnf)"),
+        ("pacman", &pacman_args[..], "Arch Linux (pacman)"),
+        ("apk", &apk_args[..], "Alpine (apk)"),
+    ];
+
+    for (cmd, args, label) in &managers {
+        let available = std::process::Command::new(cmd)
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        if available {
+            info(&format!(
+                "Searching {} packages for '{}'...",
+                label, query
+            ));
+            let status = std::process::Command::new(cmd)
+                .args(*args)
+                .status()
+                .map_err(|e| anyhow::anyhow!("Cannot run {}: {}", cmd, e))?;
+            if !status.success() {
+                warning("Search returned no results or failed.");
+            }
+            return Ok(());
+        }
+    }
+
+    info("No package manager detected. Search manually:");
+    info(&format!("  Homebrew (macOS/Linux): brew search {}", query));
     info(&format!(
-        "Search is not available offline. To find packages for '{}', visit:",
+        "  APT (Debian/Ubuntu):    apt-cache search {}",
         query
     ));
-    info("  Homebrew: https://formulae.brew.sh/");
-    info("  Apt:      https://packages.ubuntu.com/");
-    info("  Pacman:   https://archlinux.org/packages/");
+    info(&format!("  DNF (Fedora/RHEL):      dnf search {}", query));
+    info(&format!("  Pacman (Arch):          pacman -Ss {}", query));
+    info(&format!("  APK (Alpine):           apk search {}", query));
     Ok(())
 }
 
 fn pkg_info(name: &str) -> Result<()> {
-    info(&format!(
-        "Package info for '{}' is not available offline.",
-        name
-    ));
-    info("Use your package manager directly: brew info <pkg>, apt show <pkg>, etc.");
+    let brew_args = ["info", name];
+    let apt_args = ["show", name];
+    let dnf_args = ["info", name];
+    let pacman_args = ["-Si", name];
+    let apk_args = ["info", name];
+
+    let managers: Vec<(&str, &[&str], &str)> = vec![
+        ("brew", &brew_args[..], "Homebrew"),
+        ("apt-cache", &apt_args[..], "APT"),
+        ("dnf", &dnf_args[..], "DNF"),
+        ("pacman", &pacman_args[..], "Pacman"),
+        ("apk", &apk_args[..], "APK"),
+    ];
+
+    for (cmd, args, label) in &managers {
+        let available = std::process::Command::new(cmd)
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        if available {
+            info(&format!("Package info from {} for '{}':", label, name));
+            std::process::Command::new(cmd).args(*args).status().ok();
+            return Ok(());
+        }
+    }
+
+    info("No package manager detected. Get info manually:");
+    info(&format!("  brew info {}", name));
+    info(&format!("  apt-cache show {}", name));
+    info(&format!("  dnf info {}", name));
     Ok(())
 }
 
