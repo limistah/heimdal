@@ -103,10 +103,16 @@ fn history(limit: usize) -> Result<()> {
     info(&format!("Machine:       {}", state.hostname));
     info(&format!("Profile:       {}", state.active_profile));
     if let Some(t) = state.last_apply {
-        info(&format!("Last apply:    {}", t.format("%Y-%m-%d %H:%M UTC")));
+        info(&format!(
+            "Last apply:    {}",
+            t.format("%Y-%m-%d %H:%M UTC")
+        ));
     }
     if let Some(t) = state.last_sync {
-        info(&format!("Last sync:     {}", t.format("%Y-%m-%d %H:%M UTC")));
+        info(&format!(
+            "Last sync:     {}",
+            t.format("%Y-%m-%d %H:%M UTC")
+        ));
     }
     info(&format!(
         "(Full history not available — showing last {} events from state)",

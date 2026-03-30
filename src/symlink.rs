@@ -17,16 +17,37 @@ pub struct ApplyContext {
 #[derive(Debug)]
 pub enum LinkResult {
     #[allow(dead_code)]
-    Created { src: PathBuf, dest: PathBuf },
-    AlreadyLinked { dest: PathBuf },
-    Skipped { dest: PathBuf, reason: String },
-    Backed { dest: PathBuf, backup: PathBuf },
-    Conflict { dest: PathBuf, reason: String },
+    Created {
+        src: PathBuf,
+        dest: PathBuf,
+    },
+    AlreadyLinked {
+        dest: PathBuf,
+    },
+    Skipped {
+        dest: PathBuf,
+        reason: String,
+    },
+    Backed {
+        dest: PathBuf,
+        backup: PathBuf,
+    },
+    Conflict {
+        dest: PathBuf,
+        reason: String,
+    },
 }
 
 static STOW_SKIP: &[&str] = &[
-    ".git", ".heimdal", "heimdal.yaml", ".stowrc",
-    "README.md", "README", "LICENSE", "CHANGELOG.md", "Makefile",
+    ".git",
+    ".heimdal",
+    "heimdal.yaml",
+    ".stowrc",
+    "README.md",
+    "README",
+    "LICENSE",
+    "CHANGELOG.md",
+    "Makefile",
 ];
 
 pub fn apply_mappings(
@@ -59,13 +80,17 @@ pub fn apply_mappings(
 
         // Guard against path traversal (e.g., source: "../../etc/passwd")
         if let (Ok(canonical_src), Ok(canonical_dir)) = (
-            src.canonicalize().or_else(|_| Ok::<_, std::io::Error>(src.clone())),
-            ctx.dotfiles_dir.canonicalize()
+            src.canonicalize()
+                .or_else(|_| Ok::<_, std::io::Error>(src.clone())),
+            ctx.dotfiles_dir.canonicalize(),
         ) {
             if !canonical_src.starts_with(&canonical_dir) {
                 results.push(LinkResult::Skipped {
                     dest: expand_path(&dest_str),
-                    reason: format!("source '{}' escapes dotfiles directory — skipped for safety", src_rel),
+                    reason: format!(
+                        "source '{}' escapes dotfiles directory — skipped for safety",
+                        src_rel
+                    ),
                 });
                 continue;
             }
@@ -119,7 +144,9 @@ pub fn link_one(src: &Path, dest: &Path, ctx: &ApplyContext) -> Result<LinkResul
     if dest.is_symlink() {
         if let Ok(target) = std::fs::read_link(dest) {
             if target == src {
-                return Ok(LinkResult::AlreadyLinked { dest: dest.to_owned() });
+                return Ok(LinkResult::AlreadyLinked {
+                    dest: dest.to_owned(),
+                });
             }
         }
     }
@@ -191,7 +218,8 @@ fn create_symlink(src: &Path, dest: &Path) -> Result<()> {
         crate::error::HeimdallError::Symlink {
             path: src.display().to_string(),
             reason: e.to_string(),
-        }.into()
+        }
+        .into()
     })
 }
 
@@ -201,11 +229,13 @@ fn create_symlink(src: &Path, dest: &Path) -> Result<()> {
         std::os::windows::fs::symlink_dir(src, dest)
     } else {
         std::os::windows::fs::symlink_file(src, dest)
-    }.map_err(|e| {
+    }
+    .map_err(|e| {
         crate::error::HeimdallError::Symlink {
             path: src.display().to_string(),
             reason: e.to_string(),
-        }.into()
+        }
+        .into()
     })
 }
 
@@ -245,11 +275,24 @@ pub fn print_results(results: &[LinkResult], dry_run: bool) {
     let prefix = if dry_run { "[preview] " } else { "" };
     for r in results {
         match r {
-            LinkResult::Created { dest, .. } => step(&format!("{}Linked: {}", prefix, dest.display())),
-            LinkResult::AlreadyLinked { dest } => info(&format!("Already linked: {}", dest.display())),
-            LinkResult::Skipped { dest, reason } => info(&format!("Skipped {}: {}", dest.display(), reason)),
-            LinkResult::Backed { dest, backup } => step(&format!("{}Backed {} \u{2192} {}", prefix, dest.display(), backup.display())),
-            LinkResult::Conflict { dest, reason } => warning(&format!("Conflict at {}: {}", dest.display(), reason)),
+            LinkResult::Created { dest, .. } => {
+                step(&format!("{}Linked: {}", prefix, dest.display()))
+            }
+            LinkResult::AlreadyLinked { dest } => {
+                info(&format!("Already linked: {}", dest.display()))
+            }
+            LinkResult::Skipped { dest, reason } => {
+                info(&format!("Skipped {}: {}", dest.display(), reason))
+            }
+            LinkResult::Backed { dest, backup } => step(&format!(
+                "{}Backed {} \u{2192} {}",
+                prefix,
+                dest.display(),
+                backup.display()
+            )),
+            LinkResult::Conflict { dest, reason } => {
+                warning(&format!("Conflict at {}: {}", dest.display(), reason))
+            }
         }
     }
 }
@@ -263,7 +306,9 @@ mod tests {
         ApplyContext {
             dotfiles_dir: tmp.path().to_owned(),
             home_dir: tmp.path().to_owned(),
-            dry_run, force, backup,
+            dry_run,
+            force,
+            backup,
         }
     }
 
@@ -274,28 +319,40 @@ mod tests {
 
     #[test]
     fn should_link_os_match() {
-        let c = Some(DotfileCondition { os: vec!["linux".into()], ..Default::default() });
+        let c = Some(DotfileCondition {
+            os: vec!["linux".into()],
+            ..Default::default()
+        });
         assert!(should_link(&c, "default", "linux", "host"));
         assert!(!should_link(&c, "default", "macos", "host"));
     }
 
     #[test]
     fn should_link_os_empty_allows_all() {
-        let c = Some(DotfileCondition { os: vec![], ..Default::default() });
+        let c = Some(DotfileCondition {
+            os: vec![],
+            ..Default::default()
+        });
         assert!(should_link(&c, "default", "linux", "host"));
         assert!(should_link(&c, "default", "macos", "host"));
     }
 
     #[test]
     fn should_link_profile_filter() {
-        let c = Some(DotfileCondition { profile: vec!["work".into()], ..Default::default() });
+        let c = Some(DotfileCondition {
+            profile: vec!["work".into()],
+            ..Default::default()
+        });
         assert!(should_link(&c, "work", "linux", "host"));
         assert!(!should_link(&c, "personal", "linux", "host"));
     }
 
     #[test]
     fn should_link_hostname_glob() {
-        let c = Some(DotfileCondition { hostname: Some("work-*".into()), ..Default::default() });
+        let c = Some(DotfileCondition {
+            hostname: Some("work-*".into()),
+            ..Default::default()
+        });
         assert!(should_link(&c, "default", "linux", "work-laptop"));
         assert!(!should_link(&c, "default", "linux", "personal-mac"));
     }

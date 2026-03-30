@@ -7,7 +7,11 @@ use anyhow::Result;
 pub fn run(action: PackagesCmd) -> Result<()> {
     match action {
         PackagesCmd::List { installed: _ } => list(),
-        PackagesCmd::Add { name, manager, no_install } => add(&name, manager.as_deref(), no_install),
+        PackagesCmd::Add {
+            name,
+            manager,
+            no_install,
+        } => add(&name, manager.as_deref(), no_install),
         PackagesCmd::Remove { name, no_uninstall } => remove(&name, no_uninstall),
         PackagesCmd::Suggest { dir } => suggest(dir.as_deref()),
         PackagesCmd::Search { query } => search(&query),
@@ -20,10 +24,11 @@ fn list() -> Result<()> {
     let state = State::load()?;
     let config_path = state.dotfiles_path.join("heimdal.yaml");
     let config = load_config(&config_path)?;
-    let profile = config.profiles.get(&state.active_profile)
-        .ok_or_else(|| crate::error::HeimdallError::ProfileNotFound {
-            name: state.active_profile.clone()
-        })?;
+    let profile = config.profiles.get(&state.active_profile).ok_or_else(|| {
+        crate::error::HeimdallError::ProfileNotFound {
+            name: state.active_profile.clone(),
+        }
+    })?;
 
     let pkgs = &profile.packages;
     let mut any = false;
@@ -32,7 +37,9 @@ fn list() -> Result<()> {
         ($field:expr, $label:expr) => {
             if !$field.is_empty() {
                 println!("{}:", $label);
-                for p in &$field { println!("  - {}", p); }
+                for p in &$field {
+                    println!("  - {}", p);
+                }
                 any = true;
             }
         };
@@ -70,23 +77,31 @@ fn add(pkg: &str, manager: Option<&str>, no_install: bool) -> Result<()> {
         }
     };
 
-    let profile = config.profiles.get_mut(&state.active_profile)
+    let profile = config
+        .profiles
+        .get_mut(&state.active_profile)
         .ok_or_else(|| crate::error::HeimdallError::ProfileNotFound {
-            name: state.active_profile.clone()
+            name: state.active_profile.clone(),
         })?;
 
     let list = match mgr.as_str() {
-        "homebrew"       => &mut profile.packages.homebrew,
+        "homebrew" => &mut profile.packages.homebrew,
         "homebrew_casks" | "homebrew-cask" => &mut profile.packages.homebrew_casks,
-        "apt"            => &mut profile.packages.apt,
-        "dnf"            => &mut profile.packages.dnf,
-        "pacman"         => &mut profile.packages.pacman,
-        "apk"            => &mut profile.packages.apk,
-        other => anyhow::bail!("Unknown package manager '{}'. Valid: homebrew, apt, dnf, pacman, apk", other),
+        "apt" => &mut profile.packages.apt,
+        "dnf" => &mut profile.packages.dnf,
+        "pacman" => &mut profile.packages.pacman,
+        "apk" => &mut profile.packages.apk,
+        other => anyhow::bail!(
+            "Unknown package manager '{}'. Valid: homebrew, apt, dnf, pacman, apk",
+            other
+        ),
     };
 
     if list.contains(&pkg.to_string()) {
-        info(&format!("'{}' is already in the {} package list.", pkg, mgr));
+        info(&format!(
+            "'{}' is already in the {} package list.",
+            pkg, mgr
+        ));
         return Ok(());
     }
 
@@ -105,9 +120,11 @@ fn remove(pkg: &str, no_uninstall: bool) -> Result<()> {
     let config_path = state.dotfiles_path.join("heimdal.yaml");
     let mut config = load_config(&config_path)?;
 
-    let profile = config.profiles.get_mut(&state.active_profile)
+    let profile = config
+        .profiles
+        .get_mut(&state.active_profile)
         .ok_or_else(|| crate::error::HeimdallError::ProfileNotFound {
-            name: state.active_profile.clone()
+            name: state.active_profile.clone(),
         })?;
 
     let mut removed = false;
@@ -115,7 +132,9 @@ fn remove(pkg: &str, no_uninstall: bool) -> Result<()> {
         ($field:expr) => {
             let before = $field.len();
             $field.retain(|p| p != pkg);
-            if $field.len() < before { removed = true; }
+            if $field.len() < before {
+                removed = true;
+            }
         };
     }
 
@@ -132,7 +151,8 @@ fn remove(pkg: &str, no_uninstall: bool) -> Result<()> {
         if !no_uninstall {
             warning(&format!(
                 "'{}' was removed from config but NOT uninstalled from your system. \
-                Run the appropriate uninstall command manually if needed.", pkg
+                Run the appropriate uninstall command manually if needed.",
+                pkg
             ));
         }
     } else {
@@ -147,27 +167,84 @@ fn suggest(dir: Option<&str>) -> Result<()> {
         None => std::env::current_dir()?,
     };
 
-    struct Suggestion { file: &'static str, packages: &'static [&'static str], label: &'static str }
+    struct Suggestion {
+        file: &'static str,
+        packages: &'static [&'static str],
+        label: &'static str,
+    }
 
     let rules: &[Suggestion] = &[
-        Suggestion { file: "Cargo.toml",       packages: &["rust", "cargo"],    label: "Rust/Cargo" },
-        Suggestion { file: "package.json",     packages: &["node", "nvm"],      label: "Node.js" },
-        Suggestion { file: ".nvmrc",           packages: &["node", "nvm"],      label: "Node.js (nvm)" },
-        Suggestion { file: "Gemfile",          packages: &["ruby", "rbenv"],    label: "Ruby" },
-        Suggestion { file: "requirements.txt", packages: &["python", "pyenv"],  label: "Python (pip)" },
-        Suggestion { file: "Pipfile",          packages: &["python", "pyenv"],  label: "Python (pipenv)" },
-        Suggestion { file: "pyproject.toml",   packages: &["python", "pyenv"],  label: "Python" },
-        Suggestion { file: "go.mod",           packages: &["go"],               label: "Go" },
-        Suggestion { file: "pom.xml",          packages: &["java", "maven"],    label: "Java (Maven)" },
-        Suggestion { file: "build.gradle",     packages: &["java", "gradle"],   label: "Java (Gradle)" },
-        Suggestion { file: "composer.json",    packages: &["php", "composer"],  label: "PHP" },
-        Suggestion { file: "CMakeLists.txt",   packages: &["cmake", "gcc"],     label: "C/C++ (CMake)" },
+        Suggestion {
+            file: "Cargo.toml",
+            packages: &["rust", "cargo"],
+            label: "Rust/Cargo",
+        },
+        Suggestion {
+            file: "package.json",
+            packages: &["node", "nvm"],
+            label: "Node.js",
+        },
+        Suggestion {
+            file: ".nvmrc",
+            packages: &["node", "nvm"],
+            label: "Node.js (nvm)",
+        },
+        Suggestion {
+            file: "Gemfile",
+            packages: &["ruby", "rbenv"],
+            label: "Ruby",
+        },
+        Suggestion {
+            file: "requirements.txt",
+            packages: &["python", "pyenv"],
+            label: "Python (pip)",
+        },
+        Suggestion {
+            file: "Pipfile",
+            packages: &["python", "pyenv"],
+            label: "Python (pipenv)",
+        },
+        Suggestion {
+            file: "pyproject.toml",
+            packages: &["python", "pyenv"],
+            label: "Python",
+        },
+        Suggestion {
+            file: "go.mod",
+            packages: &["go"],
+            label: "Go",
+        },
+        Suggestion {
+            file: "pom.xml",
+            packages: &["java", "maven"],
+            label: "Java (Maven)",
+        },
+        Suggestion {
+            file: "build.gradle",
+            packages: &["java", "gradle"],
+            label: "Java (Gradle)",
+        },
+        Suggestion {
+            file: "composer.json",
+            packages: &["php", "composer"],
+            label: "PHP",
+        },
+        Suggestion {
+            file: "CMakeLists.txt",
+            packages: &["cmake", "gcc"],
+            label: "C/C++ (CMake)",
+        },
     ];
 
     let mut found_any = false;
     for rule in rules {
         if scan_dir.join(rule.file).exists() {
-            println!("Detected {} ({}): suggest {}", rule.label, rule.file, rule.packages.join(", "));
+            println!(
+                "Detected {} ({}): suggest {}",
+                rule.label,
+                rule.file,
+                rule.packages.join(", ")
+            );
             found_any = true;
         }
     }
@@ -191,7 +268,10 @@ fn search(query: &str) -> Result<()> {
 }
 
 fn pkg_info(name: &str) -> Result<()> {
-    info(&format!("Package info for '{}' is not available offline.", name));
+    info(&format!(
+        "Package info for '{}' is not available offline.",
+        name
+    ));
     info("Use your package manager directly: brew info <pkg>, apt show <pkg>, etc.");
     Ok(())
 }

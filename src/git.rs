@@ -23,9 +23,7 @@ impl GitRepo {
     /// Clone a remote URL to dest directory.
     pub fn clone(url: &str, dest: &Path) -> Result<Self> {
         let dest_str = dest.to_str().ok_or_else(|| {
-            crate::error::HeimdallError::Git(
-                "Dotfiles path contains invalid UTF-8".to_string(),
-            )
+            crate::error::HeimdallError::Git("Dotfiles path contains invalid UTF-8".to_string())
         })?;
         let status = Command::new("git")
             .args(["clone", "--", url, dest_str])
@@ -113,7 +111,9 @@ impl GitRepo {
             .current_dir(&self.path)
             .output()
             .map_err(|e| crate::error::HeimdallError::Git(format!("Cannot run git: {}", e)))?;
-        let has_changes = !String::from_utf8_lossy(&status_out.stdout).trim().is_empty();
+        let has_changes = !String::from_utf8_lossy(&status_out.stdout)
+            .trim()
+            .is_empty();
 
         if dry_run {
             if has_changes {
@@ -134,9 +134,9 @@ impl GitRepo {
             if !file_list.is_empty() {
                 let mut cmd = Command::new("git");
                 cmd.arg("add").args(file_list).current_dir(&self.path);
-                let status = cmd
-                    .status()
-                    .map_err(|e| crate::error::HeimdallError::Git(format!("Cannot run git: {}", e)))?;
+                let status = cmd.status().map_err(|e| {
+                    crate::error::HeimdallError::Git(format!("Cannot run git: {}", e))
+                })?;
                 if !status.success() {
                     return Err(
                         crate::error::HeimdallError::Git("git add failed".to_string()).into(),
@@ -163,7 +163,10 @@ impl GitRepo {
             .current_dir(&self.path)
             .output()
             .map_err(|e| crate::error::HeimdallError::Git(format!("Cannot run git: {}", e)))?;
-        if String::from_utf8_lossy(&status_out.stdout).trim().is_empty() {
+        if String::from_utf8_lossy(&status_out.stdout)
+            .trim()
+            .is_empty()
+        {
             crate::utils::info("Nothing to commit after staging");
             return Ok(());
         }
@@ -175,9 +178,7 @@ impl GitRepo {
             .status()
             .map_err(|e| crate::error::HeimdallError::Git(format!("Cannot run git: {}", e)))?;
         if !status.success() {
-            return Err(
-                crate::error::HeimdallError::Git("git commit failed".to_string()).into(),
-            );
+            return Err(crate::error::HeimdallError::Git("git commit failed".to_string()).into());
         }
         Ok(())
     }

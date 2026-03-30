@@ -49,7 +49,9 @@ fn list() -> Result<()> {
     if names.is_empty() {
         info("No secrets stored.");
     } else {
-        for n in &names { println!("  - {}", n); }
+        for n in &names {
+            println!("  - {}", n);
+        }
     }
     Ok(())
 }

@@ -22,12 +22,19 @@ pub trait PackageManager: Send + Sync {
 pub struct Homebrew;
 
 impl PackageManager for Homebrew {
-    fn name(&self) -> &str { "homebrew" }
-    fn field_name(&self) -> &str { "homebrew" }
+    fn name(&self) -> &str {
+        "homebrew"
+    }
+    fn field_name(&self) -> &str {
+        "homebrew"
+    }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("brew").arg("--version")
-            .output().map(|o| o.status.success()).unwrap_or(false)
+        std::process::Command::new("brew")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
     }
 
     fn is_installed(&self, pkg: &str) -> bool {
@@ -48,12 +55,19 @@ impl PackageManager for Homebrew {
 pub struct HomebrewCask;
 
 impl PackageManager for HomebrewCask {
-    fn name(&self) -> &str { "homebrew-cask" }
-    fn field_name(&self) -> &str { "homebrew_casks" }
+    fn name(&self) -> &str {
+        "homebrew-cask"
+    }
+    fn field_name(&self) -> &str {
+        "homebrew_casks"
+    }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("brew").arg("--version")
-            .output().map(|o| o.status.success()).unwrap_or(false)
+        std::process::Command::new("brew")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
     }
 
     fn is_installed(&self, pkg: &str) -> bool {
@@ -74,12 +88,19 @@ impl PackageManager for HomebrewCask {
 pub struct Apt;
 
 impl PackageManager for Apt {
-    fn name(&self) -> &str { "apt" }
-    fn field_name(&self) -> &str { "apt" }
+    fn name(&self) -> &str {
+        "apt"
+    }
+    fn field_name(&self) -> &str {
+        "apt"
+    }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("apt-get").arg("--version")
-            .output().map(|o| o.status.success()).unwrap_or(false)
+        std::process::Command::new("apt-get")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
     }
 
     fn is_installed(&self, pkg: &str) -> bool {
@@ -100,12 +121,19 @@ impl PackageManager for Apt {
 pub struct Dnf;
 
 impl PackageManager for Dnf {
-    fn name(&self) -> &str { "dnf" }
-    fn field_name(&self) -> &str { "dnf" }
+    fn name(&self) -> &str {
+        "dnf"
+    }
+    fn field_name(&self) -> &str {
+        "dnf"
+    }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("dnf").arg("--version")
-            .output().map(|o| o.status.success()).unwrap_or(false)
+        std::process::Command::new("dnf")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
     }
 
     fn is_installed(&self, pkg: &str) -> bool {
@@ -126,12 +154,19 @@ impl PackageManager for Dnf {
 pub struct Pacman;
 
 impl PackageManager for Pacman {
-    fn name(&self) -> &str { "pacman" }
-    fn field_name(&self) -> &str { "pacman" }
+    fn name(&self) -> &str {
+        "pacman"
+    }
+    fn field_name(&self) -> &str {
+        "pacman"
+    }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("pacman").arg("--version")
-            .output().map(|o| o.status.success()).unwrap_or(false)
+        std::process::Command::new("pacman")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
     }
 
     fn is_installed(&self, pkg: &str) -> bool {
@@ -152,12 +187,19 @@ impl PackageManager for Pacman {
 pub struct Apk;
 
 impl PackageManager for Apk {
-    fn name(&self) -> &str { "apk" }
-    fn field_name(&self) -> &str { "apk" }
+    fn name(&self) -> &str {
+        "apk"
+    }
+    fn field_name(&self) -> &str {
+        "apk"
+    }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("apk").arg("--version")
-            .output().map(|o| o.status.success()).unwrap_or(false)
+        std::process::Command::new("apk")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
     }
 
     fn is_installed(&self, pkg: &str) -> bool {
@@ -186,19 +228,23 @@ fn install_with_cmd(
     }
 
     if dry_run {
-        return Ok(pkgs.iter().map(|p| InstallResult {
-            package: p.clone(),
-            success: true,
-            already_installed: false,
-            message: Some(format!("[dry-run] Would install: {}", p)),
-        }).collect());
+        return Ok(pkgs
+            .iter()
+            .map(|p| InstallResult {
+                package: p.clone(),
+                success: true,
+                already_installed: false,
+                message: Some(format!("[dry-run] Would install: {}", p)),
+            })
+            .collect());
     }
 
     let mut results = Vec::new();
     for pkg in pkgs {
         let mut command = std::process::Command::new(cmd);
         command.args(base_args).arg(pkg);
-        let output = command.output()
+        let output = command
+            .output()
             .map_err(|e| crate::error::HeimdallError::Package {
                 manager: cmd.to_string(),
                 reason: format!("Cannot run {}: {}", cmd, e),
@@ -206,7 +252,9 @@ fn install_with_cmd(
         results.push(InstallResult {
             success: output.status.success(),
             already_installed: false,
-            message: if output.status.success() { None } else {
+            message: if output.status.success() {
+                None
+            } else {
                 Some(String::from_utf8_lossy(&output.stderr).trim().to_string())
             },
             package: pkg.clone(),
@@ -244,16 +292,18 @@ pub fn install_for_profile(profile: &crate::config::Profile, dry_run: bool) -> R
 
     for manager in &managers {
         let to_install = match manager.field_name() {
-            "homebrew"       => pkgs.homebrew.clone(),
+            "homebrew" => pkgs.homebrew.clone(),
             "homebrew_casks" => pkgs.homebrew_casks.clone(),
-            "apt"            => pkgs.apt.clone(),
-            "dnf"            => pkgs.dnf.clone(),
-            "pacman"         => pkgs.pacman.clone(),
-            "apk"            => pkgs.apk.clone(),
-            _                => vec![],
+            "apt" => pkgs.apt.clone(),
+            "dnf" => pkgs.dnf.clone(),
+            "pacman" => pkgs.pacman.clone(),
+            "apk" => pkgs.apk.clone(),
+            _ => vec![],
         };
 
-        if to_install.is_empty() { continue; }
+        if to_install.is_empty() {
+            continue;
+        }
 
         if !manager.is_available() {
             crate::utils::warning(&format!(

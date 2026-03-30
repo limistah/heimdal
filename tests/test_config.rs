@@ -1,7 +1,7 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
-use tempfile::TempDir;
 use std::fs;
+use tempfile::TempDir;
 
 fn write_yaml(dir: &TempDir, name: &str, content: &str) -> std::path::PathBuf {
     let path = dir.path().join(name);
@@ -14,13 +14,17 @@ fn write_yaml(dir: &TempDir, name: &str, content: &str) -> std::path::PathBuf {
 #[test]
 fn test_minimal_config() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
   default:
     dotfiles: []
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     assert_eq!(cfg.heimdal.version, "1");
     assert!(cfg.profiles.contains_key("default"));
@@ -29,7 +33,10 @@ profiles:
 #[test]
 fn test_full_config_parses() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
   repo: "git@github.com:user/dotfiles.git"
@@ -44,7 +51,8 @@ profiles:
         target: ~/.config/nvim
     hooks:
       post_apply: ["echo done"]
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     let profile = cfg.profiles.get("default").unwrap();
     assert_eq!(profile.packages.homebrew, vec!["git", "vim"]);
@@ -54,14 +62,18 @@ profiles:
 #[test]
 fn test_simple_dotfile_string() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
   default:
     dotfiles:
       - .zshrc
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     let profile = cfg.profiles.get("default").unwrap();
     match &profile.dotfiles[0] {
@@ -73,7 +85,10 @@ profiles:
 #[test]
 fn test_full_dotfile_mapping() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
@@ -81,7 +96,8 @@ profiles:
     dotfiles:
       - source: .config/nvim
         target: ~/.config/nvim
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     let profile = cfg.profiles.get("default").unwrap();
     match &profile.dotfiles[0] {
@@ -96,7 +112,10 @@ profiles:
 #[test]
 fn test_dotfile_with_condition() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
@@ -108,7 +127,8 @@ profiles:
           os: [linux]
           hostname: "work-*"
           profile: [default]
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     let profile = cfg.profiles.get("default").unwrap();
     match &profile.dotfiles[0] {
@@ -125,14 +145,18 @@ profiles:
 #[test]
 fn test_hook_string_variant() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
   default:
     hooks:
       post_apply: ["echo hello"]
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     let profile = cfg.profiles.get("default").unwrap();
     assert_eq!(profile.hooks.post_apply.len(), 1);
@@ -145,7 +169,10 @@ profiles:
 #[test]
 fn test_hook_object_variant() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
@@ -155,11 +182,17 @@ profiles:
         - command: "echo done"
           os: [macos]
           fail_on_error: false
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     let profile = cfg.profiles.get("default").unwrap();
     match &profile.hooks.post_apply[0] {
-        heimdal::config::HookEntry::Full { command, os, fail_on_error, .. } => {
+        heimdal::config::HookEntry::Full {
+            command,
+            os,
+            fail_on_error,
+            ..
+        } => {
             assert_eq!(command, "echo done");
             assert_eq!(os, &vec!["macos"]);
             assert!(!fail_on_error);
@@ -171,7 +204,10 @@ profiles:
 #[test]
 fn test_profile_extends_resolves() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
@@ -186,7 +222,8 @@ profiles:
       - .zshrc
     packages:
       homebrew: [zsh]
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     let resolved = heimdal::config::resolve_profile(&cfg, "child").unwrap();
     // child inherits .vimrc from base and adds .zshrc
@@ -199,7 +236,10 @@ profiles:
 #[test]
 fn test_extends_cycle_detected() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
@@ -207,7 +247,8 @@ profiles:
     extends: b
   b:
     extends: a
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     assert!(heimdal::config::resolve_profile(&cfg, "a").is_err());
 }
@@ -215,7 +256,10 @@ profiles:
 #[test]
 fn test_extends_child_wins_on_conflict() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
@@ -226,7 +270,8 @@ profiles:
     extends: base
     hooks:
       post_apply: ["echo child"]
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     let resolved = heimdal::config::resolve_profile(&cfg, "child").unwrap();
     // hooks are replaced by child, not merged
@@ -240,14 +285,18 @@ profiles:
 #[test]
 fn test_validate_config_valid() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
   default:
     dotfiles:
       - .vimrc
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     let errors = heimdal::config::validate_config(&cfg);
     assert!(errors.is_empty(), "expected no errors, got: {:?}", errors);
@@ -256,13 +305,17 @@ profiles:
 #[test]
 fn test_validate_config_unknown_extends() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
   child:
     extends: nonexistent
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     let errors = heimdal::config::validate_config(&cfg);
     assert!(!errors.is_empty());
@@ -272,7 +325,10 @@ profiles:
 #[test]
 fn test_validate_config_circular_extends() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
@@ -280,7 +336,8 @@ profiles:
     extends: b
   b:
     extends: a
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     let errors = heimdal::config::validate_config(&cfg);
     assert!(!errors.is_empty());
@@ -289,7 +346,10 @@ profiles:
 #[test]
 fn test_validate_config_absolute_source_path() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
@@ -297,7 +357,8 @@ profiles:
     dotfiles:
       - source: /etc/passwd
         target: ~/.passwd
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     let errors = heimdal::config::validate_config(&cfg);
     assert!(!errors.is_empty());
@@ -307,7 +368,10 @@ profiles:
 #[test]
 fn test_validate_config_dotdot_source_path() {
     let tmp = TempDir::new().unwrap();
-    let path = write_yaml(&tmp, "heimdal.yaml", r#"
+    let path = write_yaml(
+        &tmp,
+        "heimdal.yaml",
+        r#"
 heimdal:
   version: "1"
 profiles:
@@ -315,7 +379,8 @@ profiles:
     dotfiles:
       - source: ../../etc/passwd
         target: ~/.passwd
-"#);
+"#,
+    );
     let cfg = heimdal::config::load_config(&path).unwrap();
     let errors = heimdal::config::validate_config(&cfg);
     assert!(!errors.is_empty());
@@ -329,17 +394,23 @@ fn test_validate_valid_config_exits_zero() {
     let dotfiles = tmp.path().join(".dotfiles");
     std::fs::create_dir_all(&dotfiles).unwrap();
     let config_path = dotfiles.join("heimdal.yaml");
-    fs::write(&config_path, r#"
+    fs::write(
+        &config_path,
+        r#"
 heimdal:
   version: "1"
 profiles:
   default:
     dotfiles: []
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["validate", "--config", config_path.to_str().unwrap()])
-        .assert().success()
+        .assert()
+        .success()
         .stdout(predicate::str::contains("valid"));
 }
 
@@ -349,17 +420,23 @@ fn test_validate_invalid_config_exits_nonzero() {
     let dotfiles = tmp.path().join(".dotfiles");
     std::fs::create_dir_all(&dotfiles).unwrap();
     let config_path = dotfiles.join("heimdal.yaml");
-    fs::write(&config_path, r#"
+    fs::write(
+        &config_path,
+        r#"
 heimdal:
   version: "1"
 profiles:
   child:
     extends: nonexistent
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["validate", "--config", config_path.to_str().unwrap()])
-        .assert().failure();
+        .assert()
+        .failure();
 }
 
 #[test]
@@ -368,7 +445,9 @@ fn test_validate_bad_yaml_exits_nonzero() {
     let config_path = tmp.path().join("heimdal.yaml");
     fs::write(&config_path, "this is: not: valid: yaml: :::").unwrap();
 
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["validate", "--config", config_path.to_str().unwrap()])
-        .assert().failure();
+        .assert()
+        .failure();
 }

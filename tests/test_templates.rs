@@ -9,7 +9,10 @@ fn setup_home_with_template() -> TempDir {
     let dotfiles = home.child(".dotfiles");
     dotfiles.create_dir_all().unwrap();
 
-    dotfiles.child("heimdal.yaml").write_str(r#"heimdal:
+    dotfiles
+        .child("heimdal.yaml")
+        .write_str(
+            r#"heimdal:
   version: "1"
 profiles:
   default:
@@ -20,47 +23,62 @@ profiles:
           name: "Test User"
           email: "test@example.com"
     dotfiles: []
-"#).unwrap();
+"#,
+        )
+        .unwrap();
 
-    dotfiles.child(".gitconfig.tmpl").write_str(
-        "[user]\n    name = {{ name }}\n    email = {{ email }}\n"
-    ).unwrap();
+    dotfiles
+        .child(".gitconfig.tmpl")
+        .write_str("[user]\n    name = {{ name }}\n    email = {{ email }}\n")
+        .unwrap();
 
     let state_dir = home.child(".heimdal");
     state_dir.create_dir_all().unwrap();
-    state_dir.child("state.json").write_str(&serde_json::json!({
-        "version": 1, "machine_id": "x", "hostname": "testhost", "username": "testuser",
-        "os": "linux", "active_profile": "default",
-        "dotfiles_path": dotfiles.path(),
-        "repo_url": "", "last_apply": null, "last_sync": null,
-        "heimdal_version": "3.0.0"
-    }).to_string()).unwrap();
+    state_dir
+        .child("state.json")
+        .write_str(
+            &serde_json::json!({
+                "version": 1, "machine_id": "x", "hostname": "testhost", "username": "testuser",
+                "os": "linux", "active_profile": "default",
+                "dotfiles_path": dotfiles.path(),
+                "repo_url": "", "last_apply": null, "last_sync": null,
+                "heimdal_version": "3.0.0"
+            })
+            .to_string(),
+        )
+        .unwrap();
 
     home
 }
 
 #[test]
 fn test_template_list_help() {
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["template", "list", "--help"])
-        .assert().success();
+        .assert()
+        .success();
 }
 
 #[test]
 fn test_template_preview_help() {
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["template", "preview", "--help"])
-        .assert().success();
+        .assert()
+        .success();
 }
 
 #[test]
 #[serial]
 fn test_template_list_shows_templates() {
     let home = setup_home_with_template();
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["template", "list"])
         .env("HOME", home.path())
-        .assert().success()
+        .assert()
+        .success()
         .stdout(predicate::str::contains(".gitconfig.tmpl"));
 }
 
@@ -68,10 +86,12 @@ fn test_template_list_shows_templates() {
 #[serial]
 fn test_template_preview_renders_vars() {
     let home = setup_home_with_template();
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["template", "preview", ".gitconfig.tmpl"])
         .env("HOME", home.path())
-        .assert().success()
+        .assert()
+        .success()
         .stdout(predicate::str::contains("Test User"))
         .stdout(predicate::str::contains("test@example.com"));
 }
@@ -92,7 +112,11 @@ fn test_template_undefined_var_preserved() {
     let content = "value = {{ undefined_var }}";
     let vars = std::collections::HashMap::new();
     let result = heimdal::templates::render_string(content, &vars);
-    assert!(result.contains("undefined_var"), "Expected placeholder to be preserved, got: {}", result);
+    assert!(
+        result.contains("undefined_var"),
+        "Expected placeholder to be preserved, got: {}",
+        result
+    );
 }
 
 #[test]

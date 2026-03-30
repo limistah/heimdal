@@ -264,7 +264,10 @@ profiles:
 
     // State must always be at ~/.heimdal/state.json regardless of --path
     let state_path = home.path().join(".heimdal/state.json");
-    assert!(state_path.exists(), "state.json must be at ~/.heimdal/state.json");
+    assert!(
+        state_path.exists(),
+        "state.json must be at ~/.heimdal/state.json"
+    );
 }
 
 #[test]

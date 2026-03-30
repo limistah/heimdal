@@ -126,8 +126,7 @@ fn import_dotbot(path: &Path) -> Result<ImportResult> {
     }
 
     let content = std::fs::read_to_string(&config_path)?;
-    let docs: Vec<serde_yaml_ng::Value> =
-        serde_yaml_ng::from_str(&content).unwrap_or_default();
+    let docs: Vec<serde_yaml_ng::Value> = serde_yaml_ng::from_str(&content).unwrap_or_default();
 
     let mut dotfiles = Vec::new();
     let warnings = Vec::new();
@@ -148,8 +147,7 @@ fn import_dotbot(path: &Path) -> Result<ImportResult> {
                 if !source_str.is_empty() && !target_str.is_empty() {
                     // source is relative to dotfiles dir; target is absolute (~/ path)
                     let target_home = if target_str.starts_with('/') {
-                        target_str
-                            .replace(&std::env::var("HOME").unwrap_or_default(), "~")
+                        target_str.replace(&std::env::var("HOME").unwrap_or_default(), "~")
                     } else {
                         target_str
                     };

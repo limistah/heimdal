@@ -14,12 +14,18 @@ pub fn run(_args: StatusArgs) -> Result<()> {
     info(&format!("OS:            {}", state.os));
 
     if let Some(t) = state.last_apply {
-        info(&format!("Last apply:    {}", t.format("%Y-%m-%d %H:%M UTC")));
+        info(&format!(
+            "Last apply:    {}",
+            t.format("%Y-%m-%d %H:%M UTC")
+        ));
     } else {
         info("Last apply:    never");
     }
     if let Some(t) = state.last_sync {
-        info(&format!("Last sync:     {}", t.format("%Y-%m-%d %H:%M UTC")));
+        info(&format!(
+            "Last sync:     {}",
+            t.format("%Y-%m-%d %H:%M UTC")
+        ));
     } else {
         info("Last sync:     never");
     }

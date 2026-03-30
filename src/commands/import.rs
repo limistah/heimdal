@@ -41,7 +41,11 @@ pub fn run(args: ImportArgs) -> Result<()> {
     };
 
     let tool_name = tool.as_ref().map(|t| t.as_str()).unwrap_or("stow");
-    info(&format!("Importing from {} at {}", tool_name, path.display()));
+    info(&format!(
+        "Importing from {} at {}",
+        tool_name,
+        path.display()
+    ));
 
     let result = import_from(&path, tool)?;
 
@@ -50,7 +54,10 @@ pub fn run(args: ImportArgs) -> Result<()> {
         warning(w);
     }
 
-    info(&format!("Found {} dotfile mapping(s)", result.dotfiles.len()));
+    info(&format!(
+        "Found {} dotfile mapping(s)",
+        result.dotfiles.len()
+    ));
 
     // Generate YAML
     let yaml = generate_heimdal_yaml(&result, "default")?;
@@ -84,7 +91,10 @@ pub fn run(args: ImportArgs) -> Result<()> {
         std::fs::create_dir_all(parent)?;
     }
     std::fs::write(&output_path, &yaml)?;
-    success(&format!("Generated heimdal.yaml at {}", output_path.display()));
+    success(&format!(
+        "Generated heimdal.yaml at {}",
+        output_path.display()
+    ));
     info("Next: review the file, then run 'heimdal init --repo <url> --profile default'");
 
     Ok(())

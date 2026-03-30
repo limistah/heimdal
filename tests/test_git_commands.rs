@@ -30,9 +30,11 @@ fn setup_dotfiles_repo() -> TempDir {
     git(repo.path(), &["config", "user.email", "test@test.com"]);
     git(repo.path(), &["config", "user.name", "Test"]);
 
-    repo.child("heimdal.yaml").write_str(
-        "heimdal:\n  version: \"1\"\nprofiles:\n  default:\n    dotfiles:\n      - .vimrc\n",
-    ).unwrap();
+    repo.child("heimdal.yaml")
+        .write_str(
+            "heimdal:\n  version: \"1\"\nprofiles:\n  default:\n    dotfiles:\n      - .vimrc\n",
+        )
+        .unwrap();
     repo.child(".vimrc").write_str("\" vim config").unwrap();
     git(repo.path(), &["add", "."]);
     git(repo.path(), &["commit", "-m", "init"]);
@@ -93,19 +95,23 @@ fn setup_initialized_home() -> (TempDir, std::path::PathBuf) {
 
 #[test]
 fn test_status_help() {
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["status", "--help"])
-        .assert().success();
+        .assert()
+        .success();
 }
 
 #[test]
 #[serial]
 fn test_status_fails_without_init() {
     let home = TempDir::new().unwrap();
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .arg("status")
         .env("HOME", home.path())
-        .assert().failure()
+        .assert()
+        .failure()
         .stderr(predicate::str::contains("init").or(predicate::str::contains("initialized")));
 }
 
@@ -113,43 +119,48 @@ fn test_status_fails_without_init() {
 #[serial]
 fn test_status_shows_profile_and_path() {
     let (home, _) = setup_initialized_home();
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .arg("status")
         .env("HOME", home.path())
-        .assert().success()
-        .stdout(
-            predicate::str::contains("default")
-                .and(predicate::str::contains(".dotfiles")),
-        );
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("default").and(predicate::str::contains(".dotfiles")));
 }
 
 // ── diff tests ────────────────────────────────────────────────────────────────
 
 #[test]
 fn test_diff_help() {
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["diff", "--help"])
-        .assert().success();
+        .assert()
+        .success();
 }
 
 #[test]
 #[serial]
 fn test_diff_fails_without_init() {
     let home = TempDir::new().unwrap();
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .arg("diff")
         .env("HOME", home.path())
-        .assert().failure();
+        .assert()
+        .failure();
 }
 
 #[test]
 #[serial]
 fn test_diff_clean_repo_exits_zero() {
     let (home, _) = setup_initialized_home();
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .arg("diff")
         .env("HOME", home.path())
-        .assert().success();
+        .assert()
+        .success();
 }
 
 #[test]
@@ -158,10 +169,12 @@ fn test_diff_shows_changes() {
     let (home, dotfiles) = setup_initialized_home();
     std::fs::write(dotfiles.join(".vimrc"), "\" modified").unwrap();
 
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .arg("diff")
         .env("HOME", home.path())
-        .assert().success()
+        .assert()
+        .success()
         .stdout(predicate::str::contains(".vimrc").or(predicate::str::contains("modified")));
 }
 
@@ -169,9 +182,11 @@ fn test_diff_shows_changes() {
 
 #[test]
 fn test_commit_help() {
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["commit", "--help"])
-        .assert().success()
+        .assert()
+        .success()
         .stdout(predicate::str::contains("--message").or(predicate::str::contains("-m")));
 }
 
@@ -179,10 +194,12 @@ fn test_commit_help() {
 #[serial]
 fn test_commit_fails_without_init() {
     let home = TempDir::new().unwrap();
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["commit", "-m", "test"])
         .env("HOME", home.path())
-        .assert().failure();
+        .assert()
+        .failure();
 }
 
 #[test]
@@ -190,10 +207,12 @@ fn test_commit_fails_without_init() {
 fn test_commit_nothing_to_commit_exits_zero() {
     let (home, _) = setup_initialized_home();
     // Nothing changed — commit should succeed (possibly with "nothing to commit" msg)
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["commit", "-m", "test commit"])
         .env("HOME", home.path())
-        .assert().success();
+        .assert()
+        .success();
 }
 
 #[test]
@@ -203,10 +222,12 @@ fn test_commit_modified_file() {
     std::fs::write(dotfiles.join(".vimrc"), "\" updated config").unwrap();
     git(dotfiles.as_path(), &["add", ".vimrc"]);
 
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["commit", "-m", "update vimrc"])
         .env("HOME", home.path())
-        .assert().success();
+        .assert()
+        .success();
 
     // Verify commit exists
     let log = process::Command::new("git")
@@ -221,19 +242,23 @@ fn test_commit_modified_file() {
 
 #[test]
 fn test_rollback_help() {
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["rollback", "--help"])
-        .assert().success();
+        .assert()
+        .success();
 }
 
 #[test]
 #[serial]
 fn test_rollback_fails_without_init() {
     let home = TempDir::new().unwrap();
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .arg("rollback")
         .env("HOME", home.path())
-        .assert().failure();
+        .assert()
+        .failure();
 }
 
 #[test]
@@ -245,9 +270,15 @@ fn test_rollback_dry_run() {
     git(dotfiles.as_path(), &["add", "."]);
     git(dotfiles.as_path(), &["commit", "-m", "v2"]);
 
-    Command::cargo_bin("heimdal").unwrap()
+    Command::cargo_bin("heimdal")
+        .unwrap()
         .args(&["rollback", "--dry-run"])
         .env("HOME", home.path())
-        .assert().success()
-        .stdout(predicate::str::contains("dry").or(predicate::str::contains("HEAD~1")).or(predicate::str::contains("Would")));
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains("dry")
+                .or(predicate::str::contains("HEAD~1"))
+                .or(predicate::str::contains("Would")),
+        );
 }
