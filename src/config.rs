@@ -182,3 +182,93 @@ fn merge_packages(base: PackageMap, child: PackageMap) -> PackageMap {
         mas: { let mut v = base.mas; v.extend(child.mas); v },
     }
 }
+
+/// Validate config for logical errors (after YAML parse succeeds).
+/// Returns a list of human-readable error strings (empty = valid).
+pub fn validate_config(config: &HeimdalConfig) -> Vec<String> {
+    let mut errors = Vec::new();
+
+    // Check extends targets exist
+    for (name, profile) in &config.profiles {
+        if let Some(parent) = &profile.extends {
+            if !config.profiles.contains_key(parent.as_str()) {
+                errors.push(format!(
+                    "Profile '{}' extends '{}' which does not exist",
+                    name, parent
+                ));
+            }
+        }
+    }
+
+    // Check for circular extends
+    for name in config.profiles.keys() {
+        let mut chain = vec![];
+        let mut current = name.as_str();
+        loop {
+            if chain.contains(&current) {
+                errors.push(format!(
+                    "Circular extends detected in profile '{}': {}",
+                    name,
+                    chain.join(" -> ")
+                ));
+                break;
+            }
+            chain.push(current);
+            match config.profiles.get(current).and_then(|p| p.extends.as_deref()) {
+                None => break,
+                Some(next) => {
+                    if !config.profiles.contains_key(next) { break; } // already caught above
+                    current = next;
+                }
+            }
+        }
+    }
+
+    // Check dotfile source paths are relative and don't traverse outside dotfiles dir
+    for (prof_name, profile) in &config.profiles {
+        for entry in &profile.dotfiles {
+            let src = match entry {
+                DotfileEntry::Simple(s) => s.as_str(),
+                DotfileEntry::Mapped(m) => m.source.as_str(),
+            };
+            if std::path::Path::new(src).is_absolute() {
+                errors.push(format!(
+                    "Profile '{}': dotfile source '{}' must be a relative path",
+                    prof_name, src
+                ));
+            }
+            // Check for path traversal attempts
+            if src.contains("..") {
+                errors.push(format!(
+                    "Profile '{}': dotfile source '{}' must not contain '..'",
+                    prof_name, src
+                ));
+            }
+        }
+    }
+
+    errors
+}
+
+/// Write a minimal valid heimdal.yaml to `path` for the given profile name.
+#[allow(dead_code)]
+pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyhow::Result<()> {
+    let content = format!(
+        r#"heimdal:
+  version: "1"
+
+profiles:
+  {}:
+    dotfiles: []
+    packages:
+      homebrew: []
+      apt: []
+"#,
+        profile_name
+    );
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, content)?;
+    Ok(())
+}
