@@ -7,6 +7,8 @@ pub struct HeimdalConfig {
     pub heimdal: HeimdalMeta,
     pub profiles: HashMap<String, Profile>,
     #[serde(default)]
+    pub packages: PackageMap,
+    #[serde(default)]
     pub ignore: Vec<String>,
 }
 
@@ -129,7 +131,10 @@ pub fn load_config(path: &Path) -> anyhow::Result<HeimdalConfig> {
 }
 
 pub fn resolve_profile(config: &HeimdalConfig, name: &str) -> anyhow::Result<Profile> {
-    resolve_recursive(config, name, &mut Vec::new())
+    let mut profile = resolve_recursive(config, name, &mut Vec::new())?;
+    // Prepend top-level packages so profile-specific ones take effect after
+    profile.packages = merge_packages(config.packages.clone(), profile.packages);
+    Ok(profile)
 }
 
 fn resolve_recursive(
@@ -342,6 +347,7 @@ pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyh
             repo: None,
         },
         profiles,
+        packages: PackageMap::default(),
         ignore: vec![],
     };
 
