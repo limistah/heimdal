@@ -163,41 +163,44 @@ jobs:
           ARM64_SHA=$(curl -sL "${ARM64_URL}" | sha256sum | cut -d' ' -f1)
           AMD64_SHA=$(curl -sL "${AMD64_URL}" | sha256sum | cut -d' ' -f1)
 
-          # Update version and SHA256 in formula using Python (safer than sed for multi-line)
-          python3 - <<EOF
-          import re
-
-          with open("Formula/heimdal.rb", "r") as f:
-              content = f.read()
+          VERSION_NUM="${VERSION#v}"
+          FORMULA="Formula/heimdal.rb"
 
           # Update version
-          content = re.sub(r'version "[\d.]+"', f'version "${VERSION#v}"', content)
+          python3 -c "
+import re, sys
+content = open('$FORMULA').read()
+content = re.sub(r'version \"[\\d.]+\"', 'version \"$VERSION_NUM\"', content)
+open('$FORMULA', 'w').write(content)
+"
 
-          # Update URLs
-          content = re.sub(
-              r'(on_arm do.*?url ")[^"]*(")',
-              f'\\g<1>{ARM64_URL}\\2',
-              content, flags=re.DOTALL
-          )
-          content = re.sub(
-              r'(on_intel do.*?url ")[^"]*(")',
-              f'\\g<1>{AMD64_URL}\\2',
-              content, flags=re.DOTALL
-          )
+          # Update arm64 URL and sha256
+          python3 -c "
+import re
+content = open('$FORMULA').read()
+content = re.sub(r'(on_arm\s+do.*?url\s+\")[^\"]*(\"\s)', lambda m: m.group(1) + '$ARM64_URL' + m.group(2), content, flags=re.DOTALL)
+open('$FORMULA', 'w').write(content)
+"
 
-          # Update SHA256 values (update both — arm first, then intel)
-          sha_pattern = r'(sha256 ")[a-f0-9]{64}(")'
-          shas = [m.start() for m in re.finditer(sha_pattern, content)]
-          if len(shas) >= 2:
-              # Replace from end to avoid offset shifts
-              content = content[:shas[1]] + re.sub(sha_pattern, f'\\g<1>{AMD64_SHA}\\2', content[shas[1]:], count=1)
-              content = content[:shas[0]] + re.sub(sha_pattern, f'\\g<1>{ARM64_SHA}\\2', content[shas[0]:], count=1)
+          # Update intel URL
+          python3 -c "
+import re
+content = open('$FORMULA').read()
+content = re.sub(r'(on_intel\s+do.*?url\s+\")[^\"]*(\"\s)', lambda m: m.group(1) + '$AMD64_URL' + m.group(2), content, flags=re.DOTALL)
+open('$FORMULA', 'w').write(content)
+"
 
-          with open("Formula/heimdal.rb", "w") as f:
-              f.write(content)
-
-          print("Formula updated successfully")
-          EOF
+          # Update sha256 values in order (arm64 first, then intel)
+          python3 -c "
+import re
+content = open('$FORMULA').read()
+shas = [m.start() for m in re.finditer(r'sha256 \"[a-f0-9]{64}\"', content)]
+if len(shas) >= 2:
+    content = content[:shas[1]] + re.sub(r'sha256 \"[a-f0-9]{64}\"', 'sha256 \"$AMD64_SHA\"', content[shas[1]:], count=1)
+    content = content[:shas[0]] + re.sub(r'sha256 \"[a-f0-9]{64}\"', 'sha256 \"$ARM64_SHA\"', content[shas[0]:], count=1)
+open('$FORMULA', 'w').write(content)
+print('Formula updated successfully')
+"
 
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
