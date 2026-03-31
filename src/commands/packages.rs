@@ -13,7 +13,6 @@ pub fn run(action: PackagesCmd) -> Result<()> {
             no_install,
         } => add(&name, manager.as_deref(), no_install),
         PackagesCmd::Remove { name, no_uninstall } => remove(&name, no_uninstall),
-        PackagesCmd::Suggest { dir } => suggest(dir.as_deref()),
         PackagesCmd::Search { query } => search(&query),
         PackagesCmd::Info { name } => pkg_info(&name),
         PackagesCmd::Groups => groups(),
@@ -157,100 +156,6 @@ fn remove(pkg: &str, no_uninstall: bool) -> Result<()> {
         }
     } else {
         info(&format!("'{}' was not found in any package list.", pkg));
-    }
-    Ok(())
-}
-
-fn suggest(dir: Option<&str>) -> Result<()> {
-    let scan_dir = match dir {
-        Some(d) => std::path::PathBuf::from(d),
-        None => std::env::current_dir()?,
-    };
-
-    struct Suggestion {
-        file: &'static str,
-        packages: &'static [&'static str],
-        label: &'static str,
-    }
-
-    let rules: &[Suggestion] = &[
-        Suggestion {
-            file: "Cargo.toml",
-            packages: &["rust", "cargo"],
-            label: "Rust/Cargo",
-        },
-        Suggestion {
-            file: "package.json",
-            packages: &["node", "nvm"],
-            label: "Node.js",
-        },
-        Suggestion {
-            file: ".nvmrc",
-            packages: &["node", "nvm"],
-            label: "Node.js (nvm)",
-        },
-        Suggestion {
-            file: "Gemfile",
-            packages: &["ruby", "rbenv"],
-            label: "Ruby",
-        },
-        Suggestion {
-            file: "requirements.txt",
-            packages: &["python", "pyenv"],
-            label: "Python (pip)",
-        },
-        Suggestion {
-            file: "Pipfile",
-            packages: &["python", "pyenv"],
-            label: "Python (pipenv)",
-        },
-        Suggestion {
-            file: "pyproject.toml",
-            packages: &["python", "pyenv"],
-            label: "Python",
-        },
-        Suggestion {
-            file: "go.mod",
-            packages: &["go"],
-            label: "Go",
-        },
-        Suggestion {
-            file: "pom.xml",
-            packages: &["java", "maven"],
-            label: "Java (Maven)",
-        },
-        Suggestion {
-            file: "build.gradle",
-            packages: &["java", "gradle"],
-            label: "Java (Gradle)",
-        },
-        Suggestion {
-            file: "composer.json",
-            packages: &["php", "composer"],
-            label: "PHP",
-        },
-        Suggestion {
-            file: "CMakeLists.txt",
-            packages: &["cmake", "gcc"],
-            label: "C/C++ (CMake)",
-        },
-    ];
-
-    let mut found_any = false;
-    for rule in rules {
-        if scan_dir.join(rule.file).exists() {
-            println!(
-                "Detected {} ({}): suggest {}",
-                rule.label,
-                rule.file,
-                rule.packages.join(", ")
-            );
-            found_any = true;
-        }
-    }
-
-    if !found_any {
-        info("No known project files detected in this directory.");
     }
     Ok(())
 }
