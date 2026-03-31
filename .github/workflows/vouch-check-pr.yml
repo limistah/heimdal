@@ -1,0 +1,33 @@
+name: Vouch — Check PR
+
+on:
+  pull_request_target:
+    types: [opened]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mitchellh/vouch/actions/setup-vouch@main
+
+      - uses: mitchellh/vouch/actions/check-pr@main
+        with:
+          repo: ${{ github.repository }}
+          pr-number: ${{ github.event.pull_request.number }}
+          vouched-file: VOUCHED.td
+          auto-close: true
+          close-message: |
+            👋 Thanks for the PR!
+
+            Heimdal uses a contributor trust system to keep the project healthy.
+            To contribute, you need to be vouched by a maintainer first.
+
+            **How to get vouched:** Open an issue, introduce yourself briefly —
+            who you are and what you're looking to contribute. A maintainer will
+            vouch you so your PRs can be reviewed going forward.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
