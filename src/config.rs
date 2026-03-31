@@ -7,6 +7,8 @@ pub struct HeimdalConfig {
     pub heimdal: HeimdalMeta,
     pub profiles: HashMap<String, Profile>,
     #[serde(default)]
+    pub packages: PackageMap,
+    #[serde(default)]
     pub ignore: Vec<String>,
 }
 
@@ -60,6 +62,8 @@ pub struct DotfileCondition {
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct PackageMap {
+    #[serde(default)]
+    pub common: Vec<String>,
     #[serde(default)]
     pub homebrew: Vec<String>,
     #[serde(default)]
@@ -127,7 +131,10 @@ pub fn load_config(path: &Path) -> anyhow::Result<HeimdalConfig> {
 }
 
 pub fn resolve_profile(config: &HeimdalConfig, name: &str) -> anyhow::Result<Profile> {
-    resolve_recursive(config, name, &mut Vec::new())
+    let mut profile = resolve_recursive(config, name, &mut Vec::new())?;
+    // Prepend top-level packages so profile-specific ones take effect after
+    profile.packages = merge_packages(config.packages.clone(), profile.packages);
+    Ok(profile)
 }
 
 fn resolve_recursive(
@@ -188,6 +195,11 @@ fn merge_profiles(base: Profile, child: Profile) -> Profile {
 
 fn merge_packages(base: PackageMap, child: PackageMap) -> PackageMap {
     PackageMap {
+        common: {
+            let mut v = base.common;
+            v.extend(child.common);
+            v
+        },
         homebrew: {
             let mut v = base.homebrew;
             v.extend(child.homebrew);
@@ -335,6 +347,7 @@ pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyh
             repo: None,
         },
         profiles,
+        packages: PackageMap::default(),
         ignore: vec![],
     };
 
