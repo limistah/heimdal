@@ -1,0 +1,33 @@
+name: Vouch — Check Issue
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mitchellh/vouch/action/setup-vouch@main
+
+      - uses: mitchellh/vouch/action/check-issue@main
+        with:
+          repo: ${{ github.repository }}
+          issue-number: ${{ github.event.issue.number }}
+          vouched-file: VOUCHED.td
+          auto-close: true
+          close-message: |
+            👋 Thanks for opening this issue!
+
+            Heimdal uses a contributor trust system to keep the project healthy.
+            To participate, you need to be vouched by a maintainer.
+
+            **How to get vouched:** Drop a brief introduction as a comment here —
+            who you are, what brought you to Heimdal. A maintainer will vouch you
+            so you can contribute normally going forward.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
