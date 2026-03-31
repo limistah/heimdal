@@ -156,51 +156,40 @@ jobs:
           git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/limistah/homebrew-tap.git
           cd homebrew-tap
 
-          # Download arm64 tarball to get sha256
+          VERSION_NUM="${VERSION#v}"
           ARM64_URL="https://github.com/limistah/heimdal/releases/download/${VERSION}/heimdal-darwin-arm64.tar.gz"
           AMD64_URL="https://github.com/limistah/heimdal/releases/download/${VERSION}/heimdal-darwin-amd64.tar.gz"
 
           ARM64_SHA=$(curl -sL "${ARM64_URL}" | sha256sum | cut -d' ' -f1)
           AMD64_SHA=$(curl -sL "${AMD64_URL}" | sha256sum | cut -d' ' -f1)
 
-          VERSION_NUM="${VERSION#v}"
-          FORMULA="Formula/heimdal.rb"
+          cat > Formula/heimdal.rb <<FORMULA
+          class Heimdal < Formula
+            desc "Universal dotfile and system configuration manager"
+            homepage "https://github.com/limistah/heimdal"
+            version "${VERSION_NUM}"
+            license "MIT"
 
-          # Update version
-          python3 -c "
-import re, sys
-content = open('$FORMULA').read()
-content = re.sub(r'version \"[\\d.]+\"', 'version \"$VERSION_NUM\"', content)
-open('$FORMULA', 'w').write(content)
-"
+            on_macos do
+              on_arm do
+                url "${ARM64_URL}"
+                sha256 "${ARM64_SHA}"
+              end
+              on_intel do
+                url "${AMD64_URL}"
+                sha256 "${AMD64_SHA}"
+              end
+            end
 
-          # Update arm64 URL and sha256
-          python3 -c "
-import re
-content = open('$FORMULA').read()
-content = re.sub(r'(on_arm\s+do.*?url\s+\")[^\"]*(\"\s)', lambda m: m.group(1) + '$ARM64_URL' + m.group(2), content, flags=re.DOTALL)
-open('$FORMULA', 'w').write(content)
-"
+            def install
+              bin.install "heimdal"
+            end
 
-          # Update intel URL
-          python3 -c "
-import re
-content = open('$FORMULA').read()
-content = re.sub(r'(on_intel\s+do.*?url\s+\")[^\"]*(\"\s)', lambda m: m.group(1) + '$AMD64_URL' + m.group(2), content, flags=re.DOTALL)
-open('$FORMULA', 'w').write(content)
-"
-
-          # Update sha256 values in order (arm64 first, then intel)
-          python3 -c "
-import re
-content = open('$FORMULA').read()
-shas = [m.start() for m in re.finditer(r'sha256 \"[a-f0-9]{64}\"', content)]
-if len(shas) >= 2:
-    content = content[:shas[1]] + re.sub(r'sha256 \"[a-f0-9]{64}\"', 'sha256 \"$AMD64_SHA\"', content[shas[1]:], count=1)
-    content = content[:shas[0]] + re.sub(r'sha256 \"[a-f0-9]{64}\"', 'sha256 \"$ARM64_SHA\"', content[shas[0]:], count=1)
-open('$FORMULA', 'w').write(content)
-print('Formula updated successfully')
-"
+            test do
+              assert_match "heimdal", shell_output("#{bin}/heimdal --version")
+            end
+          end
+          FORMULA
 
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
