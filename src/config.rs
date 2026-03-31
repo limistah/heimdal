@@ -61,6 +61,8 @@ pub struct DotfileCondition {
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct PackageMap {
     #[serde(default)]
+    pub common: Vec<String>,
+    #[serde(default)]
     pub homebrew: Vec<String>,
     #[serde(default)]
     pub homebrew_casks: Vec<String>,
@@ -188,6 +190,11 @@ fn merge_profiles(base: Profile, child: Profile) -> Profile {
 
 fn merge_packages(base: PackageMap, child: PackageMap) -> PackageMap {
     PackageMap {
+        common: {
+            let mut v = base.common;
+            v.extend(child.common);
+            v
+        },
         homebrew: {
             let mut v = base.homebrew;
             v.extend(child.homebrew);
