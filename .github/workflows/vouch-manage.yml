@@ -1,0 +1,30 @@
+name: Vouch — Manage by Issue Comment
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  manage:
+    # Only run on comments from maintainers/owners
+    if: |
+      github.event.comment.author_association == 'OWNER' ||
+      github.event.comment.author_association == 'MEMBER' ||
+      github.event.comment.author_association == 'COLLABORATOR'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mitchellh/vouch/action/setup-vouch@main
+
+      - uses: mitchellh/vouch/action/manage-by-issue@main
+        with:
+          repo: ${{ github.repository }}
+          issue-number: ${{ github.event.issue.number }}
+          comment-id: ${{ github.event.comment.id }}
+          vouched-file: VOUCHED.td
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
