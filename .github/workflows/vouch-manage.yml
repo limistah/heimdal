@@ -18,9 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: mitchellh/vouch/actions/setup-vouch@main
+      - uses: mitchellh/vouch/action/setup-vouch@main
 
-      - uses: mitchellh/vouch/actions/manage-by-issue@main
+      - uses: mitchellh/vouch/action/manage-by-issue@main
         with:
           repo: ${{ github.repository }}
           issue-number: ${{ github.event.issue.number }}
