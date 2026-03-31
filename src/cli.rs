@@ -223,8 +223,6 @@ pub enum PackagesCmd {
     Search { query: String },
     /// Show package info
     Info { name: String },
-    /// List package groups
-    Groups,
 }
 
 #[derive(Subcommand)]

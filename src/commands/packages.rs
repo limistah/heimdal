@@ -15,7 +15,6 @@ pub fn run(action: PackagesCmd) -> Result<()> {
         PackagesCmd::Remove { name, no_uninstall } => remove(&name, no_uninstall),
         PackagesCmd::Search { query } => search(&query),
         PackagesCmd::Info { name } => pkg_info(&name),
-        PackagesCmd::Groups => groups(),
     }
 }
 
@@ -238,12 +237,6 @@ fn pkg_info(name: &str) -> Result<()> {
     info(&format!("  brew info {}", name));
     info(&format!("  apt-cache show {}", name));
     info(&format!("  dnf info {}", name));
-    Ok(())
-}
-
-fn groups() -> Result<()> {
-    info("Package groups are managed in heimdal.yaml under each profile.");
-    info("Use 'heimdal profile show' to see the packages in the current profile.");
     Ok(())
 }
 
