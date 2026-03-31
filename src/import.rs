@@ -292,6 +292,7 @@ pub fn generate_heimdal_yaml(result: &ImportResult, profile_name: &str) -> Resul
             repo: None,
         },
         profiles,
+        packages: crate::config::PackageMap::default(),
         ignore: vec![],
     };
 
