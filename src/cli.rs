@@ -221,11 +221,6 @@ pub enum PackagesCmd {
     },
     /// Search packages
     Search { query: String },
-    /// Suggest packages based on project files
-    Suggest {
-        #[arg(short, long)]
-        dir: Option<String>,
-    },
     /// Show package info
     Info { name: String },
     /// List package groups
