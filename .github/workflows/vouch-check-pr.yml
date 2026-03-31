@@ -12,9 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: mitchellh/vouch/actions/setup-vouch@main
+      - uses: mitchellh/vouch/action/setup-vouch@main
 
-      - uses: mitchellh/vouch/actions/check-pr@main
+      - uses: mitchellh/vouch/action/check-pr@main
         with:
           repo: ${{ github.repository }}
           pr-number: ${{ github.event.pull_request.number }}
