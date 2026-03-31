@@ -290,6 +290,37 @@ pub fn install_for_profile(profile: &crate::config::Profile, dry_run: bool) -> R
 
     let pkgs = &profile.packages;
 
+    // Install common packages via the first available package manager
+    if !pkgs.common.is_empty() {
+        match managers.iter().find(|m| m.is_available()) {
+            Some(manager) => {
+                let results = manager.install_many(&pkgs.common, dry_run)?;
+                for r in &results {
+                    if r.success {
+                        if let Some(msg) = &r.message {
+                            crate::utils::info(msg);
+                        } else {
+                            crate::utils::step(&format!("Installed: {}", r.package));
+                        }
+                    } else {
+                        crate::utils::warning(&format!(
+                            "Failed to install '{}' via {}: {}",
+                            r.package,
+                            manager.name(),
+                            r.message.as_deref().unwrap_or("unknown error")
+                        ));
+                    }
+                }
+            }
+            None => {
+                crate::utils::warning(&format!(
+                    "No package manager available. Skipping {} common package(s).",
+                    pkgs.common.len()
+                ));
+            }
+        }
+    }
+
     for manager in &managers {
         let to_install = match manager.field_name() {
             "homebrew" => pkgs.homebrew.clone(),
