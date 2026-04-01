@@ -55,5 +55,6 @@ fn run(cli: Cli) -> Result<()> {
         Commands::State { action } => commands::state::run(action),
         Commands::AutoSync { action } => commands::autosync::run(action),
         Commands::Key { action } => commands::key::run(action),
+        Commands::History { action } => commands::history::run(action),
     }
 }
