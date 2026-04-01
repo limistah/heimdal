@@ -78,6 +78,11 @@ pub enum Commands {
         #[command(subcommand)]
         action: AutoSyncCmd,
     },
+    /// Encryption key management (bifrost)
+    Key {
+        #[command(subcommand)]
+        action: KeyCmd,
+    },
 }
 
 #[derive(Args)]
@@ -293,4 +298,24 @@ pub enum AutoSyncCmd {
     Disable,
     /// Show sync status
     Status,
+}
+
+#[derive(Subcommand)]
+pub enum KeyCmd {
+    /// Generate a new random bifrost key and store it in the OS keychain
+    Gen,
+    /// Set an existing bifrost key (paste from another machine or password manager)
+    Set {
+        /// Key as 64 hex characters. If omitted, prompted interactively.
+        key: Option<String>,
+    },
+    /// Print the current bifrost key as hex (for backup or copying to another machine)
+    Show,
+    /// Export key as a passphrase-protected base64url blob (safe to store anywhere)
+    Export,
+    /// Import a passphrase-protected blob from `heimdal key export`
+    Import {
+        /// The base64url blob. If omitted, prompted interactively.
+        blob: Option<String>,
+    },
 }

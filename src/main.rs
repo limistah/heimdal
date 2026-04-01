@@ -53,5 +53,6 @@ fn run(cli: Cli) -> Result<()> {
         Commands::Rollback(args) => commands::rollback::run(args),
         Commands::State { action } => commands::state::run(action),
         Commands::AutoSync { action } => commands::autosync::run(action),
+        Commands::Key { action } => commands::key::run(action),
     }
 }

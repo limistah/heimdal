@@ -4,6 +4,7 @@ pub mod commit;
 pub mod diff;
 pub mod import;
 pub mod init;
+pub mod key;
 pub mod packages;
 pub mod profile;
 pub mod rollback;
