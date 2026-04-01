@@ -22,7 +22,13 @@ pub fn run_sync(dry_run: bool) -> Result<()> {
 
     let history_key = crate::crypto::kdf::history_key(&bifrost);
 
-    flush_staging(&state.dotfiles_path, &state.hostname, &state.machine_id, &history_key, dry_run)?;
+    flush_staging(
+        &state.dotfiles_path,
+        &state.hostname,
+        &state.machine_id,
+        &history_key,
+        dry_run,
+    )?;
 
     if !dry_run {
         cache::rebuild(&state.dotfiles_path, &history_key)?;

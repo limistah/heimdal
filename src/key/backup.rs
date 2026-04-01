@@ -1,5 +1,5 @@
+use argon2::{Algorithm, Argon2, Params, Version};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use argon2::{Argon2, Params, Algorithm, Version};
 use rand::RngCore;
 
 // Production Argon2id parameters: 64 MB memory, 3 iterations, 1 thread
@@ -8,8 +8,7 @@ fn argon2_params() -> anyhow::Result<Params> {
     let (m, t) = (65536, 3);
     #[cfg(test)]
     let (m, t) = (4096, 1); // reduced for test speed
-    Params::new(m, t, 1, Some(32))
-        .map_err(|e| anyhow::anyhow!("argon2 params: {e}"))
+    Params::new(m, t, 1, Some(32)).map_err(|e| anyhow::anyhow!("argon2 params: {e}"))
 }
 
 /// Wrap the 32-byte bifrost key with a passphrase and return a portable base64url string.
