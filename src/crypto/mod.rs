@@ -25,7 +25,11 @@ pub fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> anyhow::Result<Vec<u8>> {
 pub fn decrypt(key: &[u8; 32], blob: &[u8]) -> anyhow::Result<Vec<u8>> {
     // minimum: 1 (version) + 24 (nonce) + 16 (tag) = 41 bytes
     anyhow::ensure!(blob.len() >= 41, "blob too short to be a valid ciphertext");
-    anyhow::ensure!(blob[0] == 0x01, "unsupported ciphertext version: {}", blob[0]);
+    anyhow::ensure!(
+        blob[0] == 0x01,
+        "unsupported ciphertext version: {}",
+        blob[0]
+    );
 
     let nonce = chacha20poly1305::XNonce::from_slice(&blob[1..25]);
     let cipher = XChaCha20Poly1305::new(key.into());
