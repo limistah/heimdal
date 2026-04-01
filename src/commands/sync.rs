@@ -24,6 +24,9 @@ pub fn run(args: SyncArgs) -> Result<()> {
     info("Pulling from remote...");
     repo.pull(args.dry_run)?;
 
+    // Sync history: flush local staging → encrypted file, rebuild merged cache
+    crate::commands::history::sync::run_sync(args.dry_run)?;
+
     // apply
     crate::commands::apply::run(ApplyArgs {
         dry_run: args.dry_run,
