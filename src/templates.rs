@@ -54,7 +54,54 @@ pub fn build_vars(explicit: &HashMap<String, String>, env_prefix: &str) -> HashM
     for (k, v) in explicit {
         vars.insert(k.clone(), v.clone());
     }
+    // Resolve {{ secret:name }} values
+    let keys: Vec<String> = vars.keys().cloned().collect();
+    for k in keys {
+        let v = vars[&k].clone();
+        if let Some(secret_name) = v
+            .trim()
+            .strip_prefix("{{")
+            .and_then(|s| s.strip_suffix("}}"))
+            .map(str::trim)
+            .and_then(|s| s.strip_prefix("secret:"))
+            .map(str::trim)
+        {
+            match crate::secrets::get_secret(secret_name) {
+                Ok(resolved) => {
+                    vars.insert(k, resolved);
+                }
+                Err(_) => {
+                    crate::utils::warning(&format!(
+                        "Secret '{}' not found in keychain — variable '{}' left as placeholder",
+                        secret_name, k
+                    ));
+                }
+            }
+        }
+    }
     vars
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normal_var_substitution_unchanged() {
+        let mut vars = std::collections::HashMap::new();
+        vars.insert("name".to_string(), "Alice".to_string());
+        let result = render_string("Hello {{ name }}", &vars);
+        assert_eq!(result, "Hello Alice");
+    }
+
+    #[test]
+    fn secret_placeholder_left_as_is_when_not_resolved() {
+        // When secret resolution is not performed (no keychain call in render_string),
+        // the placeholder should be preserved (same as unknown variable behaviour).
+        let vars = std::collections::HashMap::new();
+        let result = render_string("email: {{ secret:work_email }}", &vars);
+        assert!(result.contains("secret:work_email"));
+    }
 }
 
 /// Render a template file to a destination.
