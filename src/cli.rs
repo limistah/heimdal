@@ -351,4 +351,6 @@ pub enum HistoryCmd {
     Sync,
     /// Print a stable session ID for this shell instance
     SessionId,
+    /// Re-encrypt all history files with a new bifrost key
+    Rekey,
 }

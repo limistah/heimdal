@@ -18,8 +18,17 @@ pub struct HistoryEntry {
 }
 
 /// Path to the local plaintext staging file.
-/// Commands are appended here by the shell hook; flushed to the encrypted dotfiles
-/// file on `heimdal history sync`.
+///
+/// Commands are appended here by the shell hook and flushed to the per-machine
+/// encrypted `.jsonl.enc` file on `heimdal history sync`.
+///
+/// # Security note
+/// This file is **plaintext** and lives outside the dotfiles repo. This is an
+/// accepted trade-off: encrypting on every keystroke would add latency to every
+/// shell command. The threat model assumes the local machine is trusted; the
+/// encryption protects history in the git repo (which may be public). Users who
+/// require encryption at rest on the local machine should use full-disk encryption
+/// (FileVault, LUKS, BitLocker).
 pub fn staging_path() -> Result<PathBuf> {
     Ok(crate::utils::home_dir()?
         .join(".heimdal")
@@ -27,6 +36,13 @@ pub fn staging_path() -> Result<PathBuf> {
 }
 
 /// Path to the local merged plaintext cache (never committed to git).
+///
+/// # Security note
+/// This file is **plaintext** and lives outside the dotfiles repo. It is rebuilt
+/// from the encrypted per-machine files on every `heimdal sync` and is intentionally
+/// not encrypted so that `heimdal history search` is fast without a full decrypt pass
+/// on every query. The same local-machine-is-trusted assumption applies as for the
+/// staging file above.
 pub fn cache_path() -> Result<PathBuf> {
     Ok(crate::utils::home_dir()?
         .join(".heimdal")

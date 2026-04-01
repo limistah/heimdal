@@ -73,6 +73,10 @@ fn flush_staging(
         return Ok(());
     }
 
+    // Intentional: if two `heimdal sync` processes run concurrently (e.g. background
+    // auto-sync races a manual sync), the second rename will fail with ENOENT because
+    // the first already moved the file. That error propagates and the second process
+    // exits cleanly — there is nothing left to flush. This is the correct outcome.
     std::fs::rename(&staging, &tmp_staging)?;
 
     let file = std::fs::File::open(&tmp_staging)?;
