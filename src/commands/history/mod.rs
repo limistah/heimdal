@@ -1,4 +1,5 @@
 pub mod record;
+pub mod rekey;
 pub mod search;
 pub mod shell_init;
 pub mod sync;
@@ -21,5 +22,6 @@ pub fn run(action: HistoryCmd) -> Result<()> {
             println!("{}", uuid::Uuid::new_v4());
             Ok(())
         }
+        HistoryCmd::Rekey => rekey::run(),
     }
 }
