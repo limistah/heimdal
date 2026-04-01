@@ -6,6 +6,7 @@ mod error;
 mod git;
 mod hooks;
 mod import;
+mod key;
 mod packages;
 mod profile;
 mod secrets;

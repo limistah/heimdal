@@ -6,6 +6,7 @@ pub mod error;
 pub mod git;
 pub mod hooks;
 pub mod import;
+pub mod key;
 pub mod packages;
 pub mod profile;
 pub mod secrets;
