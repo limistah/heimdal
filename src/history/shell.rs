@@ -28,12 +28,14 @@ const ZSH_INIT: &str = r#"
 # heimdal history — added by `heimdal history shell-init --shell zsh`
 _heimdal_record() {
   local exit_code=$?
+  local raw_cmd
   local cmd
-  cmd=$(fc -ln -1 2>/dev/null | sed 's/^[[:space:]]*//')
-  # Respect leading-space convention: " command" is not recorded
-  case "$cmd" in
+  raw_cmd=$(fc -ln -1 2>/dev/null)
+  # Respect leading-space convention: " command" is not recorded (check BEFORE stripping)
+  case "$raw_cmd" in
     " "*)  return $exit_code ;;
   esac
+  cmd=$(printf '%s' "$raw_cmd" | sed 's/^[[:space:]]*//')
   [ -z "$cmd" ] && return $exit_code
   heimdal history record --cmd "$cmd" --exit $exit_code --dir "$PWD" --session "${HEIMDAL_SESSION:-$$}" &>/dev/null &
   return $exit_code
@@ -62,7 +64,9 @@ const BASH_INIT: &str = r#"
 _heimdal_record() {
   local exit_code=$?
   local cmd
-  cmd=$(history 1 | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//')
+  # Strip history line number using the fixed two-space separator bash uses,
+  # so a leading space in the command is preserved for the HIST_IGNORE_SPACE check.
+  cmd=$(history 1 | sed 's/^[[:space:]]*[0-9][0-9]*  //')
   case "$cmd" in
     " "*) return $exit_code ;;
   esac
