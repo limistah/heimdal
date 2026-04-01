@@ -4,6 +4,7 @@ pub mod config;
 pub mod crypto;
 pub mod error;
 pub mod git;
+pub mod history;
 pub mod hooks;
 pub mod import;
 pub mod key;

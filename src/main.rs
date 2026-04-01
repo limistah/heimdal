@@ -4,6 +4,7 @@ mod config;
 mod crypto;
 mod error;
 mod git;
+mod history;
 mod hooks;
 mod import;
 mod key;
