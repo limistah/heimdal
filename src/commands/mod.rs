@@ -2,6 +2,7 @@ pub mod apply;
 pub mod autosync;
 pub mod commit;
 pub mod diff;
+pub mod history;
 pub mod import;
 pub mod init;
 pub mod key;
