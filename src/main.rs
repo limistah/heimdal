@@ -1,6 +1,7 @@
 mod cli;
 mod commands;
 mod config;
+mod crypto;
 mod error;
 mod git;
 mod hooks;
