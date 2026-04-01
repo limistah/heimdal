@@ -304,11 +304,8 @@ pub enum AutoSyncCmd {
 pub enum KeyCmd {
     /// Generate a new random bifrost key and store it in the OS keychain
     Gen,
-    /// Set an existing bifrost key (paste from another machine or password manager)
-    Set {
-        /// Key as 64 hex characters. If omitted, prompted interactively.
-        key: Option<String>,
-    },
+    /// Set an existing bifrost key — always prompted interactively to avoid shell history exposure
+    Set,
     /// Print the current bifrost key as hex (for backup or copying to another machine)
     Show,
     /// Export key as a passphrase-protected base64url blob (safe to store anywhere)
