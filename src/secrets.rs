@@ -54,21 +54,27 @@ fn save_manifest(dotfiles_path: &Path, manifest: &SecretsManifest) -> Result<()>
         std::fs::create_dir_all(parent)?;
     }
     let json = serde_json::to_vec_pretty(manifest)?;
-    let content = match crate::key::load() {
+    match crate::key::load() {
         Ok(bifrost) => {
+            // Bifrost available: encrypt and write to .json.enc, remove legacy plaintext.
             let key = crate::crypto::kdf::manifest_key(&bifrost);
             let blob = crate::crypto::encrypt(&key, &json)?;
-            URL_SAFE_NO_PAD.encode(&blob)
+            let content = URL_SAFE_NO_PAD.encode(&blob);
+            let enc_path = path.with_extension("json.enc");
+            let tmp = enc_path.with_extension(format!("tmp.{}", std::process::id()));
+            std::fs::write(&tmp, content)?;
+            std::fs::rename(&tmp, &enc_path)?;
+            if path.exists() {
+                let _ = std::fs::remove_file(&path);
+            }
         }
-        Err(_) => String::from_utf8(json)?, // no bifrost key: plaintext fallback
-    };
-    let enc_path = path.with_extension("json.enc");
-    let tmp = enc_path.with_extension(format!("tmp.{}", std::process::id()));
-    std::fs::write(&tmp, content)?;
-    std::fs::rename(&tmp, &enc_path)?;
-    // Remove old plaintext file if it exists
-    if path.exists() {
-        let _ = std::fs::remove_file(&path);
+        Err(_) => {
+            // No bifrost key: write plaintext to the legacy .json path.
+            // Never write plaintext into .json.enc — that would be misleading.
+            let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
+            std::fs::write(&tmp, json)?;
+            std::fs::rename(&tmp, &path)?;
+        }
     }
     Ok(())
 }

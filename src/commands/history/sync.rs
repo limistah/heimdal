@@ -56,7 +56,26 @@ fn flush_staging(
         .join("history")
         .join(format!("{}-{}.jsonl.enc", hostname, machine_id));
 
-    let file = std::fs::File::open(&staging)?;
+    // Atomic drain: rename staging before reading so shell hook entries written
+    // concurrently land in a fresh staging file and are not silently dropped.
+    let tmp_staging = staging.with_extension(format!("flushing.{}", std::process::id()));
+    if dry_run {
+        // In dry-run mode read without draining
+        let file = std::fs::File::open(&staging)?;
+        let reader = std::io::BufReader::new(file);
+        let count = reader
+            .lines()
+            .filter(|l| l.as_ref().map(|s| !s.trim().is_empty()).unwrap_or(false))
+            .count();
+        if count > 0 {
+            info(&format!("[dry-run] Would flush {} history entries.", count));
+        }
+        return Ok(());
+    }
+
+    std::fs::rename(&staging, &tmp_staging)?;
+
+    let file = std::fs::File::open(&tmp_staging)?;
     let reader = std::io::BufReader::new(file);
     let mut flushed = 0usize;
 
@@ -70,16 +89,15 @@ fn flush_staging(
             Ok(e) => e,
             Err(_) => continue,
         };
-        if !dry_run {
-            store::append_encrypted(&enc_path, &entry, key)?;
-            flushed += 1;
-        }
+        store::append_encrypted(&enc_path, &entry, key)?;
+        flushed += 1;
     }
+
+    let _ = std::fs::remove_file(&tmp_staging);
 
     ensure_gitignore(dotfiles_path)?;
 
-    if !dry_run && flushed > 0 {
-        std::fs::write(&staging, "")?;
+    if flushed > 0 {
         info(&format!("Flushed {} history entries.", flushed));
     }
     Ok(())

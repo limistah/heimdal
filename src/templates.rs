@@ -4,13 +4,28 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::path::Path;
 
-static VAR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{\{\s*([\w.]+)\s*\}\}").unwrap());
+// Matches {{ variable }}, {{ env.VAR }}, and {{ secret:name }}
+static VAR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{\{\s*([\w.:]+)\s*\}\}").unwrap());
 
 /// Substitute {{ variable }} placeholders. Unknown vars are preserved + warned.
+/// Also resolves {{ secret:name }} directly from the OS keychain.
 pub fn render_string(content: &str, vars: &HashMap<String, String>) -> String {
     VAR_RE
         .replace_all(content, |caps: &regex::Captures| {
             let key = &caps[1];
+            // Resolve secret: references directly from keychain
+            if let Some(secret_name) = key.strip_prefix("secret:") {
+                return match crate::secrets::get_secret(secret_name) {
+                    Ok(val) => val,
+                    Err(_) => {
+                        crate::utils::warning(&format!(
+                            "Secret '{}' not found in keychain — placeholder preserved",
+                            secret_name
+                        ));
+                        caps[0].to_string()
+                    }
+                };
+            }
             match vars.get(key) {
                 Some(val) => val.clone(),
                 None => {
@@ -95,12 +110,14 @@ mod tests {
     }
 
     #[test]
-    fn secret_placeholder_left_as_is_when_not_resolved() {
-        // When secret resolution is not performed (no keychain call in render_string),
-        // the placeholder should be preserved (same as unknown variable behaviour).
+    fn secret_placeholder_preserved_when_secret_not_found() {
+        // A secret that doesn't exist in the keychain preserves the placeholder.
         let vars = std::collections::HashMap::new();
-        let result = render_string("email: {{ secret:work_email }}", &vars);
-        assert!(result.contains("secret:work_email"));
+        let result = render_string(
+            "email: {{ secret:_heimdal_test_nonexistent_secret_ }}",
+            &vars,
+        );
+        assert!(result.contains("secret:_heimdal_test_nonexistent_secret_"));
     }
 }
 

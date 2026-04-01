@@ -25,7 +25,8 @@ pub fn append_encrypted(path: &Path, entry: &HistoryEntry, key: &[u8; 32]) -> Re
 }
 
 /// Decrypt all entries in an encrypted JSONL file.
-/// Returns an error if any line fails to decrypt (wrong key or corruption).
+/// Skips corrupt or undecryptable lines with a warning so a single bad line
+/// (e.g. truncated by a crash during append) does not discard all other entries.
 pub fn read_encrypted(path: &Path, key: &[u8; 32]) -> Result<Vec<HistoryEntry>> {
     if !path.exists() {
         return Ok(vec![]);
@@ -40,13 +41,36 @@ pub fn read_encrypted(path: &Path, key: &[u8; 32]) -> Result<Vec<HistoryEntry>> 
         if line.is_empty() {
             continue;
         }
-        let blob = URL_SAFE_NO_PAD
-            .decode(line)
-            .map_err(|e| anyhow::anyhow!("line {}: invalid base64: {e}", i + 1))?;
-        let json = crate::crypto::decrypt(key, &blob)
-            .map_err(|e| anyhow::anyhow!("line {}: {e}", i + 1))?;
-        let entry: HistoryEntry = serde_json::from_slice(&json)
-            .map_err(|e| anyhow::anyhow!("line {}: invalid JSON: {e}", i + 1))?;
+        let blob = match URL_SAFE_NO_PAD.decode(line) {
+            Ok(b) => b,
+            Err(e) => {
+                crate::utils::warning(&format!(
+                    "history line {}: skipping invalid base64: {e}",
+                    i + 1
+                ));
+                continue;
+            }
+        };
+        let json = match crate::crypto::decrypt(key, &blob) {
+            Ok(j) => j,
+            Err(e) => {
+                crate::utils::warning(&format!(
+                    "history line {}: skipping undecryptable entry: {e}",
+                    i + 1
+                ));
+                continue;
+            }
+        };
+        let entry: HistoryEntry = match serde_json::from_slice(&json) {
+            Ok(e) => e,
+            Err(e) => {
+                crate::utils::warning(&format!(
+                    "history line {}: skipping invalid JSON: {e}",
+                    i + 1
+                ));
+                continue;
+            }
+        };
         entries.push(entry);
     }
     Ok(entries)
@@ -103,13 +127,15 @@ mod tests {
     }
 
     #[test]
-    fn wrong_key_returns_error() {
+    fn wrong_key_returns_empty_not_error() {
+        // Corrupt/wrong-key lines are skipped with warnings; the function still succeeds.
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("test.jsonl.enc");
         let key = test_key();
         let wrong_key = [99u8; 32];
 
         append_encrypted(&path, &test_entry("secret"), &key).unwrap();
-        assert!(read_encrypted(&path, &wrong_key).is_err());
+        let entries = read_encrypted(&path, &wrong_key).unwrap();
+        assert!(entries.is_empty());
     }
 }

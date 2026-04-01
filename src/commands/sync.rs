@@ -24,8 +24,12 @@ pub fn run(args: SyncArgs) -> Result<()> {
     info("Pulling from remote...");
     repo.pull(args.dry_run)?;
 
-    // Sync history: flush local staging → encrypted file, rebuild merged cache
-    crate::commands::history::sync::run_sync(args.dry_run)?;
+    // Sync history if enabled in config (default: true for both flags)
+    let history_enabled = config.history.as_ref().map(|h| h.enabled).unwrap_or(true);
+    let history_sync = config.history.as_ref().map(|h| h.sync).unwrap_or(true);
+    if history_enabled && history_sync {
+        crate::commands::history::sync::run_sync(args.dry_run)?;
+    }
 
     // apply
     crate::commands::apply::run(ApplyArgs {
