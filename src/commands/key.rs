@@ -6,7 +6,7 @@ use anyhow::Result;
 pub fn run(action: KeyCmd) -> Result<()> {
     match action {
         KeyCmd::Gen => gen(),
-        KeyCmd::Set { key } => set(key.as_deref()),
+        KeyCmd::Set => set(),
         KeyCmd::Show => show(),
         KeyCmd::Export => export(),
         KeyCmd::Import { blob } => import(blob.as_deref()),
@@ -24,15 +24,12 @@ fn gen() -> Result<()> {
     Ok(())
 }
 
-fn set(value: Option<&str>) -> Result<()> {
+fn set() -> Result<()> {
     let state = State::load()?;
-    let hex = match value {
-        Some(v) => v.to_string(),
-        None => dialoguer::Password::new()
-            .with_prompt("Paste bifrost key (64 hex characters)")
-            .interact()
-            .map_err(|e| anyhow::anyhow!("failed to read key: {e}"))?,
-    };
+    let hex = dialoguer::Password::new()
+        .with_prompt("Paste bifrost key (64 hex characters)")
+        .interact()
+        .map_err(|e| anyhow::anyhow!("Failed to read key: {e}"))?;
     crate::key::set(&state.dotfiles_path, &hex)?;
     success("Bifrost key stored in OS keychain.");
     Ok(())
