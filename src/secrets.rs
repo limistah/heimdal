@@ -1,4 +1,6 @@
 use anyhow::Result;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -14,14 +16,36 @@ fn manifest_path(dotfiles_path: &Path) -> PathBuf {
 }
 
 fn load_manifest(dotfiles_path: &Path) -> SecretsManifest {
-    let path = manifest_path(dotfiles_path);
-    if !path.exists() {
-        return SecretsManifest::default();
+    // Try encrypted path first
+    let enc_path = manifest_path(dotfiles_path).with_extension("json.enc");
+    if enc_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&enc_path) {
+            // Try to decrypt
+            if let Ok(bifrost) = crate::key::load() {
+                let key = crate::crypto::kdf::manifest_key(&bifrost);
+                if let Ok(blob) = URL_SAFE_NO_PAD.decode(content.trim()) {
+                    if let Ok(json) = crate::crypto::decrypt(&key, &blob) {
+                        if let Ok(m) = serde_json::from_slice(&json) {
+                            return m;
+                        }
+                    }
+                }
+            }
+            // Fallback: treat as plaintext JSON (unencrypted legacy or no bifrost key)
+            if let Ok(m) = serde_json::from_str(content.trim()) {
+                return m;
+            }
+        }
     }
-    std::fs::read_to_string(&path)
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    // Legacy plaintext path
+    let plain_path = manifest_path(dotfiles_path);
+    if plain_path.exists() {
+        return std::fs::read_to_string(&plain_path)
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default();
+    }
+    SecretsManifest::default()
 }
 
 fn save_manifest(dotfiles_path: &Path, manifest: &SecretsManifest) -> Result<()> {
@@ -29,9 +53,29 @@ fn save_manifest(dotfiles_path: &Path, manifest: &SecretsManifest) -> Result<()>
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
-    std::fs::write(&tmp, serde_json::to_string_pretty(manifest)?)?;
-    std::fs::rename(&tmp, &path)?;
+    let json = serde_json::to_vec_pretty(manifest)?;
+    match crate::key::load() {
+        Ok(bifrost) => {
+            // Bifrost available: encrypt and write to .json.enc, remove legacy plaintext.
+            let key = crate::crypto::kdf::manifest_key(&bifrost);
+            let blob = crate::crypto::encrypt(&key, &json)?;
+            let content = URL_SAFE_NO_PAD.encode(&blob);
+            let enc_path = path.with_extension("json.enc");
+            let tmp = enc_path.with_extension(format!("tmp.{}", std::process::id()));
+            std::fs::write(&tmp, content)?;
+            std::fs::rename(&tmp, &enc_path)?;
+            if path.exists() {
+                let _ = std::fs::remove_file(&path);
+            }
+        }
+        Err(_) => {
+            // No bifrost key: write plaintext to the legacy .json path.
+            // Never write plaintext into .json.enc — that would be misleading.
+            let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
+            std::fs::write(&tmp, json)?;
+            std::fs::rename(&tmp, &path)?;
+        }
+    }
     Ok(())
 }
 

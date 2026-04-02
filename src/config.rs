@@ -10,6 +10,8 @@ pub struct HeimdalConfig {
     pub packages: PackageMap,
     #[serde(default)]
     pub ignore: Vec<String>,
+    #[serde(default)]
+    pub history: Option<HistoryConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -17,6 +19,20 @@ pub struct HeimdalMeta {
     pub version: String,
     #[serde(default)]
     pub repo: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct HistoryConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_true")]
+    pub sync: bool,
+    #[serde(default = "max_age_days_default")]
+    pub max_age_days: u32,
+}
+
+fn max_age_days_default() -> u32 {
+    90
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -349,6 +365,7 @@ pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyh
         profiles,
         packages: PackageMap::default(),
         ignore: vec![],
+        history: None,
     };
 
     if let Some(parent) = path.parent() {

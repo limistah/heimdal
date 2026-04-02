@@ -156,48 +156,40 @@ jobs:
           git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/limistah/homebrew-tap.git
           cd homebrew-tap
 
-          # Download arm64 tarball to get sha256
+          VERSION_NUM="${VERSION#v}"
           ARM64_URL="https://github.com/limistah/heimdal/releases/download/${VERSION}/heimdal-darwin-arm64.tar.gz"
           AMD64_URL="https://github.com/limistah/heimdal/releases/download/${VERSION}/heimdal-darwin-amd64.tar.gz"
 
           ARM64_SHA=$(curl -sL "${ARM64_URL}" | sha256sum | cut -d' ' -f1)
           AMD64_SHA=$(curl -sL "${AMD64_URL}" | sha256sum | cut -d' ' -f1)
 
-          # Update version and SHA256 in formula using Python (safer than sed for multi-line)
-          python3 - <<EOF
-          import re
+          cat > Formula/heimdal.rb <<FORMULA
+          class Heimdal < Formula
+            desc "Universal dotfile and system configuration manager"
+            homepage "https://github.com/limistah/heimdal"
+            version "${VERSION_NUM}"
+            license "MIT"
 
-          with open("Formula/heimdal.rb", "r") as f:
-              content = f.read()
+            on_macos do
+              on_arm do
+                url "${ARM64_URL}"
+                sha256 "${ARM64_SHA}"
+              end
+              on_intel do
+                url "${AMD64_URL}"
+                sha256 "${AMD64_SHA}"
+              end
+            end
 
-          # Update version
-          content = re.sub(r'version "[\d.]+"', f'version "${VERSION#v}"', content)
+            def install
+              bin.install "heimdal"
+            end
 
-          # Update URLs
-          content = re.sub(
-              r'(on_arm do.*?url ")[^"]*(")',
-              f'\\g<1>{ARM64_URL}\\2',
-              content, flags=re.DOTALL
-          )
-          content = re.sub(
-              r'(on_intel do.*?url ")[^"]*(")',
-              f'\\g<1>{AMD64_URL}\\2',
-              content, flags=re.DOTALL
-          )
-
-          # Update SHA256 values (update both — arm first, then intel)
-          sha_pattern = r'(sha256 ")[a-f0-9]{64}(")'
-          shas = [m.start() for m in re.finditer(sha_pattern, content)]
-          if len(shas) >= 2:
-              # Replace from end to avoid offset shifts
-              content = content[:shas[1]] + re.sub(sha_pattern, f'\\g<1>{AMD64_SHA}\\2', content[shas[1]:], count=1)
-              content = content[:shas[0]] + re.sub(sha_pattern, f'\\g<1>{ARM64_SHA}\\2', content[shas[0]:], count=1)
-
-          with open("Formula/heimdal.rb", "w") as f:
-              f.write(content)
-
-          print("Formula updated successfully")
-          EOF
+            test do
+              assert_match "heimdal", shell_output("#{bin}/heimdal --version")
+            end
+          end
+          FORMULA
 
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"

@@ -4,13 +4,28 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::path::Path;
 
-static VAR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{\{\s*([\w.]+)\s*\}\}").unwrap());
+// Matches {{ variable }}, {{ env.VAR }}, and {{ secret:name }}
+static VAR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{\{\s*([\w.:]+)\s*\}\}").unwrap());
 
 /// Substitute {{ variable }} placeholders. Unknown vars are preserved + warned.
+/// Also resolves {{ secret:name }} directly from the OS keychain.
 pub fn render_string(content: &str, vars: &HashMap<String, String>) -> String {
     VAR_RE
         .replace_all(content, |caps: &regex::Captures| {
             let key = &caps[1];
+            // Resolve secret: references directly from keychain
+            if let Some(secret_name) = key.strip_prefix("secret:") {
+                return match crate::secrets::get_secret(secret_name) {
+                    Ok(val) => val,
+                    Err(_) => {
+                        crate::utils::warning(&format!(
+                            "Secret '{}' not found in keychain — placeholder preserved",
+                            secret_name
+                        ));
+                        caps[0].to_string()
+                    }
+                };
+            }
             match vars.get(key) {
                 Some(val) => val.clone(),
                 None => {
@@ -54,7 +69,56 @@ pub fn build_vars(explicit: &HashMap<String, String>, env_prefix: &str) -> HashM
     for (k, v) in explicit {
         vars.insert(k.clone(), v.clone());
     }
+    // Resolve {{ secret:name }} values
+    let keys: Vec<String> = vars.keys().cloned().collect();
+    for k in keys {
+        let v = vars[&k].clone();
+        if let Some(secret_name) = v
+            .trim()
+            .strip_prefix("{{")
+            .and_then(|s| s.strip_suffix("}}"))
+            .map(str::trim)
+            .and_then(|s| s.strip_prefix("secret:"))
+            .map(str::trim)
+        {
+            match crate::secrets::get_secret(secret_name) {
+                Ok(resolved) => {
+                    vars.insert(k, resolved);
+                }
+                Err(_) => {
+                    crate::utils::warning(&format!(
+                        "Secret '{}' not found in keychain — variable '{}' left as placeholder",
+                        secret_name, k
+                    ));
+                }
+            }
+        }
+    }
     vars
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normal_var_substitution_unchanged() {
+        let mut vars = std::collections::HashMap::new();
+        vars.insert("name".to_string(), "Alice".to_string());
+        let result = render_string("Hello {{ name }}", &vars);
+        assert_eq!(result, "Hello Alice");
+    }
+
+    #[test]
+    fn secret_placeholder_preserved_when_secret_not_found() {
+        // A secret that doesn't exist in the keychain preserves the placeholder.
+        let vars = std::collections::HashMap::new();
+        let result = render_string(
+            "email: {{ secret:_heimdal_test_nonexistent_secret_ }}",
+            &vars,
+        );
+        assert!(result.contains("secret:_heimdal_test_nonexistent_secret_"));
+    }
 }
 
 /// Render a template file to a destination.
