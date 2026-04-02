@@ -78,6 +78,16 @@ pub enum Commands {
         #[command(subcommand)]
         action: AutoSyncCmd,
     },
+    /// Encryption key management (bifrost)
+    Key {
+        #[command(subcommand)]
+        action: KeyCmd,
+    },
+    /// Shell history management
+    History {
+        #[command(subcommand)]
+        action: HistoryCmd,
+    },
 }
 
 #[derive(Args)]
@@ -293,4 +303,54 @@ pub enum AutoSyncCmd {
     Disable,
     /// Show sync status
     Status,
+}
+
+#[derive(Subcommand)]
+pub enum KeyCmd {
+    /// Generate a new random bifrost key and store it in the OS keychain
+    Gen,
+    /// Set an existing bifrost key — always prompted interactively to avoid shell history exposure
+    Set,
+    /// Print the current bifrost key as hex (for backup or copying to another machine)
+    Show,
+    /// Export key as a passphrase-protected base64url blob (safe to store anywhere)
+    Export,
+    /// Import a passphrase-protected blob from `heimdal key export`
+    Import {
+        /// The base64url blob. If omitted, prompted interactively.
+        blob: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum HistoryCmd {
+    /// Record a command from the shell hook (called by shell integration, not users)
+    Record {
+        #[arg(long)]
+        cmd: String,
+        #[arg(long, default_value = "0")]
+        exit: i32,
+        #[arg(long, default_value = "")]
+        dir: String,
+        #[arg(long, default_value = "")]
+        session: String,
+    },
+    /// Search history across all machines
+    Search {
+        /// Filter query (case-insensitive substring). If omitted, opens interactive picker.
+        query: Option<String>,
+        #[arg(long)]
+        interactive: bool,
+    },
+    /// Print shell integration code to eval in your shell RC file
+    ShellInit {
+        #[arg(long, default_value = "zsh")]
+        shell: String,
+    },
+    /// Encrypt staging entries and push to the dotfiles repo
+    Sync,
+    /// Print a stable session ID for this shell instance
+    SessionId,
+    /// Re-encrypt all history files with a new bifrost key
+    Rekey,
 }
