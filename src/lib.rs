@@ -1,10 +1,13 @@
 pub mod cli;
 pub mod commands;
 pub mod config;
+pub mod crypto;
 pub mod error;
 pub mod git;
+pub mod history;
 pub mod hooks;
 pub mod import;
+pub mod key;
 pub mod packages;
 pub mod profile;
 pub mod secrets;

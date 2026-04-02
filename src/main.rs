@@ -1,10 +1,13 @@
 mod cli;
 mod commands;
 mod config;
+mod crypto;
 mod error;
 mod git;
+mod history;
 mod hooks;
 mod import;
+mod key;
 mod packages;
 mod profile;
 mod secrets;
@@ -51,5 +54,7 @@ fn run(cli: Cli) -> Result<()> {
         Commands::Rollback(args) => commands::rollback::run(args),
         Commands::State { action } => commands::state::run(action),
         Commands::AutoSync { action } => commands::autosync::run(action),
+        Commands::Key { action } => commands::key::run(action),
+        Commands::History { action } => commands::history::run(action),
     }
 }
