@@ -1,3 +1,4 @@
 [submodule "docs/wiki"]
 	path = docs/wiki
 	url = ssh://git@github.com/limistah/heimdal.wiki.git
+	branch = master
