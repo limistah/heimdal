@@ -11,10 +11,10 @@ pub fn run(query: Option<&str>, interactive: bool) -> Result<()> {
         return Ok(());
     }
 
-    if interactive || query.is_none() {
-        run_interactive(&entries)
+    if let Some(q) = query.filter(|_| !interactive) {
+        run_filter(&entries, q)
     } else {
-        run_filter(&entries, query.unwrap())
+        run_interactive(&entries)
     }
 }
 
