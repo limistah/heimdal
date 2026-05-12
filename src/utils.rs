@@ -2,7 +2,32 @@
 
 use colored::Colorize;
 use std::borrow::Cow;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+/// Atomically write content to a file using temp file + rename pattern.
+/// Prevents partial writes and corruption.
+pub fn atomic_write(path: &Path, content: &[u8]) -> anyhow::Result<()> {
+    let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
+    std::fs::write(&tmp, content)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
+/// Ensure parent directory exists before writing a file.
+pub fn ensure_parent_exists(path: &Path) -> anyhow::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    Ok(())
+}
+
+/// Get the system hostname as a String.
+pub fn hostname() -> String {
+    hostname::get()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string()
+}
 
 // Terminal output
 pub fn success(msg: &str) {
