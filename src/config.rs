@@ -368,9 +368,7 @@ pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyh
         history: None,
     };
 
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    crate::utils::ensure_parent_exists(path)?;
     let content = serde_yaml_ng::to_string(&config)?;
     std::fs::write(path, content)?;
     Ok(())

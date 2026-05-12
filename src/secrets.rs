@@ -50,9 +50,7 @@ fn load_manifest(dotfiles_path: &Path) -> SecretsManifest {
 
 fn save_manifest(dotfiles_path: &Path, manifest: &SecretsManifest) -> Result<()> {
     let path = manifest_path(dotfiles_path);
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    crate::utils::ensure_parent_exists(&path)?;
     let json = serde_json::to_vec_pretty(manifest)?;
     match crate::key::load() {
         Ok(bifrost) => {
@@ -61,9 +59,7 @@ fn save_manifest(dotfiles_path: &Path, manifest: &SecretsManifest) -> Result<()>
             let blob = crate::crypto::encrypt(&key, &json)?;
             let content = URL_SAFE_NO_PAD.encode(&blob);
             let enc_path = path.with_extension("json.enc");
-            let tmp = enc_path.with_extension(format!("tmp.{}", std::process::id()));
-            std::fs::write(&tmp, content)?;
-            std::fs::rename(&tmp, &enc_path)?;
+            crate::utils::atomic_write(&enc_path, content.as_bytes())?;
             if path.exists() {
                 let _ = std::fs::remove_file(&path);
             }
@@ -71,9 +67,7 @@ fn save_manifest(dotfiles_path: &Path, manifest: &SecretsManifest) -> Result<()>
         Err(_) => {
             // No bifrost key: write plaintext to the legacy .json path.
             // Never write plaintext into .json.enc — that would be misleading.
-            let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
-            std::fs::write(&tmp, json)?;
-            std::fs::rename(&tmp, &path)?;
+            crate::utils::atomic_write(&path, &json)?;
         }
     }
     Ok(())

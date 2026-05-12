@@ -9,9 +9,7 @@ use std::{
 /// Encrypt a single `HistoryEntry` and append it as one base64url line to `path`.
 /// Creates the file (and parent directories) if they don't exist.
 pub fn append_encrypted(path: &Path, entry: &HistoryEntry, key: &[u8; 32]) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    crate::utils::ensure_parent_exists(path)?;
     let json = serde_json::to_vec(entry)?;
     let blob = crate::crypto::encrypt(key, &json)?;
     let line = URL_SAFE_NO_PAD.encode(&blob);

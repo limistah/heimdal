@@ -43,9 +43,7 @@ fn try_record(cmd: &str, exit: i32, dir: &str, session: &str) -> anyhow::Result<
     };
 
     let staging = crate::history::staging_path()?;
-    if let Some(parent) = staging.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    crate::utils::ensure_parent_exists(&staging)?;
     let json = serde_json::to_string(&entry)?;
     let mut file = std::fs::OpenOptions::new()
         .create(true)
