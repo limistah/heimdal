@@ -373,3 +373,9 @@ pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyh
     std::fs::write(path, content)?;
     Ok(())
 }
+
+/// Write HeimdalConfig to a YAML file atomically.
+pub fn write_config(path: &Path, config: &HeimdalConfig) -> anyhow::Result<()> {
+    let content = serde_yaml_ng::to_string(config)?;
+    crate::utils::atomic_write(path, content.as_bytes())
+}
