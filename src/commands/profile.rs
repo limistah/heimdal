@@ -1,5 +1,5 @@
 use crate::cli::ProfileCmd;
-use crate::config::{load_config, resolve_profile, DotfileEntry, HeimdalConfig, Profile};
+use crate::config::{load_config, resolve_profile, write_config, DotfileEntry, Profile};
 use crate::error::HeimdallError;
 use crate::state::State;
 use crate::utils::{info, success};
@@ -217,14 +217,5 @@ fn diff_profiles(profile1: Option<&str>, profile2: &str) -> Result<()> {
         println!("  + {}", s);
     }
 
-    Ok(())
-}
-
-/// Serialize config back to YAML and write atomically.
-fn write_config(path: &std::path::Path, config: &HeimdalConfig) -> Result<()> {
-    let content = serde_yaml_ng::to_string(config)?;
-    let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
-    std::fs::write(&tmp, &content)?;
-    std::fs::rename(&tmp, path)?;
     Ok(())
 }
