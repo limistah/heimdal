@@ -9,7 +9,11 @@ use std::path::{Path, PathBuf};
 pub fn atomic_write(path: &Path, content: &[u8]) -> anyhow::Result<()> {
     let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
     std::fs::write(&tmp, content)?;
-    std::fs::rename(&tmp, path)?;
+    let result = std::fs::rename(&tmp, path);
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp); // Clean up on failure
+    }
+    result?;
     Ok(())
 }
 
