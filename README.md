@@ -78,26 +78,26 @@ heimdal apply
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
-- 📦 **Universal Package Management** - One config for Homebrew, APT, DNF, Pacman, and Mac App Store
-- 🔗 **Intelligent Symlinking** - GNU Stow-compatible with automatic conflict resolution
-- 🎯 **Smart Package Discovery** - Native OS package manager search (brew, apt, dnf, pacman, apk)
-- 🔐 **Secret Management** - Secure storage using OS keychains (macOS Keychain, Linux Secret Service)
-- 🎨 **Template System** - Machine-specific configs with variable substitution
-- 🌿 **Git-Based Sync** - Keep configs in sync across machines with automatic conflict detection
-- 🎭 **Profile System** - Different configs for work, personal, and server machines
-- 🤖 **Interactive Wizard** - Guided setup with smart defaults
-- 🚀 **Import Support** - Migrate from Stow, dotbot, chezmoi, yadm, homesick
-- 🔄 **Rollback Support** - Easily revert to previous configurations
-- 🪝 **Hooks System** - Run custom scripts before/after installation
-- 🔍 **Dry-Run Mode** - Preview changes before applying them
+-  **Universal Package Management** - One config for Homebrew, APT, DNF, Pacman, and Mac App Store
+-  **Intelligent Symlinking** - GNU Stow-compatible with automatic conflict resolution
+-  **Smart Package Discovery** - Native OS package manager search (brew, apt, dnf, pacman, apk)
+-  **Secret Management** - Secure storage using OS keychains (macOS Keychain, Linux Secret Service)
+-  **Template System** - Machine-specific configs with variable substitution
+-  **Git-Based Sync** - Keep configs in sync across machines with automatic conflict detection
+-  **Profile System** - Different configs for work, personal, and server machines
+-  **Interactive Wizard** - Guided setup with smart defaults
+-  **Import Support** - Migrate from Stow, dotbot, chezmoi, yadm, homesick
+-  **Rollback Support** - Easily revert to previous configurations
+-  **Hooks System** - Run custom scripts before/after installation
+-  **Dry-Run Mode** - Preview changes before applying them
 
 [Explore all features →](https://github.com/limistah/heimdal/wiki/Features)
 
 ---
 
-## 📦 Package System
+## Package System
 
 Packages are declared directly in `heimdal.yaml` using a `packages:` section. Use `common:` for packages with the same name across all OS package managers, or per-manager keys (`homebrew:`, `apt:`, `dnf:`, `pacman:`, `apk:`) when names differ or a package is OS-specific. A top-level `packages:` section applies to all profiles; each profile can also define its own `packages:`.
 
@@ -145,16 +145,16 @@ heimdal packages add neovim
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### [`limistah/heimdal`](https://github.com/limistah/heimdal) (This repo)
 The main CLI tool - installation, configuration, and management commands.
 
 **Contribute here for:**
-- 🐛 Bug fixes and issue reports
-- ✨ New CLI features and commands
-- 🔧 Core functionality improvements
-- 📚 Documentation updates
+- Bug fixes and issue reports
+- New CLI features and commands
+- Core functionality improvements
+- Documentation updates
 
 [Development Guide →](https://github.com/limistah/heimdal/wiki/CLI-Development)
 
@@ -169,32 +169,32 @@ User → Heimdal CLI → Package Manager (brew/apt/dnf/pacman/apk)
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 ### For Users
-- [📖 Quick Start Guide](https://github.com/limistah/heimdal/wiki/Quick-Start)
-- [📦 Package Management](https://github.com/limistah/heimdal/wiki/Package-Management)
-- [🎭 Profile System](https://github.com/limistah/heimdal/wiki/Profile-System)
-- [📁 Dotfile Management](https://github.com/limistah/heimdal/wiki/Dotfile-Management)
-- [🎨 Template System](https://github.com/limistah/heimdal/wiki/Template-System)
-- [🔐 Secret Management](https://github.com/limistah/heimdal/wiki/Secret-Management)
-- [🌿 Git Sync](https://github.com/limistah/heimdal/wiki/Git-Sync)
-- [⚙️ Configuration Reference](https://github.com/limistah/heimdal/wiki/Configuration)
-- [🐛 Troubleshooting](https://github.com/limistah/heimdal/wiki/Troubleshooting)
+- [Quick Start Guide](https://github.com/limistah/heimdal/wiki/Quick-Start)
+- [Package Management](https://github.com/limistah/heimdal/wiki/Package-Management)
+- [Profile System](https://github.com/limistah/heimdal/wiki/Profile-System)
+- [Dotfile Management](https://github.com/limistah/heimdal/wiki/Dotfile-Management)
+- [Template System](https://github.com/limistah/heimdal/wiki/Template-System)
+- [Secret Management](https://github.com/limistah/heimdal/wiki/Secret-Management)
+- [Git Sync](https://github.com/limistah/heimdal/wiki/Git-Sync)
+- [Configuration Reference](https://github.com/limistah/heimdal/wiki/Configuration)
+- [Troubleshooting](https://github.com/limistah/heimdal/wiki/Troubleshooting)
 
 ### For Contributors
-- [🔧 CLI Development Guide](https://github.com/limistah/heimdal/wiki/CLI-Development)
-- [🧪 Testing Guide](docs/dev/TESTING.md)
-- [🤝 Contributing Guide](docs/dev/CONTRIBUTING.md)
+- [CLI Development Guide](https://github.com/limistah/heimdal/wiki/CLI-Development)
+- [Testing Guide](docs/dev/TESTING.md)
+- [Contributing Guide](docs/dev/CONTRIBUTING.md)
 
 ### Technical Docs
-- [🏗️ Architecture Overview](docs/ARCHITECTURE.md)
-- [🔒 State Management](docs/STATE_MANAGEMENT.md) - Locking, conflict resolution
-- [🗺️ Module Guide](docs/MODULE_GUIDE.md) - Codebase structure
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [State Management](docs/STATE_MANAGEMENT.md) - Locking, conflict resolution
+- [Module Guide](docs/MODULE_GUIDE.md) - Codebase structure
 
 ---
 
-## 🎯 Example Configuration
+## Example Configuration
 
 Here's a minimal `heimdal.yaml` to get started:
 
@@ -227,7 +227,7 @@ profiles:
 
 ---
 
-## 🚀 Usage Examples
+## Usage Examples
 
 ### Basic Workflow
 ```bash
@@ -285,15 +285,15 @@ heimdal secret get API_KEY
 
 ---
 
-## 💬 Community & Support
+## Community & Support
 
-- 🐛 **Bug Reports:** [GitHub Issues](https://github.com/limistah/heimdal/issues)
-- 💡 **Feature Requests:** [GitHub Discussions](https://github.com/limistah/heimdal/discussions)
-- 💬 **Questions:** [GitHub Discussions](https://github.com/limistah/heimdal/discussions)
+- **Bug Reports:** [GitHub Issues](https://github.com/limistah/heimdal/issues)
+- **Feature Requests:** [GitHub Discussions](https://github.com/limistah/heimdal/discussions)
+- **Questions:** [GitHub Discussions](https://github.com/limistah/heimdal/discussions)
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Here's how to get involved:
 
@@ -313,7 +313,7 @@ We welcome contributions! Here's how to get involved:
 
 ---
 
-## 🔧 Directory Structure
+## Directory Structure
 
 Heimdal uses the following directories:
 
@@ -325,13 +325,13 @@ Heimdal uses the following directories:
 
 ---
 
-## 📄 License
+## License
 
 MIT License - see [LICENSE](LICENSE) for details
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Inspired by [GNU Stow](https://www.gnu.org/software/stow/), [Homebrew](https://brew.sh/), and various dotfile management tools
 - Built with [Rust](https://www.rust-lang.org/) for performance and reliability
@@ -339,7 +339,7 @@ MIT License - see [LICENSE](LICENSE) for details
 
 ---
 
-## 🔗 Links
+## Links
 
 - **Main Repository:** https://github.com/limistah/heimdal
 - **Documentation:** https://github.com/limistah/heimdal/wiki
