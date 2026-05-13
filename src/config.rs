@@ -391,7 +391,6 @@ pub fn validate_config(config: &HeimdalConfig) -> Vec<String> {
 }
 
 /// Write a minimal valid heimdal.yaml to `path` for the given profile name.
-#[allow(dead_code)]
 pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyhow::Result<()> {
     let mut profiles = HashMap::new();
     profiles.insert(
