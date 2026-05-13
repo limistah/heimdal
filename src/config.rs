@@ -262,48 +262,24 @@ fn merge_profiles(base: Profile, child: Profile) -> Profile {
     }
 }
 
+macro_rules! merge_vec {
+    ($base:expr, $child:expr) => {{
+        let mut v = $base;
+        v.extend($child);
+        v
+    }};
+}
+
 fn merge_packages(base: PackageMap, child: PackageMap) -> PackageMap {
     PackageMap {
-        common: {
-            let mut v = base.common;
-            v.extend(child.common);
-            v
-        },
-        homebrew: {
-            let mut v = base.homebrew;
-            v.extend(child.homebrew);
-            v
-        },
-        homebrew_casks: {
-            let mut v = base.homebrew_casks;
-            v.extend(child.homebrew_casks);
-            v
-        },
-        apt: {
-            let mut v = base.apt;
-            v.extend(child.apt);
-            v
-        },
-        dnf: {
-            let mut v = base.dnf;
-            v.extend(child.dnf);
-            v
-        },
-        pacman: {
-            let mut v = base.pacman;
-            v.extend(child.pacman);
-            v
-        },
-        apk: {
-            let mut v = base.apk;
-            v.extend(child.apk);
-            v
-        },
-        mas: {
-            let mut v = base.mas;
-            v.extend(child.mas);
-            v
-        },
+        common: merge_vec!(base.common, child.common),
+        homebrew: merge_vec!(base.homebrew, child.homebrew),
+        homebrew_casks: merge_vec!(base.homebrew_casks, child.homebrew_casks),
+        apt: merge_vec!(base.apt, child.apt),
+        dnf: merge_vec!(base.dnf, child.dnf),
+        pacman: merge_vec!(base.pacman, child.pacman),
+        apk: merge_vec!(base.apk, child.apk),
+        mas: merge_vec!(base.mas, child.mas),
     }
 }
 
