@@ -1,4 +1,5 @@
 use crate::cli::StateCmd;
+use crate::config::CommandContext;
 use crate::state::State;
 use crate::utils::info;
 use anyhow::Result;
@@ -24,16 +25,13 @@ fn unlock() -> Result<()> {
 }
 
 fn check_drift() -> Result<()> {
-    let state = State::load()?;
-    let config_path = state.dotfiles_path.join("heimdal.yaml");
-    let config = crate::config::load_config(&config_path)?;
-    let profile = crate::config::resolve_profile(&config, &state.active_profile)?;
+    let ctx = CommandContext::load()?;
 
     let mut drift_count = 0;
-    for entry in &profile.dotfiles {
+    for entry in &ctx.profile.dotfiles {
         let src_rel = entry.source();
         let target_str = entry.target();
-        let src = state.dotfiles_path.join(src_rel);
+        let src = ctx.state.dotfiles_path.join(src_rel);
         let dest = crate::utils::expand_path(&target_str);
 
         if !dest.is_symlink() {
@@ -67,13 +65,10 @@ fn check_drift() -> Result<()> {
 }
 
 fn check_conflicts() -> Result<()> {
-    let state = State::load()?;
-    let config_path = state.dotfiles_path.join("heimdal.yaml");
-    let config = crate::config::load_config(&config_path)?;
-    let profile = crate::config::resolve_profile(&config, &state.active_profile)?;
+    let ctx = CommandContext::load()?;
 
     let mut conflict_count = 0;
-    for entry in &profile.dotfiles {
+    for entry in &ctx.profile.dotfiles {
         let target_str = entry.target();
         let dest = crate::utils::expand_path(&target_str);
         if dest.exists() && !dest.is_symlink() {
