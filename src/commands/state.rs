@@ -7,7 +7,7 @@ use anyhow::Result;
 pub fn run(action: StateCmd) -> Result<()> {
     match action {
         StateCmd::LockInfo => lock_info(),
-        StateCmd::Unlock { force: _ } => unlock(),
+        StateCmd::Unlock { force } => unlock(force),
         StateCmd::CheckDrift => check_drift(),
         StateCmd::CheckConflicts => check_conflicts(),
         StateCmd::History { limit } => history(limit),
@@ -15,12 +15,36 @@ pub fn run(action: StateCmd) -> Result<()> {
 }
 
 fn lock_info() -> Result<()> {
-    info("No lock mechanism — Heimdal v3 uses atomic writes instead of file locks.");
+    match crate::lock::HeimdallLock::info()? {
+        Some(info) => {
+            let running = crate::lock::HeimdallLock::is_process_running(info.pid);
+            crate::utils::info(&format!(
+                "Lock held by PID {} on {}",
+                info.pid, info.hostname
+            ));
+            crate::utils::info(&format!(
+                "Started: {}",
+                info.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
+            ));
+            crate::utils::info(&format!(
+                "Status: {}",
+                if running { "active" } else { "stale" }
+            ));
+        }
+        None => {
+            crate::utils::info("No active lock.");
+        }
+    }
     Ok(())
 }
 
-fn unlock() -> Result<()> {
-    info("No lock to remove — Heimdal v3 uses atomic writes instead of file locks.");
+fn unlock(force: bool) -> Result<()> {
+    if !force {
+        crate::utils::info("Use --force to remove a lock file.");
+        return Ok(());
+    }
+    crate::lock::HeimdallLock::force_unlock()?;
+    crate::utils::success("Lock removed.");
     Ok(())
 }
 

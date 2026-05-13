@@ -8,6 +8,7 @@ mod history;
 mod hooks;
 mod import;
 mod key;
+mod lock;
 mod packages;
 mod secrets;
 mod state;
