@@ -9,7 +9,6 @@ pub mod hooks;
 pub mod import;
 pub mod key;
 pub mod packages;
-pub mod profile;
 pub mod secrets;
 pub mod state;
 pub mod symlink;

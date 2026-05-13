@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use colored::Colorize;
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
@@ -144,10 +142,6 @@ pub fn expand_path(p: &str) -> PathBuf {
 
 pub fn home_dir() -> anyhow::Result<PathBuf> {
     dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Cannot determine home directory"))
-}
-
-pub fn dotfiles_dir() -> anyhow::Result<PathBuf> {
-    Ok(home_dir()?.join(".dotfiles"))
 }
 
 pub fn state_path() -> anyhow::Result<PathBuf> {
