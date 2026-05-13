@@ -1,6 +1,6 @@
 use crate::cli::AutoSyncCmd;
 use crate::utils::{info, success};
-use anyhow::{bail, Result};
+use anyhow::Result;
 use std::path::PathBuf;
 
 pub fn run(action: AutoSyncCmd) -> Result<()> {
@@ -295,18 +295,56 @@ fn status_systemd() -> Result<()> {
 }
 
 // ============================================================================
-// Cron fallback implementation (TODO - will implement in Task 18)
+// Cron fallback implementation (Task 18)
 // ============================================================================
 
 #[cfg(any(
     target_os = "linux",
     not(any(target_os = "macos", target_os = "linux"))
 ))]
-fn enable_cron(_interval_secs: u64) -> Result<()> {
-    info("Cron-based AutoSync implementation coming soon");
-    info("For now, you can manually add a cron job:");
-    info("  crontab -e");
-    info("  */60 * * * * heimdal sync  # adjust interval as needed");
+fn enable_cron(interval_secs: u64) -> Result<()> {
+    let heimdal_path = std::env::current_exe()?;
+    let minutes = (interval_secs / 60).max(1);
+
+    // Get existing crontab
+    let output = std::process::Command::new("crontab").arg("-l").output();
+
+    let mut crontab = match output {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
+        _ => String::new(),
+    };
+
+    // Remove any existing heimdal entries
+    crontab = crontab
+        .lines()
+        .filter(|l| !l.contains("heimdal sync"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    // Add new entry
+    let entry = format!("*/{} * * * * {} sync", minutes, heimdal_path.display());
+    if !crontab.is_empty() && !crontab.ends_with('\n') {
+        crontab.push('\n');
+    }
+    crontab.push_str(&entry);
+    crontab.push('\n');
+
+    // Write new crontab
+    let mut child = std::process::Command::new("crontab")
+        .arg("-")
+        .stdin(std::process::Stdio::piped())
+        .spawn()?;
+
+    if let Some(stdin) = child.stdin.as_mut() {
+        use std::io::Write;
+        stdin.write_all(crontab.as_bytes())?;
+    }
+    child.wait()?;
+
+    success(&format!(
+        "AutoSync enabled (cron, every {} minutes)",
+        minutes
+    ));
     Ok(())
 }
 
@@ -315,9 +353,32 @@ fn enable_cron(_interval_secs: u64) -> Result<()> {
     not(any(target_os = "macos", target_os = "linux"))
 ))]
 fn disable_cron() -> Result<()> {
-    info("Cron-based AutoSync implementation coming soon");
-    info("Remove the heimdal sync entry from your crontab:");
-    info("  crontab -e");
+    let output = std::process::Command::new("crontab").arg("-l").output()?;
+
+    if !output.status.success() {
+        info("No crontab found.");
+        return Ok(());
+    }
+
+    let crontab: String = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter(|l| !l.contains("heimdal sync"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let mut child = std::process::Command::new("crontab")
+        .arg("-")
+        .stdin(std::process::Stdio::piped())
+        .spawn()?;
+
+    if let Some(stdin) = child.stdin.as_mut() {
+        use std::io::Write;
+        stdin.write_all(crontab.as_bytes())?;
+        stdin.write_all(b"\n")?;
+    }
+    child.wait()?;
+
+    success("AutoSync disabled.");
     Ok(())
 }
 
@@ -326,7 +387,25 @@ fn disable_cron() -> Result<()> {
     not(any(target_os = "macos", target_os = "linux"))
 ))]
 fn status_cron() -> Result<()> {
-    info("Cron-based AutoSync implementation coming soon");
-    info("Check your crontab with: crontab -l");
+    let output = std::process::Command::new("crontab").arg("-l").output();
+
+    match output {
+        Ok(o) if o.status.success() => {
+            let crontab = String::from_utf8_lossy(&o.stdout);
+            if crontab.contains("heimdal sync") {
+                success("AutoSync is enabled (cron).");
+                for line in crontab.lines() {
+                    if line.contains("heimdal sync") {
+                        info(&format!("  {}", line));
+                    }
+                }
+            } else {
+                info("AutoSync is not enabled.");
+            }
+        }
+        _ => {
+            info("AutoSync is not enabled (no crontab).");
+        }
+    }
     Ok(())
 }
