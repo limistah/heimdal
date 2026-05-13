@@ -386,6 +386,38 @@ profiles:
     assert!(!errors.is_empty());
 }
 
+#[test]
+fn test_dotfile_entry_simple_source() {
+    let entry = heimdal::config::DotfileEntry::Simple(".bashrc".to_string());
+    assert_eq!(entry.source(), ".bashrc");
+}
+
+#[test]
+fn test_dotfile_entry_simple_target() {
+    let entry = heimdal::config::DotfileEntry::Simple(".bashrc".to_string());
+    assert_eq!(entry.target(), "~/.bashrc");
+}
+
+#[test]
+fn test_dotfile_entry_mapped_source() {
+    let entry = heimdal::config::DotfileEntry::Mapped(heimdal::config::DotfileMapping {
+        source: "config/nvim".to_string(),
+        target: "~/.config/nvim".to_string(),
+        when: None,
+    });
+    assert_eq!(entry.source(), "config/nvim");
+}
+
+#[test]
+fn test_dotfile_entry_mapped_target() {
+    let entry = heimdal::config::DotfileEntry::Mapped(heimdal::config::DotfileMapping {
+        source: "config/nvim".to_string(),
+        target: "~/.config/nvim".to_string(),
+        when: None,
+    });
+    assert_eq!(entry.target(), "~/.config/nvim");
+}
+
 // --- CLI integration tests ---
 
 #[test]
