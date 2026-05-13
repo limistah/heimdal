@@ -97,26 +97,98 @@ fn parse_interval(s: &str) -> Result<u64> {
 }
 
 // ============================================================================
-// macOS launchd implementation (TODO - will implement in Task 16)
+// macOS launchd implementation
 // ============================================================================
 
 #[cfg(target_os = "macos")]
-fn enable_launchd(_interval_secs: u64) -> Result<()> {
-    info("macOS launchd AutoSync implementation coming soon");
-    info("For now, you can manually create a LaunchAgent in ~/Library/LaunchAgents/");
+const LAUNCHD_LABEL: &str = "com.heimdal.autosync";
+
+#[cfg(target_os = "macos")]
+fn launchd_plist_path() -> PathBuf {
+    dirs::home_dir()
+        .unwrap()
+        .join("Library/LaunchAgents")
+        .join(format!("{}.plist", LAUNCHD_LABEL))
+}
+
+#[cfg(target_os = "macos")]
+fn enable_launchd(interval_secs: u64) -> Result<()> {
+    let plist_path = launchd_plist_path();
+    let heimdal_path = std::env::current_exe()?;
+
+    let plist = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{}</string>
+        <string>sync</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>{}</integer>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/tmp/heimdal-autosync.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/heimdal-autosync.log</string>
+</dict>
+</plist>"#,
+        LAUNCHD_LABEL,
+        heimdal_path.display(),
+        interval_secs
+    );
+
+    crate::utils::ensure_parent_exists(&plist_path)?;
+    std::fs::write(&plist_path, plist)?;
+
+    // Load the agent
+    std::process::Command::new("launchctl")
+        .args(["load", plist_path.to_str().unwrap()])
+        .status()?;
+
+    success(&format!(
+        "AutoSync enabled (every {} seconds)",
+        interval_secs
+    ));
+    info(&format!("Plist: {}", plist_path.display()));
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
 fn disable_launchd() -> Result<()> {
-    info("macOS launchd AutoSync implementation coming soon");
+    let plist_path = launchd_plist_path();
+
+    if plist_path.exists() {
+        // Try to unload, but don't fail if it's not loaded
+        let _ = std::process::Command::new("launchctl")
+            .args(["unload", plist_path.to_str().unwrap()])
+            .output();
+        std::fs::remove_file(&plist_path)?;
+        success("AutoSync disabled.");
+    } else {
+        info("AutoSync was not enabled.");
+    }
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
 fn status_launchd() -> Result<()> {
-    info("macOS launchd AutoSync implementation coming soon");
-    info("Check ~/Library/LaunchAgents/ for heimdal launchd plists");
+    let output = std::process::Command::new("launchctl")
+        .args(["list", LAUNCHD_LABEL])
+        .output()?;
+
+    if output.status.success() {
+        success("AutoSync is enabled (launchd).");
+        let plist_path = launchd_plist_path();
+        info(&format!("Plist: {}", plist_path.display()));
+    } else {
+        info("AutoSync is not enabled.");
+    }
     Ok(())
 }
 

@@ -1,5 +1,6 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
+use serial_test::serial;
 
 /// Test that autosync shows basic help text
 #[test]
@@ -80,6 +81,264 @@ fn test_autosync_disable_macos_not_cron_stub() {
             || combined.contains("launchd")
             || combined.contains("LaunchAgent"),
         "macOS should use launchd, not mention cron job removal, got: {}",
+        combined
+    );
+}
+
+// ============================================================================
+// macOS launchd integration tests (Task 16)
+// ============================================================================
+
+/// Test that enable creates plist file at correct location
+#[test]
+#[serial]
+#[cfg(target_os = "macos")]
+fn test_autosync_enable_creates_plist() {
+    use std::path::PathBuf;
+
+    // Clean up any existing plist and launchd job first
+    let plist_path: PathBuf = dirs::home_dir()
+        .unwrap()
+        .join("Library/LaunchAgents/com.heimdal.autosync.plist");
+    let _ = std::process::Command::new("launchctl")
+        .args(["remove", "com.heimdal.autosync"])
+        .output();
+    let _ = std::fs::remove_file(&plist_path);
+
+    // Enable autosync with 10m interval
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("10m");
+
+    cmd.assert().success();
+
+    // Verify plist file exists
+    assert!(
+        plist_path.exists(),
+        "Plist file should be created at {}",
+        plist_path.display()
+    );
+
+    // Clean up
+    let _ = std::process::Command::new("launchctl")
+        .args(["remove", "com.heimdal.autosync"])
+        .output();
+    let _ = std::fs::remove_file(&plist_path);
+}
+
+/// Test that plist contains correct interval (600 seconds for 10m)
+#[test]
+#[serial]
+#[cfg(target_os = "macos")]
+fn test_autosync_plist_contains_correct_interval() {
+    use std::path::PathBuf;
+
+    // Clean up any existing plist and launchd job first
+    let plist_path: PathBuf = dirs::home_dir()
+        .unwrap()
+        .join("Library/LaunchAgents/com.heimdal.autosync.plist");
+    let _ = std::process::Command::new("launchctl")
+        .args(["remove", "com.heimdal.autosync"])
+        .output();
+    let _ = std::fs::remove_file(&plist_path);
+
+    // Enable autosync with 10m interval
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("10m");
+
+    cmd.assert().success();
+
+    // Read plist and verify interval
+    let content = std::fs::read_to_string(&plist_path).unwrap();
+    assert!(
+        content.contains("<key>StartInterval</key>"),
+        "Plist should contain StartInterval key"
+    );
+    assert!(
+        content.contains("<integer>600</integer>"),
+        "Plist should contain 600 seconds (10 minutes)"
+    );
+
+    // Clean up
+    let _ = std::process::Command::new("launchctl")
+        .args(["remove", "com.heimdal.autosync"])
+        .output();
+    let _ = std::fs::remove_file(&plist_path);
+}
+
+/// Test that plist contains correct program path and arguments
+#[test]
+#[serial]
+#[cfg(target_os = "macos")]
+fn test_autosync_plist_contains_correct_program() {
+    use std::path::PathBuf;
+
+    // Clean up any existing plist and launchd job first
+    let plist_path: PathBuf = dirs::home_dir()
+        .unwrap()
+        .join("Library/LaunchAgents/com.heimdal.autosync.plist");
+    let _ = std::process::Command::new("launchctl")
+        .args(["remove", "com.heimdal.autosync"])
+        .output();
+    let _ = std::fs::remove_file(&plist_path);
+
+    // Enable autosync
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("10m");
+
+    cmd.assert().success();
+
+    // Read plist and verify program arguments
+    let content = std::fs::read_to_string(&plist_path).unwrap();
+    assert!(
+        content.contains("<key>ProgramArguments</key>"),
+        "Plist should contain ProgramArguments"
+    );
+    assert!(
+        content.contains("<string>sync</string>"),
+        "Plist should contain 'sync' argument"
+    );
+
+    // Clean up
+    let _ = std::process::Command::new("launchctl")
+        .args(["remove", "com.heimdal.autosync"])
+        .output();
+    let _ = std::fs::remove_file(&plist_path);
+}
+
+/// Test that status shows "enabled" after enable
+#[test]
+#[serial]
+#[cfg(target_os = "macos")]
+fn test_autosync_status_shows_enabled_after_enable() {
+    use std::path::PathBuf;
+
+    // Clean up any existing plist and launchd job first
+    let plist_path: PathBuf = dirs::home_dir()
+        .unwrap()
+        .join("Library/LaunchAgents/com.heimdal.autosync.plist");
+    let _ = std::process::Command::new("launchctl")
+        .args(["remove", "com.heimdal.autosync"])
+        .output();
+    let _ = std::fs::remove_file(&plist_path);
+
+    // Enable autosync
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("10m");
+    cmd.assert().success();
+
+    // Check status
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync").arg("status");
+
+    let output = cmd.output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
+
+    assert!(
+        combined.contains("enabled") || combined.contains("active"),
+        "Status should show enabled/active, got: {}",
+        combined
+    );
+
+    // Clean up
+    let _ = std::process::Command::new("launchctl")
+        .args(["remove", "com.heimdal.autosync"])
+        .output();
+    let _ = std::fs::remove_file(&plist_path);
+}
+
+/// Test that disable removes plist file
+#[test]
+#[serial]
+#[cfg(target_os = "macos")]
+fn test_autosync_disable_removes_plist() {
+    use std::path::PathBuf;
+
+    // Clean up any existing plist and launchd job first
+    let plist_path: PathBuf = dirs::home_dir()
+        .unwrap()
+        .join("Library/LaunchAgents/com.heimdal.autosync.plist");
+    let _ = std::process::Command::new("launchctl")
+        .args(["remove", "com.heimdal.autosync"])
+        .output();
+    let _ = std::fs::remove_file(&plist_path);
+
+    // Enable autosync first
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("10m");
+    cmd.assert().success();
+
+    // Verify plist exists
+    assert!(plist_path.exists(), "Plist should exist after enable");
+
+    // Disable autosync
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync").arg("disable");
+    cmd.assert().success();
+
+    // Verify plist is removed
+    assert!(
+        !plist_path.exists(),
+        "Plist should be removed after disable"
+    );
+}
+
+/// Test that status shows "disabled" after disable
+#[test]
+#[serial]
+#[cfg(target_os = "macos")]
+fn test_autosync_status_shows_disabled_after_disable() {
+    use std::path::PathBuf;
+
+    // Clean up any existing plist and launchd job first
+    let plist_path: PathBuf = dirs::home_dir()
+        .unwrap()
+        .join("Library/LaunchAgents/com.heimdal.autosync.plist");
+    let _ = std::process::Command::new("launchctl")
+        .args(["remove", "com.heimdal.autosync"])
+        .output();
+    let _ = std::fs::remove_file(&plist_path);
+
+    // Enable then disable
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("10m");
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync").arg("disable");
+    cmd.assert().success();
+
+    // Check status
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync").arg("status");
+
+    let output = cmd.output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
+
+    assert!(
+        combined.contains("not enabled") || combined.contains("disabled"),
+        "Status should show not enabled/disabled, got: {}",
         combined
     );
 }
