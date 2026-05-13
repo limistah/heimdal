@@ -342,3 +342,300 @@ fn test_autosync_status_shows_disabled_after_disable() {
         combined
     );
 }
+
+// ============================================================================
+// Linux systemd integration tests (Task 17)
+// ============================================================================
+
+/// Test that enable creates service and timer files at correct location
+#[test]
+#[serial]
+#[cfg(target_os = "linux")]
+fn test_autosync_enable_creates_systemd_files() {
+    use std::path::PathBuf;
+
+    // Clean up any existing systemd files and timer first
+    let systemd_dir: PathBuf = dirs::home_dir().unwrap().join(".config/systemd/user");
+    let service_path = systemd_dir.join("heimdal-autosync.service");
+    let timer_path = systemd_dir.join("heimdal-autosync.timer");
+
+    let _ = std::process::Command::new("systemctl")
+        .args(["--user", "disable", "--now", "heimdal-autosync.timer"])
+        .output();
+    let _ = std::fs::remove_file(&service_path);
+    let _ = std::fs::remove_file(&timer_path);
+
+    // Enable autosync with 10m interval
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("10m");
+
+    cmd.assert().success();
+
+    // Verify service file exists
+    assert!(
+        service_path.exists(),
+        "Service file should be created at {}",
+        service_path.display()
+    );
+
+    // Verify timer file exists
+    assert!(
+        timer_path.exists(),
+        "Timer file should be created at {}",
+        timer_path.display()
+    );
+
+    // Clean up
+    let _ = std::process::Command::new("systemctl")
+        .args(["--user", "disable", "--now", "heimdal-autosync.timer"])
+        .output();
+    let _ = std::fs::remove_file(&service_path);
+    let _ = std::fs::remove_file(&timer_path);
+}
+
+/// Test that service file contains correct ExecStart path and arguments
+#[test]
+#[serial]
+#[cfg(target_os = "linux")]
+fn test_autosync_service_file_contains_correct_exec() {
+    use std::path::PathBuf;
+
+    // Clean up any existing systemd files and timer first
+    let systemd_dir: PathBuf = dirs::home_dir().unwrap().join(".config/systemd/user");
+    let service_path = systemd_dir.join("heimdal-autosync.service");
+    let timer_path = systemd_dir.join("heimdal-autosync.timer");
+
+    let _ = std::process::Command::new("systemctl")
+        .args(["--user", "disable", "--now", "heimdal-autosync.timer"])
+        .output();
+    let _ = std::fs::remove_file(&service_path);
+    let _ = std::fs::remove_file(&timer_path);
+
+    // Enable autosync
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("10m");
+
+    cmd.assert().success();
+
+    // Read service file and verify ExecStart
+    let content = std::fs::read_to_string(&service_path).unwrap();
+    assert!(
+        content.contains("ExecStart="),
+        "Service file should contain ExecStart"
+    );
+    assert!(
+        content.contains(" sync"),
+        "Service file should contain 'sync' argument"
+    );
+    assert!(
+        content.contains("Type=oneshot"),
+        "Service file should be oneshot type"
+    );
+
+    // Clean up
+    let _ = std::process::Command::new("systemctl")
+        .args(["--user", "disable", "--now", "heimdal-autosync.timer"])
+        .output();
+    let _ = std::fs::remove_file(&service_path);
+    let _ = std::fs::remove_file(&timer_path);
+}
+
+/// Test that timer file contains correct OnUnitActiveSec interval
+#[test]
+#[serial]
+#[cfg(target_os = "linux")]
+fn test_autosync_timer_file_contains_correct_interval() {
+    use std::path::PathBuf;
+
+    // Clean up any existing systemd files and timer first
+    let systemd_dir: PathBuf = dirs::home_dir().unwrap().join(".config/systemd/user");
+    let service_path = systemd_dir.join("heimdal-autosync.service");
+    let timer_path = systemd_dir.join("heimdal-autosync.timer");
+
+    let _ = std::process::Command::new("systemctl")
+        .args(["--user", "disable", "--now", "heimdal-autosync.timer"])
+        .output();
+    let _ = std::fs::remove_file(&service_path);
+    let _ = std::fs::remove_file(&timer_path);
+
+    // Enable autosync with 10m interval (600 seconds)
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("10m");
+
+    cmd.assert().success();
+
+    // Read timer file and verify interval
+    let content = std::fs::read_to_string(&timer_path).unwrap();
+    assert!(
+        content.contains("OnUnitActiveSec="),
+        "Timer file should contain OnUnitActiveSec"
+    );
+    assert!(
+        content.contains("OnUnitActiveSec=600s"),
+        "Timer file should contain 600 seconds (10 minutes)"
+    );
+    assert!(
+        content.contains("Unit=heimdal-autosync.service"),
+        "Timer file should reference the service"
+    );
+
+    // Clean up
+    let _ = std::process::Command::new("systemctl")
+        .args(["--user", "disable", "--now", "heimdal-autosync.timer"])
+        .output();
+    let _ = std::fs::remove_file(&service_path);
+    let _ = std::fs::remove_file(&timer_path);
+}
+
+/// Test that status shows "enabled" after enable
+#[test]
+#[serial]
+#[cfg(target_os = "linux")]
+fn test_autosync_status_shows_enabled_after_enable_systemd() {
+    use std::path::PathBuf;
+
+    // Clean up any existing systemd files and timer first
+    let systemd_dir: PathBuf = dirs::home_dir().unwrap().join(".config/systemd/user");
+    let service_path = systemd_dir.join("heimdal-autosync.service");
+    let timer_path = systemd_dir.join("heimdal-autosync.timer");
+
+    let _ = std::process::Command::new("systemctl")
+        .args(["--user", "disable", "--now", "heimdal-autosync.timer"])
+        .output();
+    let _ = std::fs::remove_file(&service_path);
+    let _ = std::fs::remove_file(&timer_path);
+
+    // Enable autosync
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("10m");
+    cmd.assert().success();
+
+    // Check status
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync").arg("status");
+
+    let output = cmd.output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
+
+    assert!(
+        combined.contains("enabled") || combined.contains("active"),
+        "Status should show enabled/active, got: {}",
+        combined
+    );
+
+    // Clean up
+    let _ = std::process::Command::new("systemctl")
+        .args(["--user", "disable", "--now", "heimdal-autosync.timer"])
+        .output();
+    let _ = std::fs::remove_file(&service_path);
+    let _ = std::fs::remove_file(&timer_path);
+}
+
+/// Test that disable removes service and timer files
+#[test]
+#[serial]
+#[cfg(target_os = "linux")]
+fn test_autosync_disable_removes_systemd_files() {
+    use std::path::PathBuf;
+
+    // Clean up any existing systemd files and timer first
+    let systemd_dir: PathBuf = dirs::home_dir().unwrap().join(".config/systemd/user");
+    let service_path = systemd_dir.join("heimdal-autosync.service");
+    let timer_path = systemd_dir.join("heimdal-autosync.timer");
+
+    let _ = std::process::Command::new("systemctl")
+        .args(["--user", "disable", "--now", "heimdal-autosync.timer"])
+        .output();
+    let _ = std::fs::remove_file(&service_path);
+    let _ = std::fs::remove_file(&timer_path);
+
+    // Enable autosync first
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("10m");
+    cmd.assert().success();
+
+    // Verify files exist
+    assert!(
+        service_path.exists(),
+        "Service file should exist after enable"
+    );
+    assert!(timer_path.exists(), "Timer file should exist after enable");
+
+    // Disable autosync
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync").arg("disable");
+    cmd.assert().success();
+
+    // Verify files are removed
+    assert!(
+        !service_path.exists(),
+        "Service file should be removed after disable"
+    );
+    assert!(
+        !timer_path.exists(),
+        "Timer file should be removed after disable"
+    );
+}
+
+/// Test that status shows "disabled" after disable
+#[test]
+#[serial]
+#[cfg(target_os = "linux")]
+fn test_autosync_status_shows_disabled_after_disable_systemd() {
+    use std::path::PathBuf;
+
+    // Clean up any existing systemd files and timer first
+    let systemd_dir: PathBuf = dirs::home_dir().unwrap().join(".config/systemd/user");
+    let service_path = systemd_dir.join("heimdal-autosync.service");
+    let timer_path = systemd_dir.join("heimdal-autosync.timer");
+
+    let _ = std::process::Command::new("systemctl")
+        .args(["--user", "disable", "--now", "heimdal-autosync.timer"])
+        .output();
+    let _ = std::fs::remove_file(&service_path);
+    let _ = std::fs::remove_file(&timer_path);
+
+    // Enable then disable
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("10m");
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync").arg("disable");
+    cmd.assert().success();
+
+    // Check status
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync").arg("status");
+
+    let output = cmd.output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
+
+    assert!(
+        combined.contains("not enabled") || combined.contains("disabled"),
+        "Status should show not enabled/disabled, got: {}",
+        combined
+    );
+}
