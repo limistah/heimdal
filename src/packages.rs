@@ -1,5 +1,14 @@
 use anyhow::Result;
 
+/// Check if a command is available on the system.
+fn check_command_available(cmd: &str) -> bool {
+    std::process::Command::new(cmd)
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
 pub struct InstallResult {
     pub package: String,
     pub success: bool,
@@ -77,11 +86,7 @@ impl PackageManager for Apt {
     }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("apt-get")
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+        check_command_available("apt-get")
     }
 
     fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
@@ -102,11 +107,7 @@ impl PackageManager for Dnf {
     }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("dnf")
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+        check_command_available("dnf")
     }
 
     fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
@@ -127,11 +128,7 @@ impl PackageManager for Pacman {
     }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("pacman")
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+        check_command_available("pacman")
     }
 
     fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
@@ -152,11 +149,7 @@ impl PackageManager for Apk {
     }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("apk")
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+        check_command_available("apk")
     }
 
     fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
