@@ -2,6 +2,17 @@ use assert_cmd::Command;
 use predicates::prelude::*;
 use serial_test::serial;
 
+/// Skip test if systemd is available (cron is only used as fallback on Linux)
+#[cfg(target_os = "linux")]
+macro_rules! skip_if_systemd {
+    () => {
+        if std::path::Path::new("/run/systemd/system").exists() {
+            eprintln!("Skipping: systemd is available, cron fallback not used");
+            return;
+        }
+    };
+}
+
 /// Test that autosync shows basic help text
 #[test]
 fn test_autosync_help() {
@@ -45,6 +56,8 @@ fn test_autosync_status_macos_not_stub() {
 #[serial]
 #[cfg(target_os = "linux")]
 fn test_autosync_enable_cron_adds_entry() {
+    skip_if_systemd!();
+
     // Clean up any existing heimdal cron entries first
     let _ = std::process::Command::new("crontab")
         .arg("-l")
@@ -123,6 +136,8 @@ fn test_autosync_enable_cron_adds_entry() {
 #[serial]
 #[cfg(target_os = "linux")]
 fn test_autosync_cron_entry_contains_correct_command() {
+    skip_if_systemd!();
+
     // Clean up first
     let _ = std::process::Command::new("crontab")
         .arg("-l")
@@ -201,6 +216,8 @@ fn test_autosync_cron_entry_contains_correct_command() {
 #[serial]
 #[cfg(target_os = "linux")]
 fn test_autosync_status_shows_enabled_cron() {
+    skip_if_systemd!();
+
     // Clean up first
     let _ = std::process::Command::new("crontab")
         .arg("-l")
@@ -280,6 +297,8 @@ fn test_autosync_status_shows_enabled_cron() {
 #[serial]
 #[cfg(target_os = "linux")]
 fn test_autosync_disable_cron_removes_entry() {
+    skip_if_systemd!();
+
     // Clean up first
     let _ = std::process::Command::new("crontab")
         .arg("-l")
@@ -347,6 +366,8 @@ fn test_autosync_disable_cron_removes_entry() {
 #[serial]
 #[cfg(target_os = "linux")]
 fn test_autosync_status_shows_disabled_after_disable_cron() {
+    skip_if_systemd!();
+
     // Clean up first
     let _ = std::process::Command::new("crontab")
         .arg("-l")
@@ -405,6 +426,8 @@ fn test_autosync_status_shows_disabled_after_disable_cron() {
 #[serial]
 #[cfg(target_os = "linux")]
 fn test_autosync_cron_multiple_cycles() {
+    skip_if_systemd!();
+
     // Clean up first
     let _ = std::process::Command::new("crontab")
         .arg("-l")
