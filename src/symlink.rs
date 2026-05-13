@@ -182,7 +182,7 @@ pub fn link_one(src: &Path, dest: &Path, ctx: &ApplyContext) -> Result<LinkResul
 
             crate::utils::ensure_parent_exists(&backup)?;
             std::fs::rename(dest, &backup)?;
-            crate::utils::ensure_parent_exists(&dest)?;
+            crate::utils::ensure_parent_exists(dest)?;
             create_symlink(src, dest)?;
             return Ok(LinkResult::Backed {
                 dest: dest.to_owned(),
@@ -198,7 +198,7 @@ pub fn link_one(src: &Path, dest: &Path, ctx: &ApplyContext) -> Result<LinkResul
     }
 
     if !ctx.dry_run {
-        crate::utils::ensure_parent_exists(&dest)?;
+        crate::utils::ensure_parent_exists(dest)?;
         create_symlink(src, dest)?;
     }
 

@@ -174,6 +174,7 @@ impl CommandContext {
     }
 
     /// Load with a specific profile override.
+    #[allow(dead_code)]
     pub fn load_with_profile(profile_name: &str) -> anyhow::Result<Self> {
         let state = crate::state::State::load()?;
         let config_path = state.dotfiles_path.join("heimdal.yaml");

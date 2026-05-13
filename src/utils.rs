@@ -46,6 +46,7 @@ pub fn step(msg: &str) {
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(dead_code)]
 pub enum LinuxDistro {
     Debian,
     Ubuntu,
@@ -59,12 +60,14 @@ pub enum LinuxDistro {
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(dead_code)]
 pub enum Os {
     MacOS,
     Linux(LinuxDistro),
     Unknown,
 }
 
+#[allow(dead_code)]
 fn match_distro_id(id: &str) -> Option<LinuxDistro> {
     match id {
         "debian" => Some(LinuxDistro::Debian),

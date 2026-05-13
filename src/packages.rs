@@ -12,6 +12,7 @@ fn check_command_available(cmd: &str) -> bool {
 pub struct InstallResult {
     pub package: String,
     pub success: bool,
+    #[allow(dead_code)]
     pub already_installed: bool,
     pub message: Option<String>,
 }
