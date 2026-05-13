@@ -58,6 +58,24 @@ pub enum DotfileEntry {
     Mapped(DotfileMapping),
 }
 
+impl DotfileEntry {
+    /// Get the source path (relative to dotfiles directory).
+    pub fn source(&self) -> &str {
+        match self {
+            DotfileEntry::Simple(s) => s,
+            DotfileEntry::Mapped(m) => &m.source,
+        }
+    }
+
+    /// Get the target path (with ~ prefix for home directory).
+    pub fn target(&self) -> String {
+        match self {
+            DotfileEntry::Simple(s) => format!("~/{}", s),
+            DotfileEntry::Mapped(m) => m.target.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DotfileMapping {
     pub source: String,
@@ -314,10 +332,7 @@ pub fn validate_config(config: &HeimdalConfig) -> Vec<String> {
     // Check dotfile source paths are relative and don't traverse outside dotfiles dir
     for (prof_name, profile) in &config.profiles {
         for entry in &profile.dotfiles {
-            let src = match entry {
-                DotfileEntry::Simple(s) => s.as_str(),
-                DotfileEntry::Mapped(m) => m.source.as_str(),
-            };
+            let src = entry.source();
             if std::path::Path::new(src).is_absolute() {
                 errors.push(format!(
                     "Profile '{}': dotfile source '{}' must be a relative path",

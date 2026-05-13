@@ -31,10 +31,8 @@ fn check_drift() -> Result<()> {
 
     let mut drift_count = 0;
     for entry in &profile.dotfiles {
-        let (src_rel, target_str) = match entry {
-            crate::config::DotfileEntry::Simple(s) => (s.as_str(), format!("~/{}", s)),
-            crate::config::DotfileEntry::Mapped(m) => (m.source.as_str(), m.target.clone()),
-        };
+        let src_rel = entry.source();
+        let target_str = entry.target();
         let src = state.dotfiles_path.join(src_rel);
         let dest = crate::utils::expand_path(&target_str);
 
@@ -76,10 +74,7 @@ fn check_conflicts() -> Result<()> {
 
     let mut conflict_count = 0;
     for entry in &profile.dotfiles {
-        let target_str = match entry {
-            crate::config::DotfileEntry::Simple(s) => format!("~/{}", s),
-            crate::config::DotfileEntry::Mapped(m) => m.target.clone(),
-        };
+        let target_str = entry.target();
         let dest = crate::utils::expand_path(&target_str);
         if dest.exists() && !dest.is_symlink() {
             crate::utils::warning(&format!(
