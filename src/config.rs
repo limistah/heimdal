@@ -152,6 +152,41 @@ pub struct TemplateEntry {
     pub vars: HashMap<String, String>,
 }
 
+/// Common context loaded by most commands.
+pub struct CommandContext {
+    pub state: crate::state::State,
+    pub config: HeimdalConfig,
+    pub profile: Profile,
+}
+
+impl CommandContext {
+    /// Load state, config, and resolved profile.
+    pub fn load() -> anyhow::Result<Self> {
+        let state = crate::state::State::load()?;
+        let config_path = state.dotfiles_path.join("heimdal.yaml");
+        let config = load_config(&config_path)?;
+        let profile = resolve_profile(&config, &state.active_profile)?;
+        Ok(Self {
+            state,
+            config,
+            profile,
+        })
+    }
+
+    /// Load with a specific profile override.
+    pub fn load_with_profile(profile_name: &str) -> anyhow::Result<Self> {
+        let state = crate::state::State::load()?;
+        let config_path = state.dotfiles_path.join("heimdal.yaml");
+        let config = load_config(&config_path)?;
+        let profile = resolve_profile(&config, profile_name)?;
+        Ok(Self {
+            state,
+            config,
+            profile,
+        })
+    }
+}
+
 pub fn load_config(path: &Path) -> anyhow::Result<HeimdalConfig> {
     let content = std::fs::read_to_string(path).map_err(|e| {
         crate::error::HeimdallError::Config(format!(
