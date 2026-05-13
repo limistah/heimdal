@@ -6,6 +6,9 @@ use crate::utils::{info, success};
 use anyhow::Result;
 
 pub fn run(args: SyncArgs) -> Result<()> {
+    // Acquire lock to prevent concurrent operations
+    let _lock = crate::lock::HeimdallLock::acquire()?;
+
     let ctx = CommandContext::load()?;
 
     if args.dry_run {

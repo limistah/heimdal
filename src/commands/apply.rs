@@ -8,6 +8,9 @@ use crate::symlink::{apply_mappings, apply_stow_walk, print_results, ApplyContex
 use crate::utils::{home_dir, info, success};
 
 pub fn run(args: ApplyArgs) -> Result<()> {
+    // Acquire lock to prevent concurrent operations
+    let _lock = crate::lock::HeimdallLock::acquire()?;
+
     let ctx = CommandContext::load()?;
 
     if args.dry_run {
