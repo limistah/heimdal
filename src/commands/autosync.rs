@@ -314,6 +314,16 @@ fn status_systemd() -> Result<()> {
     not(any(target_os = "macos", target_os = "linux"))
 ))]
 fn enable_cron(interval_secs: u64) -> Result<()> {
+    // Verify crontab command exists
+    if std::process::Command::new("which")
+        .arg("crontab")
+        .output()
+        .map(|o| !o.status.success())
+        .unwrap_or(true)
+    {
+        anyhow::bail!("crontab command not found. Please install cron to use autosync.");
+    }
+
     let heimdal_path = std::env::current_exe()?;
     let minutes = (interval_secs / 60).max(1);
 

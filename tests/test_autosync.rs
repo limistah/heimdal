@@ -10,6 +10,18 @@ macro_rules! skip_if_systemd {
             eprintln!("Skipping: systemd is available, cron fallback not used");
             return;
         }
+
+        // Also skip if crontab command doesn't exist
+        let has_crontab = std::process::Command::new("which")
+            .arg("crontab")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_crontab {
+            eprintln!("Skipping: crontab command not found");
+            return;
+        }
     };
 }
 
