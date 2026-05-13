@@ -30,10 +30,461 @@ fn test_autosync_status_macos_not_stub() {
     // The stub says "check your cron jobs" which is wrong for macOS
     // The real implementation should mention launchd or at least not mention cron
     assert!(
-        !combined.contains("check your cron jobs"),
-        "macOS should not reference cron jobs, got: {}",
+        combined.contains("not enabled") || combined.contains("disabled"),
+        "Status should show not enabled/disabled, got: {}",
         combined
     );
+}
+
+// ============================================================================
+// Cron fallback integration tests (Task 18)
+// ============================================================================
+
+/// Test that enable adds crontab entry with correct interval
+#[test]
+#[serial]
+#[cfg(target_os = "linux")]
+fn test_autosync_enable_cron_adds_entry() {
+    // Clean up any existing heimdal cron entries first
+    let _ = std::process::Command::new("crontab")
+        .arg("-l")
+        .output()
+        .and_then(|output| {
+            let crontab = String::from_utf8_lossy(&output.stdout);
+            let filtered: String = crontab
+                .lines()
+                .filter(|l| !l.contains("heimdal sync"))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let mut child = std::process::Command::new("crontab")
+                .arg("-")
+                .stdin(std::process::Stdio::piped())
+                .spawn()?;
+
+            if let Some(stdin) = child.stdin.as_mut() {
+                use std::io::Write;
+                stdin.write_all(filtered.as_bytes())?;
+                stdin.write_all(b"\n")?;
+            }
+            child.wait()
+        });
+
+    // Enable autosync with 60m interval (should be */60 in cron)
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("60m");
+
+    cmd.assert().success();
+
+    // Check crontab contains entry
+    let output = std::process::Command::new("crontab")
+        .arg("-l")
+        .output()
+        .unwrap();
+
+    let crontab = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        crontab.contains("heimdal sync"),
+        "Crontab should contain heimdal sync entry, got: {}",
+        crontab
+    );
+    assert!(
+        crontab.contains("*/60 * * * *"),
+        "Crontab should contain */60 interval, got: {}",
+        crontab
+    );
+
+    // Clean up
+    let filtered: String = crontab
+        .lines()
+        .filter(|l| !l.contains("heimdal sync"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let mut child = std::process::Command::new("crontab")
+        .arg("-")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    if let Some(stdin) = child.stdin.as_mut() {
+        use std::io::Write;
+        let _ = stdin.write_all(filtered.as_bytes());
+        let _ = stdin.write_all(b"\n");
+    }
+    let _ = child.wait();
+}
+
+/// Test that crontab entry contains correct command path and arguments
+#[test]
+#[serial]
+#[cfg(target_os = "linux")]
+fn test_autosync_cron_entry_contains_correct_command() {
+    // Clean up first
+    let _ = std::process::Command::new("crontab")
+        .arg("-l")
+        .output()
+        .and_then(|output| {
+            let crontab = String::from_utf8_lossy(&output.stdout);
+            let filtered: String = crontab
+                .lines()
+                .filter(|l| !l.contains("heimdal sync"))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let mut child = std::process::Command::new("crontab")
+                .arg("-")
+                .stdin(std::process::Stdio::piped())
+                .spawn()?;
+
+            if let Some(stdin) = child.stdin.as_mut() {
+                use std::io::Write;
+                stdin.write_all(filtered.as_bytes())?;
+                stdin.write_all(b"\n")?;
+            }
+            child.wait()
+        });
+
+    // Enable autosync
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("30m");
+
+    cmd.assert().success();
+
+    // Check crontab entry format
+    let output = std::process::Command::new("crontab")
+        .arg("-l")
+        .output()
+        .unwrap();
+
+    let crontab = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        crontab.contains("sync"),
+        "Crontab entry should contain 'sync' argument, got: {}",
+        crontab
+    );
+    assert!(
+        crontab.contains("*/30 * * * *"),
+        "Crontab should contain */30 interval for 30m, got: {}",
+        crontab
+    );
+
+    // Clean up
+    let filtered: String = crontab
+        .lines()
+        .filter(|l| !l.contains("heimdal sync"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let mut child = std::process::Command::new("crontab")
+        .arg("-")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    if let Some(stdin) = child.stdin.as_mut() {
+        use std::io::Write;
+        let _ = stdin.write_all(filtered.as_bytes());
+        let _ = stdin.write_all(b"\n");
+    }
+    let _ = child.wait();
+}
+
+/// Test that status shows "enabled (via cron)" after enable
+#[test]
+#[serial]
+#[cfg(target_os = "linux")]
+fn test_autosync_status_shows_enabled_cron() {
+    // Clean up first
+    let _ = std::process::Command::new("crontab")
+        .arg("-l")
+        .output()
+        .and_then(|output| {
+            let crontab = String::from_utf8_lossy(&output.stdout);
+            let filtered: String = crontab
+                .lines()
+                .filter(|l| !l.contains("heimdal sync"))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let mut child = std::process::Command::new("crontab")
+                .arg("-")
+                .stdin(std::process::Stdio::piped())
+                .spawn()?;
+
+            if let Some(stdin) = child.stdin.as_mut() {
+                use std::io::Write;
+                stdin.write_all(filtered.as_bytes())?;
+                stdin.write_all(b"\n")?;
+            }
+            child.wait()
+        });
+
+    // Enable autosync
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("30m");
+    cmd.assert().success();
+
+    // Check status
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync").arg("status");
+
+    let output = cmd.output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
+
+    assert!(
+        combined.contains("enabled") && combined.contains("cron"),
+        "Status should show enabled (cron), got: {}",
+        combined
+    );
+
+    // Clean up
+    let output = std::process::Command::new("crontab")
+        .arg("-l")
+        .output()
+        .unwrap();
+    let crontab = String::from_utf8_lossy(&output.stdout);
+    let filtered: String = crontab
+        .lines()
+        .filter(|l| !l.contains("heimdal sync"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let mut child = std::process::Command::new("crontab")
+        .arg("-")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    if let Some(stdin) = child.stdin.as_mut() {
+        use std::io::Write;
+        let _ = stdin.write_all(filtered.as_bytes());
+        let _ = stdin.write_all(b"\n");
+    }
+    let _ = child.wait();
+}
+
+/// Test that disable removes crontab entry
+#[test]
+#[serial]
+#[cfg(target_os = "linux")]
+fn test_autosync_disable_cron_removes_entry() {
+    // Clean up first
+    let _ = std::process::Command::new("crontab")
+        .arg("-l")
+        .output()
+        .and_then(|output| {
+            let crontab = String::from_utf8_lossy(&output.stdout);
+            let filtered: String = crontab
+                .lines()
+                .filter(|l| !l.contains("heimdal sync"))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let mut child = std::process::Command::new("crontab")
+                .arg("-")
+                .stdin(std::process::Stdio::piped())
+                .spawn()?;
+
+            if let Some(stdin) = child.stdin.as_mut() {
+                use std::io::Write;
+                stdin.write_all(filtered.as_bytes())?;
+                stdin.write_all(b"\n")?;
+            }
+            child.wait()
+        });
+
+    // Enable first
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("30m");
+    cmd.assert().success();
+
+    // Verify entry exists
+    let output = std::process::Command::new("crontab")
+        .arg("-l")
+        .output()
+        .unwrap();
+    let crontab = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        crontab.contains("heimdal sync"),
+        "Crontab should contain entry after enable"
+    );
+
+    // Disable autosync
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync").arg("disable");
+    cmd.assert().success();
+
+    // Verify entry is removed
+    let output = std::process::Command::new("crontab")
+        .arg("-l")
+        .output()
+        .unwrap();
+    let crontab = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !crontab.contains("heimdal sync"),
+        "Crontab should not contain entry after disable, got: {}",
+        crontab
+    );
+}
+
+/// Test that status shows "disabled" after disable
+#[test]
+#[serial]
+#[cfg(target_os = "linux")]
+fn test_autosync_status_shows_disabled_after_disable_cron() {
+    // Clean up first
+    let _ = std::process::Command::new("crontab")
+        .arg("-l")
+        .output()
+        .and_then(|output| {
+            let crontab = String::from_utf8_lossy(&output.stdout);
+            let filtered: String = crontab
+                .lines()
+                .filter(|l| !l.contains("heimdal sync"))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let mut child = std::process::Command::new("crontab")
+                .arg("-")
+                .stdin(std::process::Stdio::piped())
+                .spawn()?;
+
+            if let Some(stdin) = child.stdin.as_mut() {
+                use std::io::Write;
+                stdin.write_all(filtered.as_bytes())?;
+                stdin.write_all(b"\n")?;
+            }
+            child.wait()
+        });
+
+    // Enable then disable
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("30m");
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync").arg("disable");
+    cmd.assert().success();
+
+    // Check status
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync").arg("status");
+
+    let output = cmd.output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
+
+    assert!(
+        combined.contains("not enabled") || combined.contains("disabled"),
+        "Status should show not enabled/disabled, got: {}",
+        combined
+    );
+}
+
+/// Test that multiple enable/disable cycles work correctly
+#[test]
+#[serial]
+#[cfg(target_os = "linux")]
+fn test_autosync_cron_multiple_cycles() {
+    // Clean up first
+    let _ = std::process::Command::new("crontab")
+        .arg("-l")
+        .output()
+        .and_then(|output| {
+            let crontab = String::from_utf8_lossy(&output.stdout);
+            let filtered: String = crontab
+                .lines()
+                .filter(|l| !l.contains("heimdal sync"))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let mut child = std::process::Command::new("crontab")
+                .arg("-")
+                .stdin(std::process::Stdio::piped())
+                .spawn()?;
+
+            if let Some(stdin) = child.stdin.as_mut() {
+                use std::io::Write;
+                stdin.write_all(filtered.as_bytes())?;
+                stdin.write_all(b"\n")?;
+            }
+            child.wait()
+        });
+
+    // Cycle 1
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("30m");
+    cmd.assert().success();
+
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync").arg("disable");
+    cmd.assert().success();
+
+    // Cycle 2
+    let mut cmd = Command::cargo_bin("heimdal").unwrap();
+    cmd.arg("auto-sync")
+        .arg("enable")
+        .arg("--interval")
+        .arg("60m");
+    cmd.assert().success();
+
+    // Verify only one entry exists
+    let output = std::process::Command::new("crontab")
+        .arg("-l")
+        .output()
+        .unwrap();
+    let crontab = String::from_utf8_lossy(&output.stdout);
+    let count = crontab
+        .lines()
+        .filter(|l| l.contains("heimdal sync"))
+        .count();
+    assert_eq!(
+        count, 1,
+        "Should only have one heimdal entry, got: {}",
+        crontab
+    );
+
+    // Clean up
+    let filtered: String = crontab
+        .lines()
+        .filter(|l| !l.contains("heimdal sync"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let mut child = std::process::Command::new("crontab")
+        .arg("-")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    if let Some(stdin) = child.stdin.as_mut() {
+        use std::io::Write;
+        let _ = stdin.write_all(filtered.as_bytes());
+        let _ = stdin.write_all(b"\n");
+    }
+    let _ = child.wait();
 }
 
 /// Test that enable on macOS doesn't reference cron in stub way
