@@ -1,19 +1,20 @@
 # Multi-Platform Heimdal Configuration
-# Works across macOS, Linux (Debian/Ubuntu, Fedora, Arch)
+# Demonstrates platform-specific hooks and conditional dotfile deployment
 
 heimdal:
-  version: "1.0"
+  version: "1"
   repo: "git@github.com:yourusername/dotfiles.git"
-  stow_compat: true
 
+# Global ignore patterns
 ignore:
   - .git
   - heimdal.yaml
   - README.md
 
-sources:
-  # Core tools available everywhere
-  packages:
+# Global packages (Heimdal will use the appropriate package manager for each platform)
+packages:
+  # Common packages available on all platforms
+  common:
     - git
     - vim
     - tmux
@@ -21,74 +22,115 @@ sources:
     - wget
     - tree
 
-  # macOS-specific
+  # macOS-specific packages (via Homebrew)
   homebrew:
-    packages:
-      - neovim
-      - fzf
-    casks:
-      - iterm2
+    - neovim
+    - fzf
+    - ripgrep
+    - bat
+
+  # macOS GUI applications (via Homebrew casks)
+  homebrew_casks:
+    - iterm2
+    - visual-studio-code
+
+  # Debian/Ubuntu packages
+  apt:
+    - build-essential
+    - software-properties-common
+    - neovim
+
+  # Fedora/RHEL/CentOS packages
+  dnf:
+    - gcc
+    - make
+    - neovim
+
+  # Arch/Manjaro packages
+  pacman:
+    - base-devel
+    - neovim
+
+  # Alpine packages
+  apk:
+    - build-base
+    - neovim
+
+profiles:
+  # Universal profile with platform-specific features
+  universal:
+    dotfiles:
+      # Common dotfiles (deployed on all platforms)
+      - .bashrc
+      - .vimrc
+      - .tmux.conf
+      - .gitconfig
+
+      # Platform-conditional dotfiles using 'when' conditions
+      # macOS-only dotfile
+      - source: config/iterm2
+        target: ~/.config/iterm2
+        when:
+          os: ["macos"]
+
+      # Linux-only dotfile
+      - source: config/i3
+        target: ~/.config/i3
+        when:
+          os: ["linux"]
+
+      # Hostname-specific dotfile
+      - source: config/work-proxy
+        target: ~/.ssh/config.d/proxy
+        when:
+          hostname: "work-laptop"
+
+    # Platform-specific lifecycle hooks
     hooks:
-      pre_install:
-        - command: "xcode-select --install"
+      pre_apply:
+        # macOS: Install Xcode Command Line Tools if needed
+        - command: "xcode-select --install 2>/dev/null || true"
           description: "Install Xcode Command Line Tools"
           os: ["macos"]
           fail_on_error: false
 
-  # Debian/Ubuntu
-  apt:
-    packages:
-      - build-essential
-      - software-properties-common
-    hooks:
-      pre_install:
+        # Linux (Debian/Ubuntu): Update package lists
         - command: "sudo apt-get update"
-          os: ["linux"]
-
-  # Fedora/RHEL/CentOS
-  dnf:
-    packages:
-      - gcc
-      - make
-    hooks:
-      pre_install:
-        - command: "sudo dnf check-update"
+          description: "Update APT package lists"
           os: ["linux"]
           fail_on_error: false
 
-  # Arch/Manjaro
-  pacman:
-    packages:
-      - base-devel
-    hooks:
-      pre_install:
-        - command: "sudo pacman -Sy"
-          os: ["linux"]
-
-profiles:
-  # Universal profile (works on any platform)
-  universal:
-    sources:
-      - packages
-      - homebrew
-      - apt
-      - dnf
-      - pacman
-    dotfiles:
-      use_stowrc: true
-    hooks:
       post_apply:
-        # macOS-specific post-install
+        # macOS: Configure dock settings
         - command: "defaults write com.apple.dock autohide -bool true && killall Dock"
           description: "Auto-hide macOS dock"
           os: ["macos"]
           fail_on_error: false
-        # Linux-specific post-install
+
+        # Linux: Enable SSH service
         - command: "sudo systemctl enable ssh"
           description: "Enable SSH service"
           os: ["linux"]
           fail_on_error: false
 
-sync:
-  enabled: true
-  interval: "1h"
+        # Common: Print completion message
+        - command: "echo 'Platform-specific setup complete for: $(uname -s)'"
+          description: "Show completion message"
+
+  # Minimal server profile (no GUI, fewer packages)
+  server:
+    dotfiles:
+      - .bashrc
+      - .vimrc
+      - .ssh/config
+    packages:
+      common:
+        - git
+        - vim
+        - tmux
+      apt:
+        - openssh-server
+      dnf:
+        - openssh-server
+      pacman:
+        - openssh

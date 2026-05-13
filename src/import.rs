@@ -38,8 +38,6 @@ impl SourceTool {
 }
 
 pub struct ImportResult {
-    #[allow(dead_code)]
-    pub tool: SourceTool,
     /// (source_relative_path, target_absolute_path)
     pub dotfiles: Vec<(String, String)>,
     pub warnings: Vec<String>,
@@ -108,11 +106,7 @@ fn import_stow(path: &Path) -> Result<ImportResult> {
     }
 
     dotfiles.sort_by(|a, b| a.0.cmp(&b.0));
-    Ok(ImportResult {
-        tool: SourceTool::Stow,
-        dotfiles,
-        warnings,
-    })
+    Ok(ImportResult { dotfiles, warnings })
 }
 
 /// Dotbot: parse install.conf.yaml link section
@@ -158,11 +152,7 @@ fn import_dotbot(path: &Path) -> Result<ImportResult> {
     }
 
     dotfiles.sort_by(|a, b| a.0.cmp(&b.0));
-    Ok(ImportResult {
-        tool: SourceTool::Dotbot,
-        dotfiles,
-        warnings,
-    })
+    Ok(ImportResult { dotfiles, warnings })
 }
 
 /// Chezmoi: list files in source dir, strip chezmoi prefixes
@@ -200,11 +190,7 @@ fn import_chezmoi(path: &Path) -> Result<ImportResult> {
     }
 
     dotfiles.sort_by(|a, b| a.0.cmp(&b.0));
-    Ok(ImportResult {
-        tool: SourceTool::Chezmoi,
-        dotfiles,
-        warnings,
-    })
+    Ok(ImportResult { dotfiles, warnings })
 }
 
 /// Yadm: files in repo root map directly to ~ (yadm uses bare git clone)
@@ -223,11 +209,7 @@ fn import_yadm(path: &Path) -> Result<ImportResult> {
     }
 
     dotfiles.sort_by(|a, b| a.0.cmp(&b.0));
-    Ok(ImportResult {
-        tool: SourceTool::Yadm,
-        dotfiles,
-        warnings,
-    })
+    Ok(ImportResult { dotfiles, warnings })
 }
 
 /// Homesick: files live in home/ subdirectory of the castle
@@ -254,11 +236,7 @@ fn import_homesick(path: &Path) -> Result<ImportResult> {
     }
 
     dotfiles.sort_by(|a, b| a.0.cmp(&b.0));
-    Ok(ImportResult {
-        tool: SourceTool::Homesick,
-        dotfiles,
-        warnings,
-    })
+    Ok(ImportResult { dotfiles, warnings })
 }
 
 /// Generate a heimdal.yaml string from the import result.

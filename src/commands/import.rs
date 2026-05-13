@@ -87,9 +87,7 @@ pub fn run(args: ImportArgs) -> Result<()> {
         anyhow::bail!("Output file already exists: {}", output_path.display());
     }
 
-    if let Some(parent) = output_path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    crate::utils::ensure_parent_exists(&output_path)?;
     std::fs::write(&output_path, &yaml)?;
     success(&format!(
         "Generated heimdal.yaml at {}",

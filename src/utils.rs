@@ -1,8 +1,35 @@
-#![allow(dead_code)]
-
 use colored::Colorize;
 use std::borrow::Cow;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+/// Atomically write content to a file using temp file + rename pattern.
+/// Prevents partial writes and corruption.
+pub fn atomic_write(path: &Path, content: &[u8]) -> anyhow::Result<()> {
+    let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
+    std::fs::write(&tmp, content)?;
+    let result = std::fs::rename(&tmp, path);
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp); // Clean up on failure
+    }
+    result?;
+    Ok(())
+}
+
+/// Ensure parent directory exists before writing a file.
+pub fn ensure_parent_exists(path: &Path) -> anyhow::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    Ok(())
+}
+
+/// Get the system hostname as a String.
+pub fn hostname() -> String {
+    hostname::get()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string()
+}
 
 // Terminal output
 pub fn success(msg: &str) {
@@ -19,6 +46,7 @@ pub fn step(msg: &str) {
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(dead_code)]
 pub enum LinuxDistro {
     Debian,
     Ubuntu,
@@ -32,10 +60,24 @@ pub enum LinuxDistro {
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(dead_code)]
 pub enum Os {
     MacOS,
     Linux(LinuxDistro),
     Unknown,
+}
+
+#[allow(dead_code)]
+fn match_distro_id(id: &str) -> Option<LinuxDistro> {
+    match id {
+        "debian" => Some(LinuxDistro::Debian),
+        "ubuntu" => Some(LinuxDistro::Ubuntu),
+        "fedora" => Some(LinuxDistro::Fedora),
+        "rhel" | "centos" | "rocky" | "almalinux" => Some(LinuxDistro::Rhel),
+        "arch" | "manjaro" | "endeavouros" => Some(LinuxDistro::Arch),
+        "alpine" => Some(LinuxDistro::Alpine),
+        _ => None,
+    }
 }
 
 pub fn detect_os() -> Os {
@@ -50,20 +92,10 @@ pub fn detect_os() -> Os {
                 .find(|l| l.starts_with("ID="))
                 .map(|l| l.trim_start_matches("ID=").trim_matches('"').to_lowercase());
 
-            let distro = match id.as_deref() {
-                Some("debian") => Some(LinuxDistro::Debian),
-                Some("ubuntu") => Some(LinuxDistro::Ubuntu),
-                Some("fedora") => Some(LinuxDistro::Fedora),
-                Some("rhel") => Some(LinuxDistro::Rhel),
-                Some("centos") => Some(LinuxDistro::CentOs),
-                Some("arch") => Some(LinuxDistro::Arch),
-                Some("manjaro") => Some(LinuxDistro::Manjaro),
-                Some("alpine") => Some(LinuxDistro::Alpine),
-                _ => None,
-            };
-
-            if let Some(d) = distro {
-                return Os::Linux(d);
+            if let Some(id_str) = id.as_deref() {
+                if let Some(distro) = match_distro_id(id_str) {
+                    return Os::Linux(distro);
+                }
             }
 
             // Fallback: check ID_LIKE= for derived distros (e.g. Linux Mint, Pop!_OS)
@@ -78,16 +110,7 @@ pub fn detect_os() -> Os {
 
             if let Some(like_str) = id_like {
                 for part in like_str.split_whitespace() {
-                    let d = match part {
-                        "debian" => Some(LinuxDistro::Debian),
-                        "ubuntu" => Some(LinuxDistro::Ubuntu),
-                        "fedora" => Some(LinuxDistro::Fedora),
-                        "rhel" => Some(LinuxDistro::Rhel),
-                        "centos" => Some(LinuxDistro::CentOs),
-                        "arch" => Some(LinuxDistro::Arch),
-                        _ => None,
-                    };
-                    if let Some(d) = d {
+                    if let Some(d) = match_distro_id(part) {
                         return Os::Linux(d);
                     }
                 }
@@ -115,10 +138,6 @@ pub fn expand_path(p: &str) -> PathBuf {
 
 pub fn home_dir() -> anyhow::Result<PathBuf> {
     dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Cannot determine home directory"))
-}
-
-pub fn dotfiles_dir() -> anyhow::Result<PathBuf> {
-    Ok(home_dir()?.join(".dotfiles"))
 }
 
 pub fn state_path() -> anyhow::Result<PathBuf> {

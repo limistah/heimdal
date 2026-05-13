@@ -242,19 +242,4 @@ impl GitRepo {
         }
         Ok(())
     }
-
-    #[allow(dead_code)]
-    pub fn current_commit(&self) -> Result<String> {
-        let output = Command::new("git")
-            .args(["rev-parse", "--short", "HEAD"])
-            .current_dir(&self.path)
-            .output()
-            .map_err(|e| crate::error::HeimdallError::Git(format!("Cannot run git: {}", e)))?;
-        if !output.status.success() {
-            return Err(
-                crate::error::HeimdallError::Git("git rev-parse failed".to_string()).into(),
-            );
-        }
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    }
 }

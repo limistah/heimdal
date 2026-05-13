@@ -1,9 +1,18 @@
 use anyhow::Result;
 
-#[allow(dead_code)]
+/// Check if a command is available on the system.
+fn check_command_available(cmd: &str) -> bool {
+    std::process::Command::new(cmd)
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
 pub struct InstallResult {
     pub package: String,
     pub success: bool,
+    #[allow(dead_code)]
     pub already_installed: bool,
     pub message: Option<String>,
 }
@@ -12,8 +21,6 @@ pub trait PackageManager: Send + Sync {
     fn name(&self) -> &str;
     fn field_name(&self) -> &str; // matches PackageMap field: "homebrew", "apt", etc.
     fn is_available(&self) -> bool;
-    #[allow(dead_code)]
-    fn is_installed(&self, pkg: &str) -> bool;
     fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>>;
 }
 
@@ -34,14 +41,6 @@ impl PackageManager for Homebrew {
             .arg("--version")
             .output()
             .map(|o| o.status.success())
-            .unwrap_or(false)
-    }
-
-    fn is_installed(&self, pkg: &str) -> bool {
-        std::process::Command::new("brew")
-            .args(["list", "--versions", pkg])
-            .output()
-            .map(|o| o.status.success() && !o.stdout.is_empty())
             .unwrap_or(false)
     }
 
@@ -70,14 +69,6 @@ impl PackageManager for HomebrewCask {
             .unwrap_or(false)
     }
 
-    fn is_installed(&self, pkg: &str) -> bool {
-        std::process::Command::new("brew")
-            .args(["list", "--cask", "--versions", pkg])
-            .output()
-            .map(|o| o.status.success() && !o.stdout.is_empty())
-            .unwrap_or(false)
-    }
-
     fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
         install_with_cmd("brew", &["install", "--cask"], pkgs, dry_run)
     }
@@ -96,19 +87,7 @@ impl PackageManager for Apt {
     }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("apt-get")
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
-    }
-
-    fn is_installed(&self, pkg: &str) -> bool {
-        std::process::Command::new("dpkg-query")
-            .args(["-W", "-f=${Status}", pkg])
-            .output()
-            .map(|o| String::from_utf8_lossy(&o.stdout).contains("install ok installed"))
-            .unwrap_or(false)
+        check_command_available("apt-get")
     }
 
     fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
@@ -129,19 +108,7 @@ impl PackageManager for Dnf {
     }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("dnf")
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
-    }
-
-    fn is_installed(&self, pkg: &str) -> bool {
-        std::process::Command::new("rpm")
-            .args(["-q", pkg])
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+        check_command_available("dnf")
     }
 
     fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
@@ -162,19 +129,7 @@ impl PackageManager for Pacman {
     }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("pacman")
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
-    }
-
-    fn is_installed(&self, pkg: &str) -> bool {
-        std::process::Command::new("pacman")
-            .args(["-Q", pkg])
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+        check_command_available("pacman")
     }
 
     fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
@@ -195,19 +150,7 @@ impl PackageManager for Apk {
     }
 
     fn is_available(&self) -> bool {
-        std::process::Command::new("apk")
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
-    }
-
-    fn is_installed(&self, pkg: &str) -> bool {
-        std::process::Command::new("apk")
-            .args(["info", "-e", pkg])
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+        check_command_available("apk")
     }
 
     fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {

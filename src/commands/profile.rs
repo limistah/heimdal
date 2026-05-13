@@ -1,5 +1,5 @@
 use crate::cli::ProfileCmd;
-use crate::config::{load_config, resolve_profile, DotfileEntry, HeimdalConfig, Profile};
+use crate::config::{load_config, resolve_profile, write_config, Profile};
 use crate::error::HeimdallError;
 use crate::state::State;
 use crate::utils::{info, success};
@@ -98,10 +98,7 @@ fn show(name: Option<&str>, resolved: bool) -> Result<()> {
     if !profile.dotfiles.is_empty() {
         println!("\nDotfiles:");
         for entry in &profile.dotfiles {
-            match entry {
-                DotfileEntry::Simple(s) => println!("  - {}", s),
-                DotfileEntry::Mapped(m) => println!("  - {} → {}", m.source, m.target),
-            }
+            println!("  - {} → {}", entry.source(), entry.target());
         }
     } else {
         println!("\nDotfiles: (stow walk — all top-level files)");
@@ -192,22 +189,10 @@ fn diff_profiles(profile1: Option<&str>, profile2: &str) -> Result<()> {
 
     println!("Diff: {} vs {}", name1, profile2);
     println!("\nDotfiles in {} but not {}:", name1, profile2);
-    let p1_sources: std::collections::HashSet<String> = p1
-        .dotfiles
-        .iter()
-        .map(|e| match e {
-            DotfileEntry::Simple(s) => s.clone(),
-            DotfileEntry::Mapped(m) => m.source.clone(),
-        })
-        .collect();
-    let p2_sources: std::collections::HashSet<String> = p2
-        .dotfiles
-        .iter()
-        .map(|e| match e {
-            DotfileEntry::Simple(s) => s.clone(),
-            DotfileEntry::Mapped(m) => m.source.clone(),
-        })
-        .collect();
+    let p1_sources: std::collections::HashSet<String> =
+        p1.dotfiles.iter().map(|e| e.source().to_string()).collect();
+    let p2_sources: std::collections::HashSet<String> =
+        p2.dotfiles.iter().map(|e| e.source().to_string()).collect();
 
     for s in p1_sources.difference(&p2_sources) {
         println!("  - {}", s);
@@ -217,14 +202,5 @@ fn diff_profiles(profile1: Option<&str>, profile2: &str) -> Result<()> {
         println!("  + {}", s);
     }
 
-    Ok(())
-}
-
-/// Serialize config back to YAML and write atomically.
-fn write_config(path: &std::path::Path, config: &HeimdalConfig) -> Result<()> {
-    let content = serde_yaml_ng::to_string(config)?;
-    let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
-    std::fs::write(&tmp, &content)?;
-    std::fs::rename(&tmp, path)?;
     Ok(())
 }
