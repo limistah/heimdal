@@ -198,7 +198,18 @@ fn status_launchd() -> Result<()> {
 
 #[cfg(target_os = "linux")]
 fn has_systemd() -> bool {
-    std::path::Path::new("/run/systemd/system").exists()
+    // Check if systemd directory exists
+    if !std::path::Path::new("/run/systemd/system").exists() {
+        return false;
+    }
+
+    // Check if systemctl --user is actually functional
+    // (it might not be in containerized CI environments even if systemd exists)
+    std::process::Command::new("systemctl")
+        .args(["--user", "list-timers"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 #[cfg(target_os = "linux")]
