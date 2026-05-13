@@ -193,7 +193,7 @@ fn status_launchd() -> Result<()> {
 }
 
 // ============================================================================
-// Linux systemd implementation (TODO - will implement in Task 17)
+// Linux systemd implementation
 // ============================================================================
 
 #[cfg(target_os = "linux")]
@@ -202,22 +202,95 @@ fn has_systemd() -> bool {
 }
 
 #[cfg(target_os = "linux")]
-fn enable_systemd(_interval_secs: u64) -> Result<()> {
-    info("Linux systemd AutoSync implementation coming soon");
-    info("For now, you can manually create a systemd user timer in ~/.config/systemd/user/");
+fn systemd_dir() -> PathBuf {
+    dirs::home_dir().unwrap().join(".config/systemd/user")
+}
+
+#[cfg(target_os = "linux")]
+fn enable_systemd(interval_secs: u64) -> Result<()> {
+    let dir = systemd_dir();
+    crate::utils::ensure_parent_exists(&dir.join("dummy"))?;
+
+    let heimdal_path = std::env::current_exe()?;
+
+    // Service file
+    let service = format!(
+        r#"[Unit]
+Description=Heimdal dotfile sync
+
+[Service]
+Type=oneshot
+ExecStart={} sync
+"#,
+        heimdal_path.display()
+    );
+
+    // Timer file
+    let timer = format!(
+        r#"[Unit]
+Description=Heimdal autosync timer
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec={}s
+Unit=heimdal-autosync.service
+
+[Install]
+WantedBy=timers.target
+"#,
+        interval_secs
+    );
+
+    std::fs::write(dir.join("heimdal-autosync.service"), service)?;
+    std::fs::write(dir.join("heimdal-autosync.timer"), timer)?;
+
+    std::process::Command::new("systemctl")
+        .args(["--user", "daemon-reload"])
+        .status()?;
+    std::process::Command::new("systemctl")
+        .args(["--user", "enable", "--now", "heimdal-autosync.timer"])
+        .status()?;
+
+    success(&format!(
+        "AutoSync enabled (every {} seconds)",
+        interval_secs
+    ));
     Ok(())
 }
 
 #[cfg(target_os = "linux")]
 fn disable_systemd() -> Result<()> {
-    info("Linux systemd AutoSync implementation coming soon");
+    std::process::Command::new("systemctl")
+        .args(["--user", "disable", "--now", "heimdal-autosync.timer"])
+        .status()?;
+
+    let dir = systemd_dir();
+    let _ = std::fs::remove_file(dir.join("heimdal-autosync.service"));
+    let _ = std::fs::remove_file(dir.join("heimdal-autosync.timer"));
+
+    std::process::Command::new("systemctl")
+        .args(["--user", "daemon-reload"])
+        .status()?;
+
+    success("AutoSync disabled.");
     Ok(())
 }
 
 #[cfg(target_os = "linux")]
 fn status_systemd() -> Result<()> {
-    info("Linux systemd AutoSync implementation coming soon");
-    info("Check with: systemctl --user list-timers");
+    let output = std::process::Command::new("systemctl")
+        .args(["--user", "is-active", "heimdal-autosync.timer"])
+        .output()?;
+
+    if output.status.success() {
+        success("AutoSync is enabled (systemd timer).");
+        // Show next run time
+        let _ = std::process::Command::new("systemctl")
+            .args(["--user", "list-timers", "heimdal-autosync.timer"])
+            .status();
+    } else {
+        info("AutoSync is not enabled.");
+    }
     Ok(())
 }
 
