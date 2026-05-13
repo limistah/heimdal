@@ -8,6 +8,7 @@ pub mod history;
 pub mod hooks;
 pub mod import;
 pub mod key;
+pub mod lock;
 pub mod packages;
 pub mod secrets;
 pub mod state;
