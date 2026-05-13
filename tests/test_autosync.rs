@@ -13,6 +13,24 @@ macro_rules! skip_if_systemd {
     };
 }
 
+/// Skip test if systemd is NOT available (systemd tests require functional systemd)
+#[cfg(target_os = "linux")]
+macro_rules! skip_if_no_systemd {
+    () => {
+        // Check if systemctl --user is functional
+        let has_systemd = std::process::Command::new("systemctl")
+            .args(["--user", "list-timers"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_systemd {
+            eprintln!("Skipping: systemd user session not available");
+            return;
+        }
+    };
+}
+
 /// Test that autosync shows basic help text
 #[test]
 fn test_autosync_help() {
@@ -826,6 +844,8 @@ fn test_autosync_status_shows_disabled_after_disable() {
 #[serial]
 #[cfg(target_os = "linux")]
 fn test_autosync_enable_creates_systemd_files() {
+    skip_if_no_systemd!();
+
     use std::path::PathBuf;
 
     // Clean up any existing systemd files and timer first
@@ -875,6 +895,8 @@ fn test_autosync_enable_creates_systemd_files() {
 #[serial]
 #[cfg(target_os = "linux")]
 fn test_autosync_service_file_contains_correct_exec() {
+    skip_if_no_systemd!();
+
     use std::path::PathBuf;
 
     // Clean up any existing systemd files and timer first
@@ -925,6 +947,8 @@ fn test_autosync_service_file_contains_correct_exec() {
 #[serial]
 #[cfg(target_os = "linux")]
 fn test_autosync_timer_file_contains_correct_interval() {
+    skip_if_no_systemd!();
+
     use std::path::PathBuf;
 
     // Clean up any existing systemd files and timer first
@@ -975,6 +999,8 @@ fn test_autosync_timer_file_contains_correct_interval() {
 #[serial]
 #[cfg(target_os = "linux")]
 fn test_autosync_status_shows_enabled_after_enable_systemd() {
+    skip_if_no_systemd!();
+
     use std::path::PathBuf;
 
     // Clean up any existing systemd files and timer first
@@ -1024,6 +1050,8 @@ fn test_autosync_status_shows_enabled_after_enable_systemd() {
 #[serial]
 #[cfg(target_os = "linux")]
 fn test_autosync_disable_removes_systemd_files() {
+    skip_if_no_systemd!();
+
     use std::path::PathBuf;
 
     // Clean up any existing systemd files and timer first
@@ -1073,6 +1101,8 @@ fn test_autosync_disable_removes_systemd_files() {
 #[serial]
 #[cfg(target_os = "linux")]
 fn test_autosync_status_shows_disabled_after_disable_systemd() {
+    skip_if_no_systemd!();
+
     use std::path::PathBuf;
 
     // Clean up any existing systemd files and timer first
