@@ -1,24 +1,22 @@
 # Full-Featured Heimdal Configuration
 
 heimdal:
-  version: "1.0"
+  version: "1"
   repo: "git@github.com:yourusername/dotfiles.git"  # Optional: can be specified or stored in state
-  stow_compat: true
 
-# Global ignore patterns
+# Global ignore patterns (applied to all profiles)
 ignore:
   - .git
   - .gitignore
   - heimdal.yaml
-  - .stowrc
   - "*.md"
   - LICENSE
   - .DS_Store
 
-# Package sources
-sources:
-  # Simple packages (auto-mapped across platforms)
-  packages:
+# Global package definitions (available to all profiles)
+packages:
+  # Common packages (manually installed via package managers)
+  common:
     - git
     - vim
     - tmux
@@ -31,145 +29,146 @@ sources:
     - fd
     - zoxide
 
-  # Homebrew (macOS)
+  # Homebrew packages (macOS)
   homebrew:
-    packages:
-      - neovim
-      - gh
-      - node
-      - python
-    casks:
-      - iterm2
-      - visual-studio-code
-      - docker
-      - slack
-      - firefox
-    hooks:
-      pre_install:
-        - command: "brew update"
-          description: "Update Homebrew"
-      post_install:
-        - command: "brew cleanup"
-          description: "Clean up Homebrew cache"
+    - neovim
+    - gh
+    - node
+    - python
 
-  # Mac App Store
+  # Homebrew casks (macOS GUI apps)
+  homebrew_casks:
+    - iterm2
+    - visual-studio-code
+    - docker
+    - slack
+    - firefox
+
+  # Mac App Store (requires mas-cli)
+  # Format: { "id": <number>, "name": "<app-name>" }
   mas:
-    packages:
-      - id: 497799835
-        name: "Xcode"
-      - id: 1352778147
-        name: "Bitwarden"
-    hooks:
-      pre_install:
-        - command: "mas account"
-          description: "Check App Store login"
-          fail_on_error: false
+    - { "id": 497799835, "name": "Xcode" }
+    - { "id": 1352778147, "name": "Bitwarden" }
 
-  # APT (Debian/Ubuntu)
+  # APT packages (Debian/Ubuntu)
   apt:
-    packages:
-      - build-essential
-      - python3-pip
-      - python3-venv
-      - curl
-      - wget
-    hooks:
-      pre_install:
-        - command: "sudo apt-get update"
-          description: "Update package lists"
+    - build-essential
+    - python3-pip
+    - python3-venv
 
-  # DNF (Fedora/RHEL/CentOS)
+  # DNF packages (Fedora/RHEL/CentOS)
   dnf:
-    packages:
-      - gcc
-      - make
-      - python3-devel
-    hooks:
-      pre_install:
-        - command: "sudo dnf check-update"
-          description: "Update DNF"
-          fail_on_error: false
+    - gcc
+    - make
+    - python3-devel
 
-  # Pacman (Arch/Manjaro)
+  # Pacman packages (Arch/Manjaro)
   pacman:
-    packages:
-      - base-devel
-      - python-pip
-    hooks:
-      pre_install:
-        - command: "sudo pacman -Sy"
-          description: "Update Pacman"
+    - base-devel
+    - python-pip
+
+  # APK packages (Alpine)
+  apk:
+    - build-base
+    - python3
+
+# History tracking configuration (optional)
+history:
+  enabled: true
+  sync: true
+  max_age_days: 90
 
 # Machine profiles
 profiles:
   # Base profile for all machines
   base:
-    sources:
-      - packages
-      - homebrew
-      - mas
-      - apt
-      - dnf
-      - pacman
+    # Dotfile entries: simple strings or mappings with custom targets
     dotfiles:
-      use_stowrc: true
-      ignore:
-        - "*.swp"
-        - "*.swo"
-        - "*.tmp"
+      - .vimrc
+      - .tmux.conf
+      - .gitconfig
+      # Mapped entry with custom target
+      - source: config/nvim
+        target: ~/.config/nvim
+
+    # Profile-specific ignore patterns (in addition to global)
+    ignore:
+      - "*.swp"
+      - "*.swo"
+      - "*.tmp"
+
+    # Lifecycle hooks
     hooks:
       post_apply:
         - command: "echo 'Heimdal setup complete!'"
           description: "Success message"
+      pre_sync:
+        # Simple hook (just a command string)
+        - "git status"
 
-  # Work laptop (macOS)
+    # Template files with variable substitution
+    templates:
+      - src: templates/gitconfig.j2
+        dest: ~/.gitconfig.local
+        vars:
+          email: "user@example.com"
+          name: "Your Name"
+
+  # Work laptop (macOS) - extends base profile
   work-laptop:
     extends: base
-    sources:
-      - name: homebrew
-        packages:
-          - kubectl
-          - aws-cli
-          - terraform
-          - docker-compose
-        casks:
-          - postman
-          - zoom
+    # Additional packages for work
+    packages:
+      homebrew:
+        - kubectl
+        - aws-cli
+        - terraform
+        - docker-compose
+      homebrew_casks:
+        - postman
+        - zoom
+    # Additional dotfiles
+    dotfiles:
+      - .aws/config
+      - .kube/config
+    # Platform-specific hooks
+    hooks:
+      post_apply:
+        - command: "brew update && brew upgrade"
+          description: "Update Homebrew"
+          os: ["macos"]  # Only run on macOS
+          fail_on_error: false
 
   # Personal desktop (Linux)
   personal-desktop:
     extends: base
-    sources:
-      - name: apt
-        packages:
-          - steam
-          - gimp
-      - name: homebrew
-        casks:
-          - spotify
-          - discord
+    packages:
+      apt:
+        - steam
+        - gimp
+      homebrew_casks:
+        - spotify
+        - discord
+    hooks:
+      post_apply:
+        - command: "sudo apt-get update && sudo apt-get upgrade -y"
+          description: "Update APT packages"
+          os: ["linux"]
+          fail_on_error: false
 
-  # Server (minimal)
+  # Server (minimal, no GUI apps)
   server:
-    sources:
-      - packages
     dotfiles:
-      use_stowrc: true
-
-# Sync configuration
-sync:
-  enabled: true
-  interval: "1h"
-  auto_apply: true
-  notify:
-    desktop: true
-    log: true
-  rollback_on_error: true
-
-# Custom package mappings
-mappings:
-  docker:
-    apt: "docker.io"
-    brew: "docker"
-    dnf: "docker"
-    pacman: "docker"
+      - .bashrc
+      - .ssh/config
+    packages:
+      common:
+        - git
+        - vim
+        - tmux
+    hooks:
+      post_apply:
+        - command: "sudo systemctl enable ssh"
+          description: "Enable SSH service"
+          os: ["linux"]
+          fail_on_error: false

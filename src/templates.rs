@@ -40,13 +40,7 @@ pub fn render_string(content: &str, vars: &HashMap<String, String>) -> String {
 /// System variables: hostname, username, os, home
 pub fn system_vars() -> HashMap<String, String> {
     let mut vars = HashMap::new();
-    vars.insert(
-        "hostname".to_string(),
-        hostname::get()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string(),
-    );
+    vars.insert("hostname".to_string(), crate::utils::hostname());
     vars.insert("username".to_string(), whoami::username());
     vars.insert("os".to_string(), crate::utils::os_name().to_string());
     vars.insert(
@@ -138,9 +132,7 @@ pub fn render_file(
         return Ok(());
     }
 
-    if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    crate::utils::ensure_parent_exists(dest)?;
     std::fs::write(dest, rendered)?;
     Ok(())
 }

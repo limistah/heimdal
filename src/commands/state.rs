@@ -1,4 +1,5 @@
 use crate::cli::StateCmd;
+use crate::config::CommandContext;
 use crate::state::State;
 use crate::utils::info;
 use anyhow::Result;
@@ -6,7 +7,7 @@ use anyhow::Result;
 pub fn run(action: StateCmd) -> Result<()> {
     match action {
         StateCmd::LockInfo => lock_info(),
-        StateCmd::Unlock { force: _ } => unlock(),
+        StateCmd::Unlock { force } => unlock(force),
         StateCmd::CheckDrift => check_drift(),
         StateCmd::CheckConflicts => check_conflicts(),
         StateCmd::History { limit } => history(limit),
@@ -14,28 +15,47 @@ pub fn run(action: StateCmd) -> Result<()> {
 }
 
 fn lock_info() -> Result<()> {
-    info("No lock mechanism — Heimdal v3 uses atomic writes instead of file locks.");
+    match crate::lock::HeimdallLock::info()? {
+        Some(info) => {
+            let running = crate::lock::HeimdallLock::is_process_running(info.pid);
+            crate::utils::info(&format!(
+                "Lock held by PID {} on {}",
+                info.pid, info.hostname
+            ));
+            crate::utils::info(&format!(
+                "Started: {}",
+                info.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
+            ));
+            crate::utils::info(&format!(
+                "Status: {}",
+                if running { "active" } else { "stale" }
+            ));
+        }
+        None => {
+            crate::utils::info("No active lock.");
+        }
+    }
     Ok(())
 }
 
-fn unlock() -> Result<()> {
-    info("No lock to remove — Heimdal v3 uses atomic writes instead of file locks.");
+fn unlock(force: bool) -> Result<()> {
+    if !force {
+        crate::utils::info("Use --force to remove a lock file.");
+        return Ok(());
+    }
+    crate::lock::HeimdallLock::force_unlock()?;
+    crate::utils::success("Lock removed.");
     Ok(())
 }
 
 fn check_drift() -> Result<()> {
-    let state = State::load()?;
-    let config_path = state.dotfiles_path.join("heimdal.yaml");
-    let config = crate::config::load_config(&config_path)?;
-    let profile = crate::config::resolve_profile(&config, &state.active_profile)?;
+    let ctx = CommandContext::load()?;
 
     let mut drift_count = 0;
-    for entry in &profile.dotfiles {
-        let (src_rel, target_str) = match entry {
-            crate::config::DotfileEntry::Simple(s) => (s.as_str(), format!("~/{}", s)),
-            crate::config::DotfileEntry::Mapped(m) => (m.source.as_str(), m.target.clone()),
-        };
-        let src = state.dotfiles_path.join(src_rel);
+    for entry in &ctx.profile.dotfiles {
+        let src_rel = entry.source();
+        let target_str = entry.target();
+        let src = ctx.state.dotfiles_path.join(src_rel);
         let dest = crate::utils::expand_path(&target_str);
 
         if !dest.is_symlink() {
@@ -69,17 +89,11 @@ fn check_drift() -> Result<()> {
 }
 
 fn check_conflicts() -> Result<()> {
-    let state = State::load()?;
-    let config_path = state.dotfiles_path.join("heimdal.yaml");
-    let config = crate::config::load_config(&config_path)?;
-    let profile = crate::config::resolve_profile(&config, &state.active_profile)?;
+    let ctx = CommandContext::load()?;
 
     let mut conflict_count = 0;
-    for entry in &profile.dotfiles {
-        let target_str = match entry {
-            crate::config::DotfileEntry::Simple(s) => format!("~/{}", s),
-            crate::config::DotfileEntry::Mapped(m) => m.target.clone(),
-        };
+    for entry in &ctx.profile.dotfiles {
+        let target_str = entry.target();
         let dest = crate::utils::expand_path(&target_str);
         if dest.exists() && !dest.is_symlink() {
             crate::utils::warning(&format!(

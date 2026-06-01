@@ -58,6 +58,24 @@ pub enum DotfileEntry {
     Mapped(DotfileMapping),
 }
 
+impl DotfileEntry {
+    /// Get the source path (relative to dotfiles directory).
+    pub fn source(&self) -> &str {
+        match self {
+            DotfileEntry::Simple(s) => s,
+            DotfileEntry::Mapped(m) => &m.source,
+        }
+    }
+
+    /// Get the target path (with ~ prefix for home directory).
+    pub fn target(&self) -> String {
+        match self {
+            DotfileEntry::Simple(s) => format!("~/{}", s),
+            DotfileEntry::Mapped(m) => m.target.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DotfileMapping {
     pub source: String,
@@ -132,6 +150,42 @@ pub struct TemplateEntry {
     pub dest: String,
     #[serde(default)]
     pub vars: HashMap<String, String>,
+}
+
+/// Common context loaded by most commands.
+pub struct CommandContext {
+    pub state: crate::state::State,
+    pub config: HeimdalConfig,
+    pub profile: Profile,
+}
+
+impl CommandContext {
+    /// Load state, config, and resolved profile.
+    pub fn load() -> anyhow::Result<Self> {
+        let state = crate::state::State::load()?;
+        let config_path = state.dotfiles_path.join("heimdal.yaml");
+        let config = load_config(&config_path)?;
+        let profile = resolve_profile(&config, &state.active_profile)?;
+        Ok(Self {
+            state,
+            config,
+            profile,
+        })
+    }
+
+    /// Load with a specific profile override.
+    #[allow(dead_code)]
+    pub fn load_with_profile(profile_name: &str) -> anyhow::Result<Self> {
+        let state = crate::state::State::load()?;
+        let config_path = state.dotfiles_path.join("heimdal.yaml");
+        let config = load_config(&config_path)?;
+        let profile = resolve_profile(&config, profile_name)?;
+        Ok(Self {
+            state,
+            config,
+            profile,
+        })
+    }
 }
 
 pub fn load_config(path: &Path) -> anyhow::Result<HeimdalConfig> {
@@ -209,48 +263,24 @@ fn merge_profiles(base: Profile, child: Profile) -> Profile {
     }
 }
 
+macro_rules! merge_vec {
+    ($base:expr, $child:expr) => {{
+        let mut v = $base;
+        v.extend($child);
+        v
+    }};
+}
+
 fn merge_packages(base: PackageMap, child: PackageMap) -> PackageMap {
     PackageMap {
-        common: {
-            let mut v = base.common;
-            v.extend(child.common);
-            v
-        },
-        homebrew: {
-            let mut v = base.homebrew;
-            v.extend(child.homebrew);
-            v
-        },
-        homebrew_casks: {
-            let mut v = base.homebrew_casks;
-            v.extend(child.homebrew_casks);
-            v
-        },
-        apt: {
-            let mut v = base.apt;
-            v.extend(child.apt);
-            v
-        },
-        dnf: {
-            let mut v = base.dnf;
-            v.extend(child.dnf);
-            v
-        },
-        pacman: {
-            let mut v = base.pacman;
-            v.extend(child.pacman);
-            v
-        },
-        apk: {
-            let mut v = base.apk;
-            v.extend(child.apk);
-            v
-        },
-        mas: {
-            let mut v = base.mas;
-            v.extend(child.mas);
-            v
-        },
+        common: merge_vec!(base.common, child.common),
+        homebrew: merge_vec!(base.homebrew, child.homebrew),
+        homebrew_casks: merge_vec!(base.homebrew_casks, child.homebrew_casks),
+        apt: merge_vec!(base.apt, child.apt),
+        dnf: merge_vec!(base.dnf, child.dnf),
+        pacman: merge_vec!(base.pacman, child.pacman),
+        apk: merge_vec!(base.apk, child.apk),
+        mas: merge_vec!(base.mas, child.mas),
     }
 }
 
@@ -314,10 +344,7 @@ pub fn validate_config(config: &HeimdalConfig) -> Vec<String> {
     // Check dotfile source paths are relative and don't traverse outside dotfiles dir
     for (prof_name, profile) in &config.profiles {
         for entry in &profile.dotfiles {
-            let src = match entry {
-                DotfileEntry::Simple(s) => s.as_str(),
-                DotfileEntry::Mapped(m) => m.source.as_str(),
-            };
+            let src = entry.source();
             if std::path::Path::new(src).is_absolute() {
                 errors.push(format!(
                     "Profile '{}': dotfile source '{}' must be a relative path",
@@ -341,7 +368,6 @@ pub fn validate_config(config: &HeimdalConfig) -> Vec<String> {
 }
 
 /// Write a minimal valid heimdal.yaml to `path` for the given profile name.
-#[allow(dead_code)]
 pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyhow::Result<()> {
     let mut profiles = HashMap::new();
     profiles.insert(
@@ -368,10 +394,14 @@ pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyh
         history: None,
     };
 
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    crate::utils::ensure_parent_exists(path)?;
     let content = serde_yaml_ng::to_string(&config)?;
     std::fs::write(path, content)?;
     Ok(())
+}
+
+/// Write HeimdalConfig to a YAML file atomically.
+pub fn write_config(path: &Path, config: &HeimdalConfig) -> anyhow::Result<()> {
+    let content = serde_yaml_ng::to_string(config)?;
+    crate::utils::atomic_write(path, content.as_bytes())
 }
