@@ -5,7 +5,10 @@ use crate::config::{load_config, resolve_profile};
 use crate::hooks::run_hooks;
 use crate::packages::install_for_profile;
 use crate::state::State;
-use crate::symlink::{apply_mappings, apply_stow_walk, print_results, ApplyContext, LinkResult};
+use crate::symlink::{
+    apply_mappings, apply_stow_walk, compile_ignore_patterns, print_results, ApplyContext,
+    LinkResult,
+};
 use crate::utils::{home_dir, info, success};
 
 pub fn run(args: ApplyArgs) -> Result<()> {
@@ -18,12 +21,15 @@ pub fn run(args: ApplyArgs) -> Result<()> {
         info("Dry-run mode — no changes will be made");
     }
 
+    let ignore_patterns = compile_ignore_patterns(&profile.ignore);
+
     let ctx = ApplyContext {
         dotfiles_dir: state.dotfiles_path.clone(),
         home_dir: home_dir()?,
         dry_run: args.dry_run,
         force: args.force,
         backup: args.backup,
+        ignore_patterns,
     };
 
     if !args.packages_only {
