@@ -1,7 +1,6 @@
 use anyhow::Result;
 use chrono::Utc;
 use std::path::{Path, PathBuf};
-use walkdir::WalkDir;
 
 use crate::config::{DotfileCondition, DotfileEntry};
 use crate::utils::{expand_path, info, step, warning};
@@ -12,6 +11,7 @@ pub struct ApplyContext {
     pub dry_run: bool,
     pub force: bool,
     pub backup: bool,
+    pub ignore_patterns: Vec<glob::Pattern>,
 }
 
 #[derive(Debug)]
@@ -50,6 +50,31 @@ static STOW_SKIP: &[&str] = &[
     "Makefile",
 ];
 
+/// Compile a list of ignore patterns, warning on invalid patterns
+pub fn compile_ignore_patterns(patterns: &[String]) -> Vec<glob::Pattern> {
+    patterns
+        .iter()
+        .filter_map(|p| match glob::Pattern::new(p) {
+            Ok(pattern) => Some(pattern),
+            Err(e) => {
+                warning(&format!("Invalid ignore pattern '{}': {} — skipping", p, e));
+                None
+            }
+        })
+        .collect()
+}
+
+/// Check if a relative path matches any ignore pattern (case-insensitive)
+fn matches_ignore(rel: &Path, patterns: &[glob::Pattern]) -> bool {
+    let path_str = rel.to_string_lossy().replace('\\', "/");
+    let options = glob::MatchOptions {
+        case_sensitive: false,
+        require_literal_separator: false,
+        require_literal_leading_dot: false,
+    };
+    patterns.iter().any(|p| p.matches_with(&path_str, options))
+}
+
 pub fn apply_mappings(
     ctx: &ApplyContext,
     entries: &[DotfileEntry],
@@ -67,6 +92,16 @@ pub fn apply_mappings(
             DotfileEntry::Simple(s) => (s.as_str(), format!("~/{}", s), None),
             DotfileEntry::Mapped(m) => (m.source.as_str(), m.target.clone(), m.when.clone()),
         };
+
+        // Check ignore patterns first
+        let src_rel_path = Path::new(src_rel);
+        if matches_ignore(src_rel_path, &ctx.ignore_patterns) {
+            results.push(LinkResult::Skipped {
+                dest: expand_path(&dest_str),
+                reason: "matches ignore pattern".to_string(),
+            });
+            continue;
+        }
 
         if !should_link(&condition, active_profile, os, &hostname) {
             results.push(LinkResult::Skipped {
@@ -102,33 +137,123 @@ pub fn apply_mappings(
     Ok(results)
 }
 
-/// GNU Stow-style walk: symlink top-level entries from dotfiles_dir into home_dir.
+/// GNU Stow-style walk with tree-folding: symlink entries from dotfiles_dir into home_dir.
 ///
-/// Only top-level entries are processed (depth 1). Each entry becomes a single
-/// symlink in home_dir at the same relative path. This means:
-///   - `.vimrc` in dotfiles → `~/.vimrc` symlink
-///   - `.config/` directory → `~/.config` symlink (the whole dir, not its contents)
+/// This implements tree-folding behavior similar to GNU Stow:
+///   - If `~/.config` doesn't exist, create `~/.config` → `dotfiles/.config` (whole-dir symlink)
+///   - If `~/.config` already exists as a real directory, recurse into it and symlink each
+///     subdirectory individually (e.g., `~/.config/nvim` → `dotfiles/.config/nvim`)
+///   - This preserves untracked entries in `~/.config` (e.g., Raycast, VSCode, etc.)
 ///
-/// If you need file-level control within subdirectories, use explicit `dotfiles:`
-/// mappings in heimdal.yaml instead.
+/// Ignore patterns from the config are respected at all depths. Hardcoded STOW_SKIP patterns
+/// (.git, heimdal.yaml, etc.) only apply at the top level (depth 0).
 pub fn apply_stow_walk(ctx: &ApplyContext) -> Result<Vec<LinkResult>> {
+    stow_walk_dir(&ctx.dotfiles_dir, &ctx.home_dir, 0, ctx)
+}
+
+/// Recursive helper for tree-folding stow walk
+fn stow_walk_dir(
+    src_dir: &Path,
+    dest_dir: &Path,
+    depth: usize,
+    ctx: &ApplyContext,
+) -> Result<Vec<LinkResult>> {
     let mut results = Vec::new();
-    for entry in WalkDir::new(&ctx.dotfiles_dir)
-        .min_depth(1)
-        .max_depth(1)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if STOW_SKIP.contains(&name.as_str()) {
+
+    let entries = match std::fs::read_dir(src_dir) {
+        Ok(e) => e,
+        Err(err) => {
+            warning(&format!(
+                "Cannot read directory {}: {} — skipping",
+                src_dir.display(),
+                err
+            ));
+            return Ok(results);
+        }
+    };
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(err) => {
+                warning(&format!(
+                    "Error reading entry in {}: {}",
+                    src_dir.display(),
+                    err
+                ));
+                continue;
+            }
+        };
+
+        let src = entry.path();
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+
+        // At depth 0, check hardcoded STOW_SKIP list (+ always skip .heimdal)
+        if depth == 0 {
+            if name_str == ".heimdal" || STOW_SKIP.contains(&name_str.as_ref()) {
+                continue;
+            }
+        }
+
+        // Compute relative path from dotfiles_dir for ignore matching
+        let rel = src
+            .strip_prefix(&ctx.dotfiles_dir)
+            .unwrap_or_else(|_| src.as_path());
+
+        // Check user ignore patterns
+        if matches_ignore(rel, &ctx.ignore_patterns) {
+            results.push(LinkResult::Skipped {
+                dest: dest_dir.join(&name),
+                reason: "matches ignore pattern".to_string(),
+            });
             continue;
         }
-        let rel = entry.path().strip_prefix(&ctx.dotfiles_dir).unwrap();
-        // home_dir is already a resolved absolute path from dirs::home_dir(),
-        // so no shellexpand needed here unlike apply_mappings which takes strings from config.
-        let dest = ctx.home_dir.join(rel);
-        results.push(link_one(entry.path(), &dest, ctx)?);
+
+        let dest = dest_dir.join(&name);
+
+        // Tree-folding decision logic:
+        // 1. Get metadata about src and dest
+        let src_is_dir = src.is_dir();
+        let dest_metadata = std::fs::symlink_metadata(&dest);
+
+        match dest_metadata {
+            Ok(meta) if meta.is_symlink() => {
+                // dest is a symlink
+                if let Ok(target) = std::fs::read_link(&dest) {
+                    if target == src {
+                        // Already correctly linked
+                        results.push(LinkResult::AlreadyLinked { dest: dest.clone() });
+                    } else {
+                        // Symlink points elsewhere — treat as conflict
+                        results.push(link_one(&src, &dest, ctx)?);
+                    }
+                } else {
+                    // Can't read symlink target — treat as conflict
+                    results.push(link_one(&src, &dest, ctx)?);
+                }
+            }
+            Ok(meta) if meta.is_dir() => {
+                // dest exists as a real directory
+                if src_is_dir {
+                    // Both src and dest are real directories → recurse (tree-fold)
+                    results.extend(stow_walk_dir(&src, &dest, depth + 1, ctx)?);
+                } else {
+                    // src is a file, dest is a dir → conflict
+                    results.push(link_one(&src, &dest, ctx)?);
+                }
+            }
+            Ok(_) => {
+                // dest exists as a regular file → conflict
+                results.push(link_one(&src, &dest, ctx)?);
+            }
+            Err(_) => {
+                // dest doesn't exist → create symlink (works for both files and dirs)
+                results.push(link_one(&src, &dest, ctx)?);
+            }
+        }
     }
+
     Ok(results)
 }
 
@@ -165,12 +290,30 @@ pub fn link_one(src: &Path, dest: &Path, ctx: &ApplyContext) -> Result<LinkResul
         } else if ctx.backup {
             let backup_dir = ctx.dotfiles_dir.join(".heimdal").join("backups");
             let ts = Utc::now().format("%Y%m%dT%H%M%SZ");
-            let base_name = dest
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("backup");
-            let backup_name = format!("{}.{}", base_name, ts);
-            let backup = backup_dir.join(&backup_name);
+
+            // Compute relative path from home_dir to preserve directory structure in backups
+            let rel_path = dest.strip_prefix(&ctx.home_dir).unwrap_or_else(|_| {
+                // Fallback: just use the file name if dest isn't under home_dir
+                Path::new(dest.file_name().unwrap_or_default())
+            });
+
+            // Mirror the relative path structure in backups, appending timestamp
+            let backup_file_name = format!(
+                "{}.{}",
+                rel_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("backup"),
+                ts
+            );
+
+            let backup = if let Some(parent) = rel_path.parent() {
+                // Nested path: preserve parent structure
+                backup_dir.join(parent).join(&backup_file_name)
+            } else {
+                // Top-level file
+                backup_dir.join(&backup_file_name)
+            };
 
             if ctx.dry_run {
                 // In dry-run, show what would happen but don't actually do it
@@ -305,6 +448,7 @@ mod tests {
             dry_run,
             force,
             backup,
+            ignore_patterns: vec![],
         }
     }
 
@@ -429,5 +573,325 @@ mod tests {
         let dest = tmp.path().join("linked");
         let r = link_one(&src, &dest, &ctx(&tmp, false, false, false)).unwrap();
         assert!(matches!(r, LinkResult::Skipped { .. }));
+    }
+
+    #[test]
+    fn compile_ignore_patterns_valid() {
+        let patterns = vec!["*.md".to_string(), ".DS_Store".to_string()];
+        let compiled = compile_ignore_patterns(&patterns);
+        assert_eq!(compiled.len(), 2);
+    }
+
+    #[test]
+    fn compile_ignore_patterns_invalid_warns() {
+        // Invalid glob pattern should be skipped with warning
+        let patterns = vec!["[invalid".to_string(), "*.md".to_string()];
+        let compiled = compile_ignore_patterns(&patterns);
+        assert_eq!(compiled.len(), 1); // Only *.md compiled successfully
+    }
+
+    #[test]
+    fn matches_ignore_case_insensitive() {
+        let patterns = compile_ignore_patterns(&vec!["*.md".to_string()]);
+        assert!(matches_ignore(Path::new("README.MD"), &patterns));
+        assert!(matches_ignore(Path::new("README.md"), &patterns));
+        assert!(matches_ignore(Path::new("notes.Md"), &patterns));
+        assert!(!matches_ignore(Path::new("README.txt"), &patterns));
+    }
+
+    #[test]
+    fn matches_ignore_exact_name() {
+        let patterns = compile_ignore_patterns(&vec![".DS_Store".to_string()]);
+        assert!(matches_ignore(Path::new(".DS_Store"), &patterns));
+        assert!(!matches_ignore(Path::new("other"), &patterns));
+    }
+
+    #[test]
+    fn stow_walk_recurses_into_existing_dest_dir() {
+        let tmp = TempDir::new().unwrap();
+
+        // Setup: dotfiles has .config/nvim/ and .config/fish/
+        let dotfiles = tmp.path().join("dotfiles");
+        let config_dir = dotfiles.join(".config");
+        std::fs::create_dir_all(config_dir.join("nvim")).unwrap();
+        std::fs::create_dir_all(config_dir.join("fish")).unwrap();
+        std::fs::write(config_dir.join("nvim").join("init.lua"), "-- nvim config").unwrap();
+        std::fs::write(config_dir.join("fish").join("config.fish"), "# fish config").unwrap();
+
+        // Setup: home already has .config/ as a real directory
+        let home = tmp.path().join("home");
+        std::fs::create_dir_all(home.join(".config")).unwrap();
+
+        let ctx = ApplyContext {
+            dotfiles_dir: dotfiles.clone(),
+            home_dir: home.clone(),
+            dry_run: false,
+            force: false,
+            backup: false,
+            ignore_patterns: vec![],
+        };
+
+        let results = apply_stow_walk(&ctx).unwrap();
+
+        // Verify: .config itself should NOT be a symlink (it's a real dir)
+        assert!(home.join(".config").is_dir());
+        assert!(!home.join(".config").is_symlink());
+
+        // Verify: .config/nvim and .config/fish should be symlinks
+        assert!(home.join(".config/nvim").is_symlink());
+        assert!(home.join(".config/fish").is_symlink());
+
+        // Verify: we got Created results for both
+        let created: Vec<_> = results
+            .iter()
+            .filter(|r| matches!(r, LinkResult::Created { .. }))
+            .collect();
+        assert_eq!(created.len(), 2);
+    }
+
+    #[test]
+    fn stow_walk_preserves_untracked_entries() {
+        let tmp = TempDir::new().unwrap();
+
+        // Setup: dotfiles has .config/nvim/
+        let dotfiles = tmp.path().join("dotfiles");
+        let config_dir = dotfiles.join(".config");
+        std::fs::create_dir_all(config_dir.join("nvim")).unwrap();
+        std::fs::write(config_dir.join("nvim").join("init.lua"), "-- nvim").unwrap();
+
+        // Setup: home has .config/ with raycast (not in dotfiles)
+        let home = tmp.path().join("home");
+        std::fs::create_dir_all(home.join(".config").join("raycast")).unwrap();
+        std::fs::write(home.join(".config/raycast/settings.json"), "{}").unwrap();
+
+        let ctx = ApplyContext {
+            dotfiles_dir: dotfiles.clone(),
+            home_dir: home.clone(),
+            dry_run: false,
+            force: false,
+            backup: false,
+            ignore_patterns: vec![],
+        };
+
+        apply_stow_walk(&ctx).unwrap();
+
+        // Verify: raycast dir still exists (untracked)
+        assert!(home.join(".config/raycast").is_dir());
+        assert!(home.join(".config/raycast/settings.json").exists());
+
+        // Verify: nvim is symlinked
+        assert!(home.join(".config/nvim").is_symlink());
+    }
+
+    #[test]
+    fn stow_walk_honors_ignore_patterns() {
+        let tmp = TempDir::new().unwrap();
+
+        // Setup: dotfiles has notes.md, .DS_Store, notes.txt
+        let dotfiles = tmp.path().join("dotfiles");
+        std::fs::create_dir_all(&dotfiles).unwrap();
+        std::fs::write(dotfiles.join("notes.md"), "notes").unwrap();
+        std::fs::write(dotfiles.join(".DS_Store"), "ds").unwrap();
+        std::fs::write(dotfiles.join("notes.txt"), "notes").unwrap();
+
+        let home = tmp.path().join("home");
+        std::fs::create_dir_all(&home).unwrap();
+
+        let ignore_patterns =
+            compile_ignore_patterns(&vec!["*.md".to_string(), ".DS_Store".to_string()]);
+
+        let ctx = ApplyContext {
+            dotfiles_dir: dotfiles.clone(),
+            home_dir: home.clone(),
+            dry_run: false,
+            force: false,
+            backup: false,
+            ignore_patterns,
+        };
+
+        let results = apply_stow_walk(&ctx).unwrap();
+
+        // Verify: notes.md and .DS_Store should be skipped
+        let skipped: Vec<_> = results
+            .iter()
+            .filter(
+                |r| matches!(r, LinkResult::Skipped { reason, .. } if reason.contains("ignore")),
+            )
+            .collect();
+        assert_eq!(skipped.len(), 2);
+
+        // Verify: notes.txt should be created
+        assert!(home.join("notes.txt").is_symlink());
+        assert!(!home.join("notes.md").exists());
+        assert!(!home.join(".DS_Store").exists());
+    }
+
+    #[test]
+    fn stow_walk_skips_heimdal_internal_files() {
+        let tmp = TempDir::new().unwrap();
+
+        // Setup: dotfiles has .git/, .heimdal/, heimdal.yaml, and .vimrc
+        let dotfiles = tmp.path().join("dotfiles");
+        std::fs::create_dir_all(dotfiles.join(".git")).unwrap();
+        std::fs::create_dir_all(dotfiles.join(".heimdal")).unwrap();
+        std::fs::write(dotfiles.join("heimdal.yaml"), "config").unwrap();
+        std::fs::write(dotfiles.join(".vimrc"), "vim").unwrap();
+
+        let home = tmp.path().join("home");
+        std::fs::create_dir_all(&home).unwrap();
+
+        let ctx = ApplyContext {
+            dotfiles_dir: dotfiles.clone(),
+            home_dir: home.clone(),
+            dry_run: false,
+            force: false,
+            backup: false,
+            ignore_patterns: vec![],
+        };
+
+        apply_stow_walk(&ctx).unwrap();
+
+        // Verify: internal files not linked
+        assert!(!home.join(".git").exists());
+        assert!(!home.join(".heimdal").exists());
+        assert!(!home.join("heimdal.yaml").exists());
+
+        // Verify: .vimrc IS linked
+        assert!(home.join(".vimrc").is_symlink());
+    }
+
+    #[test]
+    fn stow_walk_stow_skip_only_at_depth_zero() {
+        let tmp = TempDir::new().unwrap();
+
+        // Setup: dotfiles has .config/app/LICENSE (nested, should be linked)
+        let dotfiles = tmp.path().join("dotfiles");
+        std::fs::create_dir_all(dotfiles.join(".config/app")).unwrap();
+        std::fs::write(dotfiles.join(".config/app/LICENSE"), "MIT").unwrap();
+
+        let home = tmp.path().join("home");
+        std::fs::create_dir_all(home.join(".config")).unwrap();
+
+        let ctx = ApplyContext {
+            dotfiles_dir: dotfiles.clone(),
+            home_dir: home.clone(),
+            dry_run: false,
+            force: false,
+            backup: false,
+            ignore_patterns: vec![],
+        };
+
+        apply_stow_walk(&ctx).unwrap();
+
+        // Verify: nested LICENSE should be symlinked (STOW_SKIP only at depth 0)
+        assert!(home.join(".config/app").is_symlink());
+    }
+
+    #[test]
+    fn stow_walk_conflict_on_real_file_at_dest() {
+        let tmp = TempDir::new().unwrap();
+
+        // Setup: dotfiles has .vimrc
+        let dotfiles = tmp.path().join("dotfiles");
+        std::fs::create_dir_all(&dotfiles).unwrap();
+        std::fs::write(dotfiles.join(".vimrc"), "new").unwrap();
+
+        // Setup: home has existing .vimrc as a real file
+        let home = tmp.path().join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(home.join(".vimrc"), "existing").unwrap();
+
+        let ctx = ApplyContext {
+            dotfiles_dir: dotfiles.clone(),
+            home_dir: home.clone(),
+            dry_run: false,
+            force: false,
+            backup: false,
+            ignore_patterns: vec![],
+        };
+
+        let results = apply_stow_walk(&ctx).unwrap();
+
+        // Verify: should report conflict
+        let conflicts: Vec<_> = results
+            .iter()
+            .filter(|r| matches!(r, LinkResult::Conflict { .. }))
+            .collect();
+        assert_eq!(conflicts.len(), 1);
+    }
+
+    #[test]
+    fn stow_walk_backup_mirrors_rel_path() {
+        let tmp = TempDir::new().unwrap();
+
+        // Setup: dotfiles has .config/nvim/init.lua
+        let dotfiles = tmp.path().join("dotfiles");
+        std::fs::create_dir_all(dotfiles.join(".config/nvim")).unwrap();
+        std::fs::write(dotfiles.join(".config/nvim/init.lua"), "new").unwrap();
+
+        // Setup: home has existing .config/nvim/init.lua
+        let home = tmp.path().join("home");
+        std::fs::create_dir_all(home.join(".config/nvim")).unwrap();
+        std::fs::write(home.join(".config/nvim/init.lua"), "old").unwrap();
+
+        let ctx = ApplyContext {
+            dotfiles_dir: dotfiles.clone(),
+            home_dir: home.clone(),
+            dry_run: false,
+            force: false,
+            backup: true,
+            ignore_patterns: vec![],
+        };
+
+        let results = apply_stow_walk(&ctx).unwrap();
+
+        // Verify: backup should mirror the relative path structure
+        let backed: Vec<_> = results
+            .iter()
+            .filter_map(|r| match r {
+                LinkResult::Backed { backup, .. } => Some(backup),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(backed.len(), 1);
+        // Backup path should include .config/nvim/ structure
+        let backup_path_str = backed[0].to_string_lossy();
+        assert!(backup_path_str.contains(".config"));
+        assert!(backup_path_str.contains("nvim"));
+    }
+
+    #[test]
+    fn apply_mappings_honors_ignore() {
+        let tmp = TempDir::new().unwrap();
+
+        // Setup: dotfiles has README.md
+        let dotfiles = tmp.path().join("dotfiles");
+        std::fs::create_dir_all(&dotfiles).unwrap();
+        std::fs::write(dotfiles.join("README.md"), "readme").unwrap();
+
+        let home = tmp.path().join("home");
+        std::fs::create_dir_all(&home).unwrap();
+
+        let ignore_patterns = compile_ignore_patterns(&vec!["*.md".to_string()]);
+
+        let ctx = ApplyContext {
+            dotfiles_dir: dotfiles.clone(),
+            home_dir: home.clone(),
+            dry_run: false,
+            force: false,
+            backup: false,
+            ignore_patterns,
+        };
+
+        let entries = vec![DotfileEntry::Simple("README.md".to_string())];
+        let results = apply_mappings(&ctx, &entries, "default").unwrap();
+
+        // Verify: mapping should be skipped due to ignore pattern
+        assert_eq!(results.len(), 1);
+        assert!(matches!(
+            results[0],
+            LinkResult::Skipped { ref reason, .. } if reason.contains("ignore")
+        ));
     }
 }
