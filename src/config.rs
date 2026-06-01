@@ -150,6 +150,10 @@ pub fn resolve_profile(config: &HeimdalConfig, name: &str) -> anyhow::Result<Pro
     let mut profile = resolve_recursive(config, name, &mut Vec::new())?;
     // Prepend top-level packages so profile-specific ones take effect after
     profile.packages = merge_packages(config.packages.clone(), profile.packages);
+    // Prepend top-level ignore so profile-specific ones take effect after
+    let mut combined_ignore = config.ignore.clone();
+    combined_ignore.extend(profile.ignore);
+    profile.ignore = combined_ignore;
     Ok(profile)
 }
 
@@ -374,4 +378,76 @@ pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyh
     let content = serde_yaml_ng::to_string(&config)?;
     std::fs::write(path, content)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_profile_merges_top_level_ignore() {
+        let mut profiles = HashMap::new();
+        profiles.insert(
+            "test".to_string(),
+            Profile {
+                ignore: vec!["profile.txt".to_string()],
+                ..Default::default()
+            },
+        );
+
+        let config = HeimdalConfig {
+            heimdal: HeimdalMeta {
+                version: "1".to_string(),
+                repo: None,
+            },
+            profiles,
+            packages: PackageMap::default(),
+            ignore: vec![".git".to_string(), "*.md".to_string()],
+            history: None,
+        };
+
+        let resolved = resolve_profile(&config, "test").unwrap();
+
+        // Verify: top-level ignore prepended to profile ignore
+        assert_eq!(resolved.ignore.len(), 3);
+        assert_eq!(resolved.ignore[0], ".git");
+        assert_eq!(resolved.ignore[1], "*.md");
+        assert_eq!(resolved.ignore[2], "profile.txt");
+    }
+
+    #[test]
+    fn resolve_profile_merges_top_level_packages() {
+        let mut profiles = HashMap::new();
+        profiles.insert(
+            "test".to_string(),
+            Profile {
+                packages: PackageMap {
+                    common: vec!["profile-pkg".to_string()],
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        );
+
+        let config = HeimdalConfig {
+            heimdal: HeimdalMeta {
+                version: "1".to_string(),
+                repo: None,
+            },
+            profiles,
+            packages: PackageMap {
+                common: vec!["top-pkg".to_string()],
+                ..Default::default()
+            },
+            ignore: vec![],
+            history: None,
+        };
+
+        let resolved = resolve_profile(&config, "test").unwrap();
+
+        // Verify: top-level packages prepended to profile packages
+        assert_eq!(resolved.packages.common.len(), 2);
+        assert_eq!(resolved.packages.common[0], "top-pkg");
+        assert_eq!(resolved.packages.common[1], "profile-pkg");
+    }
 }

@@ -1,19 +1,36 @@
 # Minimal Heimdal Configuration
 
 heimdal:
-  version: "1.0"
-  repo: "git@github.com:yourusername/dotfiles.git"  # Optional: can be specified or stored in state
-  stow_compat: true
+  version: "1"
+  repo: "git@github.com:yourusername/dotfiles.git"
 
-sources:
-  packages:
+# Top-level packages are available to all profiles
+packages:
+  common:
     - git
     - vim
     - tmux
 
+# Top-level ignore patterns apply to all profiles
+ignore:
+  - .git
+  - .gitignore
+  - heimdal.yaml
+  - .stowrc
+  - "*.md"
+  - LICENSE
+  - .DS_Store
+
 profiles:
   default:
-    sources:
-      - packages
-    dotfiles:
-      use_stowrc: true
+    # Empty dotfiles list triggers GNU Stow-style walk with tree-folding:
+    # - If ~/.config doesn't exist, creates ~/.config -> dotfiles/.config symlink
+    # - If ~/.config exists, recurses and symlinks subdirectories individually
+    # - This preserves untracked entries in ~/.config (VSCode, Raycast, etc.)
+    dotfiles: []
+    
+    # Profile-specific packages (merged with top-level)
+    packages:
+      homebrew:
+        - neovim
+        - fzf
