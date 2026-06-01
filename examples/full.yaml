@@ -125,3 +125,12 @@ history:
   enabled: true
   sync: true
   max_age_days: 90
+
+# Global hooks (run for all profiles)
+hooks:
+  post_apply:
+    - command: "echo 'Setup complete!'"
+      description: "Success message"
+  pre_sync:
+    - command: "git status"
+      description: "Check repo status before sync"
