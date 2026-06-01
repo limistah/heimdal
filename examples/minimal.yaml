@@ -11,6 +11,16 @@ packages:
     - vim
     - tmux
 
+# Top-level ignore patterns apply to all profiles (case-insensitive)
+ignore:
+  - .git
+  - .gitignore
+  - heimdal.yaml
+  - .stowrc
+  - "*.md"
+  - LICENSE
+  - .DS_Store
+
 profiles:
   default:
     # Simple dotfile entries (source path relative to dotfiles dir)
@@ -19,3 +29,16 @@ profiles:
       - .vimrc
       - .tmux.conf
       - .gitconfig
+    
+    # Profile-specific packages (merged with top-level)
+    packages:
+      homebrew:
+        - neovim
+        - fzf
+
+  stow:
+    # Empty dotfiles list triggers GNU Stow-style walk with tree-folding:
+    # - If ~/.config doesn't exist, creates ~/.config -> dotfiles/.config symlink
+    # - If ~/.config exists, recurses and symlinks subdirectories individually
+    # - This preserves untracked entries in ~/.config (VSCode, Raycast, etc.)
+    dotfiles: []

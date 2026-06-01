@@ -4,7 +4,7 @@ heimdal:
   version: "1"
   repo: "git@github.com:yourusername/dotfiles.git"  # Optional: can be specified or stored in state
 
-# Global ignore patterns (applied to all profiles)
+# Global ignore patterns (applied to all profiles, case-insensitive)
 ignore:
   - .git
   - .gitignore
@@ -78,26 +78,24 @@ history:
   sync: true
   max_age_days: 90
 
+# Global hooks (run for all profiles)
+hooks:
+  post_apply:
+    - command: "echo 'Setup complete!'"
+      description: "Success message"
+  pre_sync:
+    - command: "git status"
+      description: "Check repo status before sync"
+
 # Machine profiles
 profiles:
-  # Base profile for all machines
+  # Base profile - uses stow-walk mode with tree-folding
   base:
-    # Dotfile entries: simple strings or mappings with custom targets
-    dotfiles:
-      - .vimrc
-      - .tmux.conf
-      - .gitconfig
-      # Mapped entry with custom target
-      - source: config/nvim
-        target: ~/.config/nvim
-
-    # Profile-specific ignore patterns (in addition to global)
-    ignore:
-      - "*.swp"
-      - "*.swo"
-      - "*.tmp"
-
-    # Lifecycle hooks
+    # Empty dotfiles list triggers GNU Stow-style walk with tree-folding:
+    # - If ~/.config doesn't exist, creates ~/.config -> dotfiles/.config symlink
+    # - If ~/.config exists, recurses and symlinks subdirectories individually
+    # - This preserves untracked entries in ~/.config (VSCode, Raycast, etc.)
+    dotfiles: []
     hooks:
       post_apply:
         - command: "echo 'Heimdal setup complete!'"
@@ -106,18 +104,37 @@ profiles:
         # Simple hook (just a command string)
         - "git status"
 
-    # Template files with variable substitution
-    templates:
-      - src: templates/gitconfig.j2
-        dest: ~/.gitconfig.local
-        vars:
-          email: "user@example.com"
-          name: "Your Name"
-
-  # Work laptop (macOS) - extends base profile
-  work-laptop:
+  # Work profile - explicit dotfile mappings with conditionals
+  work:
     extends: base
-    # Additional packages for work
+    dotfiles:
+      # Simple paths (source relative to dotfiles dir, target is ~/source)
+      - .vimrc
+      - .tmux.conf
+      - .zshrc
+      
+      # Explicit source/target mappings
+      - source: vim/vimrc
+        target: ~/.vimrc
+      - source: zsh/zshrc
+        target: ~/.zshrc
+      
+      # Conditional mappings (platform-specific)
+      - source: .config/alacritty
+        target: ~/.config/alacritty
+        when:
+          os: [macos, linux]
+      - source: .config/wezterm
+        target: ~/.config/wezterm
+        when:
+          profile: [work, personal]
+          hostname: "work-*"
+      
+      # Work-specific configs
+      - .aws/config
+      - .kube/config
+    
+    # Profile-specific packages (merged with global)
     packages:
       homebrew:
         - kubectl
@@ -127,17 +144,29 @@ profiles:
       homebrew_casks:
         - postman
         - zoom
-    # Additional dotfiles
-    dotfiles:
-      - .aws/config
-      - .kube/config
-    # Platform-specific hooks
+    
+    # Profile-specific ignore patterns (in addition to global)
+    ignore:
+      - "*.swp"
+      - "*.swo"
+      - "*.tmp"
+    
+    # Profile-specific hooks
     hooks:
       post_apply:
         - command: "brew update && brew upgrade"
           description: "Update Homebrew"
-          os: ["macos"]  # Only run on macOS
-          fail_on_error: false
+
+  # Personal profile with tree-folding and personal apps
+  personal:
+    # Tree-folding preserves untracked ~/.config entries
+    dotfiles: []
+    packages:
+      homebrew:
+        - spotify
+      homebrew_casks:
+        - discord
+        - steam
 
   # Personal desktop (Linux)
   personal-desktop:
@@ -153,22 +182,35 @@ profiles:
       post_apply:
         - command: "sudo apt-get update && sudo apt-get upgrade -y"
           description: "Update APT packages"
-          os: ["linux"]
-          fail_on_error: false
 
-  # Server (minimal, no GUI apps)
+  # Server profile - minimal (no GUI apps)
   server:
     dotfiles:
       - .bashrc
+      - .vimrc
+      - .tmux.conf
       - .ssh/config
     packages:
       common:
         - git
         - vim
         - tmux
+        - htop
+        - ncdu
     hooks:
       post_apply:
         - command: "sudo systemctl enable ssh"
           description: "Enable SSH service"
-          os: ["linux"]
-          fail_on_error: false
+
+# Templates with variable substitution (optional)
+templates:
+  - src: templates/gitconfig.j2
+    dest: ~/.gitconfig.local
+    vars:
+      email: "user@example.com"
+      name: "Your Name"
+  - src: gitconfig.template
+    dest: ~/.gitconfig
+    vars:
+      email: "you@example.com"
+      name: "Your Name"
