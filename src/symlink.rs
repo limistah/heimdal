@@ -323,11 +323,9 @@ pub fn link_one(src: &Path, dest: &Path, ctx: &ApplyContext) -> Result<LinkResul
                 });
             }
 
-            std::fs::create_dir_all(backup.parent().unwrap())?;
+            crate::utils::ensure_parent_exists(&backup)?;
             std::fs::rename(dest, &backup)?;
-            if let Some(parent) = dest.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
+            crate::utils::ensure_parent_exists(dest)?;
             create_symlink(src, dest)?;
             return Ok(LinkResult::Backed {
                 dest: dest.to_owned(),
@@ -343,9 +341,7 @@ pub fn link_one(src: &Path, dest: &Path, ctx: &ApplyContext) -> Result<LinkResul
     }
 
     if !ctx.dry_run {
-        if let Some(parent) = dest.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        crate::utils::ensure_parent_exists(dest)?;
         create_symlink(src, dest)?;
     }
 

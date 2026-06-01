@@ -2,10 +2,20 @@
 
 heimdal:
   version: "1"
-  repo: "git@github.com:yourusername/dotfiles.git"
+  repo: "git@github.com:yourusername/dotfiles.git"  # Optional: can be specified or stored in state
 
-# Top-level packages available to all profiles
+# Global ignore patterns (applied to all profiles, case-insensitive)
+ignore:
+  - .git
+  - .gitignore
+  - heimdal.yaml
+  - "*.md"
+  - LICENSE
+  - .DS_Store
+
+# Global package definitions (available to all profiles)
 packages:
+  # Common packages (manually installed via package managers)
   common:
     - git
     - vim
@@ -15,43 +25,86 @@ packages:
     - tree
     - fzf
     - ripgrep
+    - bat
+    - fd
+    - zoxide
+
+  # Homebrew packages (macOS)
   homebrew:
     - neovim
     - gh
     - node
+    - python
+
+  # Homebrew casks (macOS GUI apps)
   homebrew_casks:
     - iterm2
     - visual-studio-code
+    - docker
+    - slack
+    - firefox
+
+  # Mac App Store (requires mas-cli)
+  # Format: { "id": <number>, "name": "<app-name>" }
+  mas:
+    - { "id": 497799835, "name": "Xcode" }
+    - { "id": 1352778147, "name": "Bitwarden" }
+
+  # APT packages (Debian/Ubuntu)
   apt:
     - build-essential
     - python3-pip
+    - python3-venv
+
+  # DNF packages (Fedora/RHEL/CentOS)
   dnf:
     - gcc
     - make
+    - python3-devel
+
+  # Pacman packages (Arch/Manjaro)
   pacman:
     - base-devel
+    - python-pip
 
-# Top-level ignore patterns (merged with profile-specific ignores)
-ignore:
-  - .git
-  - .gitignore
-  - heimdal.yaml
-  - .stowrc
-  - "*.md"
-  - LICENSE
-  - .DS_Store
+  # APK packages (Alpine)
+  apk:
+    - build-base
+    - python3
 
-# Profiles
+# History tracking configuration (optional)
+history:
+  enabled: true
+  sync: true
+  max_age_days: 90
+
+# Global hooks (run for all profiles)
+hooks:
+  post_apply:
+    - command: "echo 'Setup complete!'"
+      description: "Success message"
+  pre_sync:
+    - command: "git status"
+      description: "Check repo status before sync"
+
+# Machine profiles
 profiles:
   # Base profile - uses stow-walk mode with tree-folding
   base:
-    dotfiles: []  # Empty list = GNU Stow-style walk with tree-folding
+    # Empty dotfiles list triggers GNU Stow-style walk with tree-folding:
+    # - If ~/.config doesn't exist, creates ~/.config -> dotfiles/.config symlink
+    # - If ~/.config exists, recurses and symlinks subdirectories individually
+    # - This preserves untracked entries in ~/.config (VSCode, Raycast, etc.)
+    dotfiles: []
     hooks:
       post_apply:
         - command: "echo 'Heimdal setup complete!'"
           description: "Success message"
+      pre_sync:
+        # Simple hook (just a command string)
+        - "git status"
 
-  # Work profile - explicit dotfile mappings
+  # Work profile - explicit dotfile mappings with conditionals
   work:
     extends: base
     dotfiles:
@@ -66,7 +119,7 @@ profiles:
       - source: zsh/zshrc
         target: ~/.zshrc
       
-      # Conditional mappings
+      # Conditional mappings (platform-specific)
       - source: .config/alacritty
         target: ~/.config/alacritty
         when:
@@ -76,24 +129,38 @@ profiles:
         when:
           profile: [work, personal]
           hostname: "work-*"
+      
+      # Work-specific configs
+      - .aws/config
+      - .kube/config
     
+    # Profile-specific packages (merged with global)
     packages:
       homebrew:
         - kubectl
         - aws-cli
         - terraform
+        - docker-compose
       homebrew_casks:
         - postman
         - zoom
     
+    # Profile-specific ignore patterns (in addition to global)
     ignore:
       - "*.swp"
       - "*.swo"
       - "*.tmp"
+    
+    # Profile-specific hooks
+    hooks:
+      post_apply:
+        - command: "brew update && brew upgrade"
+          description: "Update Homebrew"
 
-  # Personal profile with tree-folding
+  # Personal profile with tree-folding and personal apps
   personal:
-    dotfiles: []  # Tree-folding preserves untracked ~/.config entries
+    # Tree-folding preserves untracked ~/.config entries
+    dotfiles: []
     packages:
       homebrew:
         - spotify
@@ -101,36 +168,49 @@ profiles:
         - discord
         - steam
 
-  # Server profile - minimal
+  # Personal desktop (Linux)
+  personal-desktop:
+    extends: base
+    packages:
+      apt:
+        - steam
+        - gimp
+      homebrew_casks:
+        - spotify
+        - discord
+    hooks:
+      post_apply:
+        - command: "sudo apt-get update && sudo apt-get upgrade -y"
+          description: "Update APT packages"
+
+  # Server profile - minimal (no GUI apps)
   server:
     dotfiles:
       - .bashrc
       - .vimrc
       - .tmux.conf
+      - .ssh/config
     packages:
       common:
+        - git
+        - vim
+        - tmux
         - htop
         - ncdu
+    hooks:
+      post_apply:
+        - command: "sudo systemctl enable ssh"
+          description: "Enable SSH service"
 
-# Templates (optional)
+# Templates with variable substitution (optional)
 templates:
+  - src: templates/gitconfig.j2
+    dest: ~/.gitconfig.local
+    vars:
+      email: "user@example.com"
+      name: "Your Name"
   - src: gitconfig.template
     dest: ~/.gitconfig
     vars:
       email: "you@example.com"
       name: "Your Name"
-
-# History tracking (optional)
-history:
-  enabled: true
-  sync: true
-  max_age_days: 90
-
-# Global hooks (run for all profiles)
-hooks:
-  post_apply:
-    - command: "echo 'Setup complete!'"
-      description: "Success message"
-  pre_sync:
-    - command: "git status"
-      description: "Check repo status before sync"

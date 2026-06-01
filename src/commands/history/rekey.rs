@@ -103,8 +103,6 @@ fn rekey_manifest(
     let new_blob = crate::crypto::encrypt(new_key, &json)?;
     let new_content = URL_SAFE_NO_PAD.encode(&new_blob);
 
-    let tmp = manifest_enc.with_extension(format!("rekeying.{}", std::process::id()));
-    std::fs::write(&tmp, new_content)?;
-    std::fs::rename(&tmp, &manifest_enc)?;
+    crate::utils::atomic_write(&manifest_enc, new_content.as_bytes())?;
     Ok(())
 }
