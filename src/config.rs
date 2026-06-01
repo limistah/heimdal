@@ -12,6 +12,8 @@ pub struct HeimdalConfig {
     pub ignore: Vec<String>,
     #[serde(default)]
     pub history: Option<HistoryConfig>,
+    #[serde(default)]
+    pub hooks: ProfileHooks,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -204,6 +206,12 @@ pub fn resolve_profile(config: &HeimdalConfig, name: &str) -> anyhow::Result<Pro
     let mut profile = resolve_recursive(config, name, &mut Vec::new())?;
     // Prepend top-level packages so profile-specific ones take effect after
     profile.packages = merge_packages(config.packages.clone(), profile.packages);
+    // Prepend top-level ignore so profile-specific ones take effect after
+    let mut combined_ignore = config.ignore.clone();
+    combined_ignore.extend(profile.ignore);
+    profile.ignore = combined_ignore;
+    // Prepend global hooks so profile-specific ones run after
+    profile.hooks = merge_hooks(config.hooks.clone(), profile.hooks);
     Ok(profile)
 }
 
@@ -281,6 +289,31 @@ fn merge_packages(base: PackageMap, child: PackageMap) -> PackageMap {
         pacman: merge_vec!(base.pacman, child.pacman),
         apk: merge_vec!(base.apk, child.apk),
         mas: merge_vec!(base.mas, child.mas),
+    }
+}
+
+fn merge_hooks(base: ProfileHooks, child: ProfileHooks) -> ProfileHooks {
+    ProfileHooks {
+        pre_apply: {
+            let mut v = base.pre_apply;
+            v.extend(child.pre_apply);
+            v
+        },
+        post_apply: {
+            let mut v = base.post_apply;
+            v.extend(child.post_apply);
+            v
+        },
+        pre_sync: {
+            let mut v = base.pre_sync;
+            v.extend(child.pre_sync);
+            v
+        },
+        post_sync: {
+            let mut v = base.post_sync;
+            v.extend(child.post_sync);
+            v
+        },
     }
 }
 
@@ -392,6 +425,7 @@ pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyh
         packages: PackageMap::default(),
         ignore: vec![],
         history: None,
+        hooks: ProfileHooks::default(),
     };
 
     crate::utils::ensure_parent_exists(path)?;
@@ -404,4 +438,121 @@ pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyh
 pub fn write_config(path: &Path, config: &HeimdalConfig) -> anyhow::Result<()> {
     let content = serde_yaml_ng::to_string(config)?;
     crate::utils::atomic_write(path, content.as_bytes())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_profile_merges_top_level_ignore() {
+        let mut profiles = HashMap::new();
+        profiles.insert(
+            "test".to_string(),
+            Profile {
+                ignore: vec!["profile.txt".to_string()],
+                ..Default::default()
+            },
+        );
+
+        let config = HeimdalConfig {
+            heimdal: HeimdalMeta {
+                version: "1".to_string(),
+                repo: None,
+            },
+            profiles,
+            packages: PackageMap::default(),
+            ignore: vec![".git".to_string(), "*.md".to_string()],
+            history: None,
+            hooks: ProfileHooks::default(),
+        };
+
+        let resolved = resolve_profile(&config, "test").unwrap();
+
+        // Verify: top-level ignore prepended to profile ignore
+        assert_eq!(resolved.ignore.len(), 3);
+        assert_eq!(resolved.ignore[0], ".git");
+        assert_eq!(resolved.ignore[1], "*.md");
+        assert_eq!(resolved.ignore[2], "profile.txt");
+    }
+
+    #[test]
+    fn resolve_profile_merges_top_level_packages() {
+        let mut profiles = HashMap::new();
+        profiles.insert(
+            "test".to_string(),
+            Profile {
+                packages: PackageMap {
+                    common: vec!["profile-pkg".to_string()],
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        );
+
+        let config = HeimdalConfig {
+            heimdal: HeimdalMeta {
+                version: "1".to_string(),
+                repo: None,
+            },
+            profiles,
+            packages: PackageMap {
+                common: vec!["top-pkg".to_string()],
+                ..Default::default()
+            },
+            ignore: vec![],
+            history: None,
+            hooks: ProfileHooks::default(),
+        };
+
+        let resolved = resolve_profile(&config, "test").unwrap();
+
+        // Verify: top-level packages prepended to profile packages
+        assert_eq!(resolved.packages.common.len(), 2);
+        assert_eq!(resolved.packages.common[0], "top-pkg");
+        assert_eq!(resolved.packages.common[1], "profile-pkg");
+    }
+
+    #[test]
+    fn resolve_profile_merges_global_hooks() {
+        let mut profiles = HashMap::new();
+        profiles.insert(
+            "test".to_string(),
+            Profile {
+                hooks: ProfileHooks {
+                    post_apply: vec![HookEntry::Simple("profile-hook".to_string())],
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        );
+
+        let config = HeimdalConfig {
+            heimdal: HeimdalMeta {
+                version: "1".to_string(),
+                repo: None,
+            },
+            profiles,
+            packages: PackageMap::default(),
+            ignore: vec![],
+            history: None,
+            hooks: ProfileHooks {
+                post_apply: vec![HookEntry::Simple("global-hook".to_string())],
+                ..Default::default()
+            },
+        };
+
+        let resolved = resolve_profile(&config, "test").unwrap();
+
+        // Verify: global hooks prepended to profile hooks
+        assert_eq!(resolved.hooks.post_apply.len(), 2);
+        match &resolved.hooks.post_apply[0] {
+            HookEntry::Simple(cmd) => assert_eq!(cmd, "global-hook"),
+            _ => panic!("Expected Simple hook"),
+        }
+        match &resolved.hooks.post_apply[1] {
+            HookEntry::Simple(cmd) => assert_eq!(cmd, "profile-hook"),
+            _ => panic!("Expected Simple hook"),
+        }
+    }
 }

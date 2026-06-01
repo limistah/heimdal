@@ -158,6 +158,101 @@ impl PackageManager for Apk {
     }
 }
 
+// ── Mac App Store (MAS) ───────────────────────────────────────────────────────
+
+pub struct Mas;
+
+impl PackageManager for Mas {
+    fn name(&self) -> &str {
+        "mas"
+    }
+    fn field_name(&self) -> &str {
+        "mas"
+    }
+
+    fn is_available(&self) -> bool {
+        std::process::Command::new("mas")
+            .arg("version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    }
+
+    fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
+        install_mas_apps(pkgs, dry_run)
+    }
+}
+
+fn install_mas_apps(app_ids: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
+    if app_ids.is_empty() {
+        return Ok(vec![]);
+    }
+
+    if dry_run {
+        return Ok(app_ids
+            .iter()
+            .map(|id| InstallResult {
+                package: id.clone(),
+                success: true,
+                already_installed: false,
+                message: Some(format!("[dry-run] Would install MAS app: {}", id)),
+            })
+            .collect());
+    }
+
+    // Get list of already installed apps
+    let installed = std::process::Command::new("mas")
+        .args(["list"])
+        .output()
+        .ok()
+        .and_then(|o| {
+            if o.status.success() {
+                Some(String::from_utf8_lossy(&o.stdout).to_string())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_default();
+
+    let mut results = Vec::new();
+    for app_id in app_ids {
+        // Check if already installed
+        if installed.lines().any(|line| line.starts_with(app_id)) {
+            results.push(InstallResult {
+                success: true,
+                already_installed: true,
+                message: Some(format!("Already installed: MAS app {}", app_id)),
+                package: app_id.clone(),
+            });
+            continue;
+        }
+
+        // MAS requires sudo for installation
+        crate::utils::info(&format!("Installing MAS app {}...", app_id));
+        let mut command = std::process::Command::new("sudo");
+        command.args(["mas", "install", app_id]);
+
+        let output = command
+            .output()
+            .map_err(|e| crate::error::HeimdallError::Package {
+                manager: "mas".to_string(),
+                reason: format!("Cannot run mas: {}", e),
+            })?;
+
+        results.push(InstallResult {
+            success: output.status.success(),
+            already_installed: false,
+            message: if output.status.success() {
+                None
+            } else {
+                Some(String::from_utf8_lossy(&output.stderr).trim().to_string())
+            },
+            package: app_id.clone(),
+        });
+    }
+    Ok(results)
+}
+
 // ── Shared helper ─────────────────────────────────────────────────────────────
 
 fn install_with_cmd(
@@ -229,6 +324,7 @@ pub fn install_for_profile(profile: &crate::config::Profile, dry_run: bool) -> R
         Box::new(Dnf),
         Box::new(Pacman),
         Box::new(Apk),
+        Box::new(Mas),
     ];
 
     let pkgs = &profile.packages;
@@ -272,6 +368,17 @@ pub fn install_for_profile(profile: &crate::config::Profile, dry_run: bool) -> R
             "dnf" => pkgs.dnf.clone(),
             "pacman" => pkgs.pacman.clone(),
             "apk" => pkgs.apk.clone(),
+            "mas" => {
+                // Extract app IDs from JSON objects
+                pkgs.mas
+                    .iter()
+                    .filter_map(|v| {
+                        v.get("id")
+                            .and_then(|id| id.as_u64())
+                            .map(|id| id.to_string())
+                    })
+                    .collect()
+            }
             _ => vec![],
         };
 

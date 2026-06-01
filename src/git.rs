@@ -20,13 +20,13 @@ pub enum GitStatus {
 }
 
 impl GitRepo {
-    /// Clone a remote URL to dest directory.
+    /// Clone a remote URL to dest directory (includes submodules).
     pub fn clone(url: &str, dest: &Path) -> Result<Self> {
         let dest_str = dest.to_str().ok_or_else(|| {
             crate::error::HeimdallError::Git("Dotfiles path contains invalid UTF-8".to_string())
         })?;
         let status = Command::new("git")
-            .args(["clone", "--", url, dest_str])
+            .args(["clone", "--recurse-submodules", "--", url, dest_str])
             .status()
             .map_err(|e| crate::error::HeimdallError::Git(format!("Cannot run git: {}", e)))?;
 
@@ -185,11 +185,11 @@ impl GitRepo {
 
     pub fn pull(&self, dry_run: bool) -> Result<()> {
         if dry_run {
-            crate::utils::info("[dry-run] Would run: git pull");
+            crate::utils::info("[dry-run] Would run: git pull --recurse-submodules");
             return Ok(());
         }
         let status = Command::new("git")
-            .args(["pull"])
+            .args(["pull", "--recurse-submodules"])
             .current_dir(&self.path)
             .status()
             .map_err(|e| crate::error::HeimdallError::Git(format!("Cannot run git: {}", e)))?;
