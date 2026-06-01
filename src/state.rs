@@ -36,12 +36,9 @@ impl State {
 
     pub fn save(&self) -> Result<()> {
         let path = Self::path()?;
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
-        std::fs::write(&tmp, serde_json::to_string_pretty(self)?)?;
-        std::fs::rename(&tmp, &path)?;
+        crate::utils::ensure_parent_exists(&path)?;
+        let content = serde_json::to_string_pretty(self)?;
+        crate::utils::atomic_write(&path, content.as_bytes())?;
         Ok(())
     }
 
@@ -53,10 +50,7 @@ impl State {
         let state = Self {
             version: 1,
             machine_id: Uuid::new_v4().to_string(),
-            hostname: hostname::get()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string(),
+            hostname: crate::utils::hostname(),
             username: whoami::username(),
             os: crate::utils::os_name().to_string(),
             active_profile,

@@ -1,5 +1,5 @@
 use crate::cli::PackagesCmd;
-use crate::config::load_config;
+use crate::config::{load_config, write_config};
 use crate::state::State;
 use crate::utils::{info, success, warning};
 use anyhow::Result;
@@ -237,13 +237,5 @@ fn pkg_info(name: &str) -> Result<()> {
     info(&format!("  brew info {}", name));
     info(&format!("  apt-cache show {}", name));
     info(&format!("  dnf info {}", name));
-    Ok(())
-}
-
-fn write_config(path: &std::path::Path, config: &crate::config::HeimdalConfig) -> Result<()> {
-    let content = serde_yaml_ng::to_string(config)?;
-    let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
-    std::fs::write(&tmp, &content)?;
-    std::fs::rename(&tmp, path)?;
     Ok(())
 }

@@ -2,16 +2,16 @@
 
 heimdal:
   version: "1"
-  repo: "git@github.com:yourusername/dotfiles.git"
+  repo: "git@github.com:yourusername/dotfiles.git"  # Optional: can be specified or stored in state
 
-# Top-level packages are available to all profiles
+# Global package list (available to all profiles)
 packages:
   common:
     - git
     - vim
     - tmux
 
-# Top-level ignore patterns apply to all profiles
+# Top-level ignore patterns apply to all profiles (case-insensitive)
 ignore:
   - .git
   - .gitignore
@@ -23,14 +23,22 @@ ignore:
 
 profiles:
   default:
-    # Empty dotfiles list triggers GNU Stow-style walk with tree-folding:
-    # - If ~/.config doesn't exist, creates ~/.config -> dotfiles/.config symlink
-    # - If ~/.config exists, recurses and symlinks subdirectories individually
-    # - This preserves untracked entries in ~/.config (VSCode, Raycast, etc.)
-    dotfiles: []
+    # Simple dotfile entries (source path relative to dotfiles dir)
+    # Target is automatically mapped to ~/source
+    dotfiles:
+      - .vimrc
+      - .tmux.conf
+      - .gitconfig
     
     # Profile-specific packages (merged with top-level)
     packages:
       homebrew:
         - neovim
         - fzf
+
+  stow:
+    # Empty dotfiles list triggers GNU Stow-style walk with tree-folding:
+    # - If ~/.config doesn't exist, creates ~/.config -> dotfiles/.config symlink
+    # - If ~/.config exists, recurses and symlinks subdirectories individually
+    # - This preserves untracked entries in ~/.config (VSCode, Raycast, etc.)
+    dotfiles: []
