@@ -295,6 +295,7 @@ pub fn generate_heimdal_yaml(result: &ImportResult, profile_name: &str) -> Resul
         packages: crate::config::PackageMap::default(),
         ignore: vec![],
         history: None,
+        hooks: crate::config::ProfileHooks::default(),
     };
 
     Ok(serde_yaml_ng::to_string(&config)?)
