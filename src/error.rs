@@ -20,8 +20,6 @@ pub enum HeimdallError {
     ProfileNotFound { name: String },
     #[error("Hook failed: {command}\n  exit code: {code}")]
     HookFailed { command: String, code: i32 },
-    #[error("Import error: {0}")]
-    Import(String),
     #[error("Secret error: {0}")]
     Secret(String),
 }

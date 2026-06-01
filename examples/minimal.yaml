@@ -1,19 +1,21 @@
 # Minimal Heimdal Configuration
 
 heimdal:
-  version: "1.0"
+  version: "1"
   repo: "git@github.com:yourusername/dotfiles.git"  # Optional: can be specified or stored in state
-  stow_compat: true
 
-sources:
-  packages:
+# Global package list (available to all profiles)
+packages:
+  common:
     - git
     - vim
     - tmux
 
 profiles:
   default:
-    sources:
-      - packages
+    # Simple dotfile entries (source path relative to dotfiles dir)
+    # Target is automatically mapped to ~/source
     dotfiles:
-      use_stowrc: true
+      - .vimrc
+      - .tmux.conf
+      - .gitconfig
