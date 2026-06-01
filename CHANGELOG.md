@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-05-13
+
+### Added
+
+- **Lock System for Concurrent Operation Prevention**
+  - Prevents multiple Heimdal instances from interfering with each other
+  - File-based locking with PID tracking for safety
+  - Stale lock detection and automatic cleanup after 300 seconds
+  - Force unlock capability via `heimdal state unlock --force`
+  - Lock status checking via `heimdal state lock info`
+  - Integrated into critical commands: `sync`, `apply`, `commit`, `rollback`
+  - 6 new tests for lock lifecycle and concurrent operations
+
+- **Autosync with Native Platform Support**
+  - **macOS**: Native launchd integration with proper daemon management
+    - Creates `~/Library/LaunchAgents/com.heimdal.autosync.plist`
+    - Uses `launchctl bootstrap` for service registration
+    - Status checking via `launchctl print` for accurate state
+    - Proper cleanup on disable with `launchctl bootout`
+  - **Linux**: systemd timer support for modern distributions
+    - Creates `~/.config/systemd/user/heimdal-autosync.{service,timer}`
+    - Uses `systemctl --user` for service management
+    - Timer-based scheduling with configurable intervals
+    - Status checking shows next/last run times
+  - **Fallback**: Cron-based implementation for compatibility
+    - Works on systems without launchd/systemd
+    - Crontab entry management with interval conversion
+    - Legacy support maintained for all platforms
+  - Commands: `enable`, `disable`, `status` work consistently across platforms
+  - 10 new tests covering all three scheduler implementations
+
+### Changed
+
+- **Consolidated Duplicate Utility Functions**
+  - Unified `ensure_parent_exists()` implementation in `utils.rs`
+  - Removed duplicate implementation from `symlink.rs`
+  - Single source of truth for directory creation logic
+  - Improved maintainability and consistency
+
+- **Removed Dead Code and Stubs**
+  - Removed stub message in `autosync disable` command
+  - Removed redundant cron references from launchd implementation
+  - Cleaned up unused code paths and placeholders
+  - Added `#[allow(dead_code)]` attributes for future-use code
+
+- **Updated Example Files**
+  - Fixed `examples/heimdal-minimal.yaml` to match current schema
+  - Updated `examples/heimdal-full.yaml` with correct structure
+  - Removed deprecated fields from example configurations
+  - Ensured all examples pass validation
+
+### Fixed
+
+- **Clippy Warnings Resolved**
+  - Fixed needless borrow warnings in `symlink.rs`
+  - Added proper allow attributes for intentional dead code
+  - All clippy checks now pass with `-D warnings`
+
+### Technical
+
+- **Test Suite**: 173 tests passing (10 new autosync tests, 6 new lock tests)
+- **Build Status**: Compiles successfully with zero warnings in strict mode
+- **Platform Coverage**: Tested on macOS (launchd), Linux (systemd), and fallback (cron)
+
+### Migration Notes
+
+- Existing cron-based autosync configurations will continue to work
+- To migrate to native platform support:
+  - macOS: `heimdal autosync disable` then `heimdal autosync enable`
+  - Linux: `heimdal autosync disable` then `heimdal autosync enable`
+  - System will automatically detect and use the best scheduler available
+
 ## [2.0.0] - 2026-02-08
 
 ### BREAKING CHANGES
