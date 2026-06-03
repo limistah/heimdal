@@ -4,7 +4,7 @@ use assert_cmd::Command;
 fn test_secret_add_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["secret", "add", "--help"])
+        .args(["secret", "add", "--help"])
         .assert()
         .success();
 }
@@ -13,7 +13,7 @@ fn test_secret_add_help() {
 fn test_secret_list_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["secret", "list", "--help"])
+        .args(["secret", "list", "--help"])
         .assert()
         .success();
 }
@@ -22,7 +22,7 @@ fn test_secret_list_help() {
 fn test_secret_get_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["secret", "get", "--help"])
+        .args(["secret", "get", "--help"])
         .assert()
         .success();
 }
@@ -31,7 +31,7 @@ fn test_secret_get_help() {
 fn test_secret_remove_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["secret", "remove", "--help"])
+        .args(["secret", "remove", "--help"])
         .assert()
         .success();
 }

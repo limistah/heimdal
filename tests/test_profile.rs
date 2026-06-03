@@ -58,7 +58,7 @@ profiles:
 fn test_profile_list_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "list", "--help"])
+        .args(["profile", "list", "--help"])
         .assert()
         .success();
 }
@@ -69,7 +69,7 @@ fn test_profile_list_fails_without_init() {
     let home = TempDir::new().unwrap();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "list"])
+        .args(["profile", "list"])
         .env("HOME", home.path())
         .assert()
         .failure();
@@ -81,7 +81,7 @@ fn test_profile_list_shows_all_profiles() {
     let home = setup_home_multi_profile();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "list"])
+        .args(["profile", "list"])
         .env("HOME", home.path())
         .assert()
         .success()
@@ -96,7 +96,7 @@ fn test_profile_list_marks_active_profile() {
     let home = setup_home_multi_profile();
     let output = Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "list"])
+        .args(["profile", "list"])
         .env("HOME", home.path())
         .assert()
         .success()
@@ -124,7 +124,7 @@ fn test_profile_current_shows_active() {
     let home = setup_home_multi_profile();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "current"])
+        .args(["profile", "current"])
         .env("HOME", home.path())
         .assert()
         .success()
@@ -137,7 +137,7 @@ fn test_profile_current_shows_active() {
 fn test_profile_switch_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "switch", "--help"])
+        .args(["profile", "switch", "--help"])
         .assert()
         .success();
 }
@@ -148,7 +148,7 @@ fn test_profile_switch_updates_state() {
     let home = setup_home_multi_profile();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "switch", "work"])
+        .args(["profile", "switch", "work"])
         .env("HOME", home.path())
         .assert()
         .success();
@@ -166,7 +166,7 @@ fn test_profile_switch_nonexistent_fails() {
     let home = setup_home_multi_profile();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "switch", "nonexistent"])
+        .args(["profile", "switch", "nonexistent"])
         .env("HOME", home.path())
         .assert()
         .failure()
@@ -180,7 +180,7 @@ fn test_profile_switch_same_profile_is_ok() {
     // Switching to the already-active profile should not fail
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "switch", "default"])
+        .args(["profile", "switch", "default"])
         .env("HOME", home.path())
         .assert()
         .success();
@@ -225,7 +225,7 @@ profiles:
 
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "show"])
+        .args(["profile", "show"])
         .env("HOME", home.path())
         .assert()
         .success()
@@ -240,7 +240,7 @@ fn test_profile_create_adds_to_config() {
     let home = setup_home_multi_profile();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "create", "newprofile"])
+        .args(["profile", "create", "newprofile"])
         .env("HOME", home.path())
         .assert()
         .success();
@@ -261,7 +261,7 @@ fn test_profile_create_with_extends() {
     let home = setup_home_multi_profile();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "create", "child", "--extends", "default"])
+        .args(["profile", "create", "child", "--extends", "default"])
         .env("HOME", home.path())
         .assert()
         .success();
@@ -278,7 +278,7 @@ fn test_profile_create_duplicate_fails() {
     let home = setup_home_multi_profile();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "create", "default"])
+        .args(["profile", "create", "default"])
         .env("HOME", home.path())
         .assert()
         .failure()
@@ -293,7 +293,7 @@ fn test_profile_clone_creates_copy() {
     let home = setup_home_multi_profile();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["profile", "clone", "default", "myclone"])
+        .args(["profile", "clone", "default", "myclone"])
         .env("HOME", home.path())
         .assert()
         .success();

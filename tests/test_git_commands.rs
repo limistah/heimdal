@@ -97,7 +97,7 @@ fn setup_initialized_home() -> (TempDir, std::path::PathBuf) {
 fn test_status_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["status", "--help"])
+        .args(["status", "--help"])
         .assert()
         .success();
 }
@@ -134,7 +134,7 @@ fn test_status_shows_profile_and_path() {
 fn test_diff_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["diff", "--help"])
+        .args(["diff", "--help"])
         .assert()
         .success();
 }
@@ -184,7 +184,7 @@ fn test_diff_shows_changes() {
 fn test_commit_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["commit", "--help"])
+        .args(["commit", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--message").or(predicate::str::contains("-m")));
@@ -196,7 +196,7 @@ fn test_commit_fails_without_init() {
     let home = TempDir::new().unwrap();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["commit", "-m", "test"])
+        .args(["commit", "-m", "test"])
         .env("HOME", home.path())
         .assert()
         .failure();
@@ -209,7 +209,7 @@ fn test_commit_nothing_to_commit_exits_zero() {
     // Nothing changed — commit should succeed (possibly with "nothing to commit" msg)
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["commit", "-m", "test commit"])
+        .args(["commit", "-m", "test commit"])
         .env("HOME", home.path())
         .assert()
         .success();
@@ -224,14 +224,14 @@ fn test_commit_modified_file() {
 
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["commit", "-m", "update vimrc"])
+        .args(["commit", "-m", "update vimrc"])
         .env("HOME", home.path())
         .assert()
         .success();
 
     // Verify commit exists
     let log = process::Command::new("git")
-        .args(&["log", "--oneline", "-1"])
+        .args(["log", "--oneline", "-1"])
         .current_dir(&dotfiles)
         .output()
         .unwrap();
@@ -244,7 +244,7 @@ fn test_commit_modified_file() {
 fn test_rollback_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["rollback", "--help"])
+        .args(["rollback", "--help"])
         .assert()
         .success();
 }
@@ -272,7 +272,7 @@ fn test_rollback_dry_run() {
 
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["rollback", "--dry-run"])
+        .args(["rollback", "--dry-run"])
         .env("HOME", home.path())
         .assert()
         .success()
