@@ -37,7 +37,7 @@ fn dotbot_dotfiles() -> TempDir {
 fn test_import_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["import", "--help"])
+        .args(["import", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--from"))
@@ -49,7 +49,7 @@ fn test_import_detects_stow() {
     let dir = stow_dotfiles();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&[
+        .args([
             "import",
             "--path",
             dir.path().to_str().unwrap(),
@@ -67,7 +67,7 @@ fn test_import_detects_dotbot() {
     let dir = dotbot_dotfiles();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&[
+        .args([
             "import",
             "--path",
             dir.path().to_str().unwrap(),
@@ -85,7 +85,7 @@ fn test_import_auto_detects_stow_from_stowrc() {
     let dir = stow_dotfiles();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&[
+        .args([
             "import",
             "--path",
             dir.path().to_str().unwrap(),
@@ -108,7 +108,7 @@ fn test_import_stow_produces_valid_yaml() {
 
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&[
+        .args([
             "import",
             "--path",
             dir.path().to_str().unwrap(),
@@ -143,7 +143,7 @@ fn test_import_dotbot_produces_valid_yaml() {
 
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&[
+        .args([
             "import",
             "--path",
             dir.path().to_str().unwrap(),
@@ -168,7 +168,7 @@ fn test_import_preview_does_not_write_file() {
 
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&[
+        .args([
             "import",
             "--path",
             dir.path().to_str().unwrap(),
@@ -190,7 +190,7 @@ fn test_import_unknown_tool_fails() {
     let dir = TempDir::new().unwrap();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&[
+        .args([
             "import",
             "--path",
             dir.path().to_str().unwrap(),

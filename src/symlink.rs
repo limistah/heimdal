@@ -190,16 +190,12 @@ fn stow_walk_dir(
         let name_str = name.to_string_lossy();
 
         // At depth 0, check hardcoded STOW_SKIP list (+ always skip .heimdal)
-        if depth == 0 {
-            if name_str == ".heimdal" || STOW_SKIP.contains(&name_str.as_ref()) {
-                continue;
-            }
+        if depth == 0 && (name_str == ".heimdal" || STOW_SKIP.contains(&name_str.as_ref())) {
+            continue;
         }
 
         // Compute relative path from dotfiles_dir for ignore matching
-        let rel = src
-            .strip_prefix(&ctx.dotfiles_dir)
-            .unwrap_or_else(|_| src.as_path());
+        let rel = src.strip_prefix(&ctx.dotfiles_dir).unwrap_or(src.as_path());
 
         // Check user ignore patterns
         if matches_ignore(rel, &ctx.ignore_patterns) {
@@ -592,7 +588,7 @@ mod tests {
 
     #[test]
     fn matches_ignore_case_insensitive() {
-        let patterns = compile_ignore_patterns(&vec!["*.md".to_string()]);
+        let patterns = compile_ignore_patterns(&["*.md".to_string()]);
         assert!(matches_ignore(Path::new("README.MD"), &patterns));
         assert!(matches_ignore(Path::new("README.md"), &patterns));
         assert!(matches_ignore(Path::new("notes.Md"), &patterns));
@@ -601,7 +597,7 @@ mod tests {
 
     #[test]
     fn matches_ignore_exact_name() {
-        let patterns = compile_ignore_patterns(&vec![".DS_Store".to_string()]);
+        let patterns = compile_ignore_patterns(&[".DS_Store".to_string()]);
         assert!(matches_ignore(Path::new(".DS_Store"), &patterns));
         assert!(!matches_ignore(Path::new("other"), &patterns));
     }
@@ -698,7 +694,7 @@ mod tests {
         std::fs::create_dir_all(&home).unwrap();
 
         let ignore_patterns =
-            compile_ignore_patterns(&vec!["*.md".to_string(), ".DS_Store".to_string()]);
+            compile_ignore_patterns(&["*.md".to_string(), ".DS_Store".to_string()]);
 
         let ctx = ApplyContext {
             dotfiles_dir: dotfiles.clone(),
@@ -873,7 +869,7 @@ mod tests {
         let home = tmp.path().join("home");
         std::fs::create_dir_all(&home).unwrap();
 
-        let ignore_patterns = compile_ignore_patterns(&vec!["*.md".to_string()]);
+        let ignore_patterns = compile_ignore_patterns(&["*.md".to_string()]);
 
         let ctx = ApplyContext {
             dotfiles_dir: dotfiles.clone(),
