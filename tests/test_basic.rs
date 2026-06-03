@@ -51,7 +51,7 @@ fn all_subcommands_have_help() {
     ] {
         Command::cargo_bin("heimdal")
             .unwrap()
-            .args(&[cmd, "--help"])
+            .args([cmd, "--help"])
             .assert()
             .success();
     }
