@@ -190,16 +190,12 @@ fn stow_walk_dir(
         let name_str = name.to_string_lossy();
 
         // At depth 0, check hardcoded STOW_SKIP list (+ always skip .heimdal)
-        if depth == 0 {
-            if name_str == ".heimdal" || STOW_SKIP.contains(&name_str.as_ref()) {
-                continue;
-            }
+        if depth == 0 && (name_str == ".heimdal" || STOW_SKIP.contains(&name_str.as_ref())) {
+            continue;
         }
 
         // Compute relative path from dotfiles_dir for ignore matching
-        let rel = src
-            .strip_prefix(&ctx.dotfiles_dir)
-            .unwrap_or_else(|_| src.as_path());
+        let rel = src.strip_prefix(&ctx.dotfiles_dir).unwrap_or(src.as_path());
 
         // Check user ignore patterns
         if matches_ignore(rel, &ctx.ignore_patterns) {
