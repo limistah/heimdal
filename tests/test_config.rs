@@ -440,7 +440,7 @@ profiles:
 
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["validate", "--config", config_path.to_str().unwrap()])
+        .args(["validate", "--config", config_path.to_str().unwrap()])
         .assert()
         .success()
         .stdout(predicate::str::contains("valid"));
@@ -466,7 +466,7 @@ profiles:
 
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["validate", "--config", config_path.to_str().unwrap()])
+        .args(["validate", "--config", config_path.to_str().unwrap()])
         .assert()
         .failure();
 }
@@ -479,7 +479,7 @@ fn test_validate_bad_yaml_exits_nonzero() {
 
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["validate", "--config", config_path.to_str().unwrap()])
+        .args(["validate", "--config", config_path.to_str().unwrap()])
         .assert()
         .failure();
 }

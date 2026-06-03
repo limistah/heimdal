@@ -10,7 +10,7 @@ mod common;
 fn test_apply_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["apply", "--help"])
+        .args(["apply", "--help"])
         .assert()
         .success()
         .stdout(contains("dry-run"))
@@ -37,7 +37,7 @@ fn test_apply_dry_run_creates_no_files() {
     let home = common::setup_home("default");
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["apply", "--dry-run"])
+        .args(["apply", "--dry-run"])
         .env("HOME", home.path())
         .assert()
         .success()
@@ -96,7 +96,7 @@ fn test_apply_force_overwrites_conflict() {
     std::fs::write(home.path().join(".vimrc"), "existing content").unwrap();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["apply", "--force"])
+        .args(["apply", "--force"])
         .env("HOME", home.path())
         .assert()
         .success();
@@ -126,7 +126,7 @@ fn test_apply_backup_preserves_original() {
     std::fs::write(home.path().join(".vimrc"), "original content").unwrap();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["apply", "--backup"])
+        .args(["apply", "--backup"])
         .env("HOME", home.path())
         .assert()
         .success();
@@ -148,7 +148,7 @@ fn test_apply_dotfiles_only_flag() {
     let home = common::setup_home("default");
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["apply", "--dotfiles-only"])
+        .args(["apply", "--dotfiles-only"])
         .env("HOME", home.path())
         .assert()
         .success();

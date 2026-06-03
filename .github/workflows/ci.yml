@@ -1,9 +1,9 @@
 name: CI
 on:
   push:
-    branches: [main, master, develop]
+    branches: [main, master, develop, dev]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, dev]
 
 jobs:
   test:
@@ -21,8 +21,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Check formatting
         run: cargo fmt --check
-      - name: Clippy
-        run: cargo clippy -- -D warnings
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Test
         run: cargo test
       - name: Build release
