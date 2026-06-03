@@ -58,7 +58,7 @@ fn test_packages_list_fails_without_init() {
     let home = TempDir::new().unwrap();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["packages", "list"])
+        .args(["packages", "list"])
         .env("HOME", home.path())
         .assert()
         .failure();
@@ -70,7 +70,7 @@ fn test_packages_list_shows_packages() {
     let home = setup_home_with_packages();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["packages", "list"])
+        .args(["packages", "list"])
         .env("HOME", home.path())
         .assert()
         .success()
@@ -82,7 +82,7 @@ fn test_packages_list_shows_packages() {
 fn test_packages_add_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["packages", "add", "--help"])
+        .args(["packages", "add", "--help"])
         .assert()
         .success();
 }
@@ -93,7 +93,7 @@ fn test_packages_add_writes_to_config() {
     let home = setup_home_with_packages();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&[
+        .args([
             "packages",
             "add",
             "ripgrep",
@@ -121,7 +121,7 @@ fn test_packages_add_duplicate_is_ok() {
     let home = setup_home_with_packages();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["packages", "add", "git", "--manager", "apt", "--no-install"])
+        .args(["packages", "add", "git", "--manager", "apt", "--no-install"])
         .env("HOME", home.path())
         .assert()
         .success();
@@ -142,7 +142,7 @@ fn test_packages_add_duplicate_is_ok() {
 fn test_packages_remove_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["packages", "remove", "--help"])
+        .args(["packages", "remove", "--help"])
         .assert()
         .success();
 }
@@ -153,7 +153,7 @@ fn test_packages_remove_updates_config() {
     let home = setup_home_with_packages();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["packages", "remove", "vim", "--no-uninstall"])
+        .args(["packages", "remove", "vim", "--no-uninstall"])
         .env("HOME", home.path())
         .assert()
         .success();
@@ -175,7 +175,7 @@ fn test_packages_remove_nonexistent_is_ok() {
     // Removing a package that isn't tracked should not fail
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["packages", "remove", "nonexistent", "--no-uninstall"])
+        .args(["packages", "remove", "nonexistent", "--no-uninstall"])
         .env("HOME", home.path())
         .assert()
         .success();

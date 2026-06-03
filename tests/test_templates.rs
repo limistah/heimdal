@@ -55,7 +55,7 @@ profiles:
 fn test_template_list_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["template", "list", "--help"])
+        .args(["template", "list", "--help"])
         .assert()
         .success();
 }
@@ -64,7 +64,7 @@ fn test_template_list_help() {
 fn test_template_preview_help() {
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["template", "preview", "--help"])
+        .args(["template", "preview", "--help"])
         .assert()
         .success();
 }
@@ -75,7 +75,7 @@ fn test_template_list_shows_templates() {
     let home = setup_home_with_template();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["template", "list"])
+        .args(["template", "list"])
         .env("HOME", home.path())
         .assert()
         .success()
@@ -88,7 +88,7 @@ fn test_template_preview_renders_vars() {
     let home = setup_home_with_template();
     Command::cargo_bin("heimdal")
         .unwrap()
-        .args(&["template", "preview", ".gitconfig.tmpl"])
+        .args(["template", "preview", ".gitconfig.tmpl"])
         .env("HOME", home.path())
         .assert()
         .success()
