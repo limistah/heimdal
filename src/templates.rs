@@ -91,6 +91,28 @@ pub fn build_vars(explicit: &HashMap<String, String>, env_prefix: &str) -> HashM
     vars
 }
 
+/// Render a template file to a destination.
+pub fn render_file(
+    src: &Path,
+    dest: &Path,
+    vars: &HashMap<String, String>,
+    dry_run: bool,
+) -> Result<()> {
+    let content = std::fs::read_to_string(src)
+        .map_err(|e| anyhow::anyhow!("Cannot read template '{}': {}", src.display(), e))?;
+    let rendered = render_string(&content, vars);
+
+    if dry_run {
+        println!("--- [dry-run] Would write: {} ---", dest.display());
+        print!("{}", rendered);
+        return Ok(());
+    }
+
+    crate::utils::ensure_parent_exists(dest)?;
+    std::fs::write(dest, rendered)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,26 +135,4 @@ mod tests {
         );
         assert!(result.contains("secret:_heimdal_test_nonexistent_secret_"));
     }
-}
-
-/// Render a template file to a destination.
-pub fn render_file(
-    src: &Path,
-    dest: &Path,
-    vars: &HashMap<String, String>,
-    dry_run: bool,
-) -> Result<()> {
-    let content = std::fs::read_to_string(src)
-        .map_err(|e| anyhow::anyhow!("Cannot read template '{}': {}", src.display(), e))?;
-    let rendered = render_string(&content, vars);
-
-    if dry_run {
-        println!("--- [dry-run] Would write: {} ---", dest.display());
-        print!("{}", rendered);
-        return Ok(());
-    }
-
-    crate::utils::ensure_parent_exists(dest)?;
-    std::fs::write(dest, rendered)?;
-    Ok(())
 }
