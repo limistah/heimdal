@@ -8,13 +8,19 @@ use crate::symlink::{
     apply_mappings, apply_stow_walk, compile_ignore_patterns, print_results, ApplyContext,
     LinkResult,
 };
-use crate::utils::{home_dir, info, success};
+use crate::utils::{home_dir, info, success, verbose};
 
 pub fn run(args: ApplyArgs) -> Result<()> {
     // Acquire lock to prevent concurrent operations
     let _lock = crate::lock::HeimdallLock::acquire()?;
 
     let ctx = CommandContext::load()?;
+
+    verbose(&format!("Profile: {}", ctx.state.active_profile));
+    verbose(&format!(
+        "Dotfiles dir: {}",
+        ctx.state.dotfiles_path.display()
+    ));
 
     if args.dry_run {
         info("Dry-run mode — no changes will be made");
@@ -32,14 +38,17 @@ pub fn run(args: ApplyArgs) -> Result<()> {
     };
 
     if !args.packages_only {
+        verbose("Running pre-apply hooks");
         run_hooks(&ctx.profile.hooks.pre_apply, args.dry_run)?;
     }
 
     if !args.dotfiles_only {
+        verbose("Installing packages");
         install_for_profile(&ctx.profile, args.dry_run)?;
     }
 
     if !args.packages_only {
+        verbose("Creating symlinks");
         let results = if ctx.profile.dotfiles.is_empty() {
             apply_stow_walk(&apply_ctx)?
         } else {
@@ -65,6 +74,11 @@ pub fn run(args: ApplyArgs) -> Result<()> {
         for tmpl in &ctx.profile.templates {
             let src = ctx.state.dotfiles_path.join(&tmpl.src);
             let dest = crate::utils::expand_path(&tmpl.dest);
+            verbose(&format!(
+                "Rendering template: {} → {}",
+                src.display(),
+                dest.display()
+            ));
             let vars = crate::templates::build_vars(&tmpl.vars, "env");
             if let Err(e) = crate::templates::render_file(&src, &dest, &vars, args.dry_run) {
                 crate::utils::warning(&format!("Template '{}' failed: {}", tmpl.src, e));
@@ -73,6 +87,7 @@ pub fn run(args: ApplyArgs) -> Result<()> {
     }
 
     if !args.packages_only {
+        verbose("Running post-apply hooks");
         run_hooks(&ctx.profile.hooks.post_apply, args.dry_run)?;
     }
 
