@@ -16,26 +16,11 @@ pub struct ApplyContext {
 
 #[derive(Debug)]
 pub enum LinkResult {
-    #[allow(dead_code)]
-    Created {
-        src: PathBuf,
-        dest: PathBuf,
-    },
-    AlreadyLinked {
-        dest: PathBuf,
-    },
-    Skipped {
-        dest: PathBuf,
-        reason: String,
-    },
-    Backed {
-        dest: PathBuf,
-        backup: PathBuf,
-    },
-    Conflict {
-        dest: PathBuf,
-        reason: String,
-    },
+    Created { src: PathBuf, dest: PathBuf },
+    AlreadyLinked { dest: PathBuf },
+    Skipped { dest: PathBuf, reason: String },
+    Backed { dest: PathBuf, backup: PathBuf },
+    Conflict { dest: PathBuf, reason: String },
 }
 
 static STOW_SKIP: &[&str] = &[
@@ -415,7 +400,7 @@ pub fn print_results(results: &[LinkResult], dry_run: bool) {
         match r {
             LinkResult::Created { src, dest } => {
                 step(&format!("{}Linked: {}", prefix, dest.display()));
-                verbose(&format!("  source: {}", src.display()));
+                verbose(&format!("{}  source: {}", prefix, src.display()));
             }
             LinkResult::AlreadyLinked { dest } => {
                 info(&format!("Already linked: {}", dest.display()))
