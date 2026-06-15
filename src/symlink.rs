@@ -3,7 +3,7 @@ use chrono::Utc;
 use std::path::{Path, PathBuf};
 
 use crate::config::{DotfileCondition, DotfileEntry};
-use crate::utils::{expand_path, info, step, warning};
+use crate::utils::{expand_path, info, step, verbose, warning};
 
 pub struct ApplyContext {
     pub dotfiles_dir: PathBuf,
@@ -92,6 +92,8 @@ pub fn apply_mappings(
             DotfileEntry::Simple(s) => (s.as_str(), format!("~/{}", s), None),
             DotfileEntry::Mapped(m) => (m.source.as_str(), m.target.clone(), m.when.clone()),
         };
+
+        verbose(&format!("Processing entry: {} → {}", src_rel, dest_str));
 
         // Check ignore patterns first
         let src_rel_path = Path::new(src_rel);
@@ -191,6 +193,7 @@ fn stow_walk_dir(
 
         // At depth 0, check hardcoded STOW_SKIP list (+ always skip .heimdal)
         if depth == 0 && (name_str == ".heimdal" || STOW_SKIP.contains(&name_str.as_ref())) {
+            verbose(&format!("Stow skip: {}", name_str));
             continue;
         }
 
@@ -410,8 +413,9 @@ pub fn print_results(results: &[LinkResult], dry_run: bool) {
     let prefix = if dry_run { "[preview] " } else { "" };
     for r in results {
         match r {
-            LinkResult::Created { dest, .. } => {
-                step(&format!("{}Linked: {}", prefix, dest.display()))
+            LinkResult::Created { src, dest } => {
+                step(&format!("{}Linked: {}", prefix, dest.display()));
+                verbose(&format!("  source: {}", src.display()));
             }
             LinkResult::AlreadyLinked { dest } => {
                 info(&format!("Already linked: {}", dest.display()))
