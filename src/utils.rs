@@ -1,6 +1,39 @@
 use colored::Colorize;
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU8, Ordering};
+
+const V_NORMAL: u8 = 0;
+const V_VERBOSE: u8 = 1;
+const V_QUIET: u8 = 2;
+
+static VERBOSITY: AtomicU8 = AtomicU8::new(V_NORMAL);
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum Verbosity {
+    Normal,
+    Verbose,
+    Quiet,
+}
+
+pub fn set_verbosity(v: Verbosity) {
+    VERBOSITY.store(
+        match v {
+            Verbosity::Normal => V_NORMAL,
+            Verbosity::Verbose => V_VERBOSE,
+            Verbosity::Quiet => V_QUIET,
+        },
+        Ordering::Relaxed,
+    );
+}
+
+pub fn get_verbosity() -> Verbosity {
+    match VERBOSITY.load(Ordering::Relaxed) {
+        V_VERBOSE => Verbosity::Verbose,
+        V_QUIET => Verbosity::Quiet,
+        _ => Verbosity::Normal,
+    }
+}
 
 /// Atomically write content to a file using temp file + rename pattern.
 /// Prevents partial writes and corruption.
@@ -33,16 +66,28 @@ pub fn hostname() -> String {
 
 // Terminal output
 pub fn success(msg: &str) {
-    println!("{} {}", "✓".green().bold(), msg);
+    if get_verbosity() != Verbosity::Quiet {
+        println!("{} {}", "✓".green().bold(), msg);
+    }
 }
 pub fn info(msg: &str) {
-    println!("{} {}", "ℹ".blue(), msg);
+    if get_verbosity() != Verbosity::Quiet {
+        println!("{} {}", "ℹ".blue(), msg);
+    }
 }
 pub fn warning(msg: &str) {
+    // warnings always surface, even in quiet mode
     eprintln!("{} {}", "⚠".yellow(), msg);
 }
 pub fn step(msg: &str) {
-    println!("  {} {}", "→".cyan(), msg);
+    if get_verbosity() != Verbosity::Quiet {
+        println!("  {} {}", "→".cyan(), msg);
+    }
+}
+pub fn verbose(msg: &str) {
+    if get_verbosity() == Verbosity::Verbose {
+        println!("  {} {}", "·".dimmed(), msg);
+    }
 }
 
 #[derive(Debug, PartialEq)]

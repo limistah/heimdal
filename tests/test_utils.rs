@@ -1,4 +1,6 @@
-use heimdal::utils::{atomic_write, ensure_parent_exists, hostname};
+use heimdal::utils::{
+    atomic_write, ensure_parent_exists, get_verbosity, hostname, set_verbosity, Verbosity,
+};
 use std::fs;
 use tempfile::TempDir;
 
@@ -50,4 +52,24 @@ fn test_ensure_parent_exists_noop_when_exists() {
 fn test_hostname_returns_string() {
     let host = hostname();
     assert!(!host.is_empty());
+}
+
+#[test]
+fn test_verbosity_set_get_verbose() {
+    set_verbosity(Verbosity::Verbose);
+    assert_eq!(get_verbosity(), Verbosity::Verbose);
+    set_verbosity(Verbosity::Normal); // reset for other tests
+}
+
+#[test]
+fn test_verbosity_set_get_quiet() {
+    set_verbosity(Verbosity::Quiet);
+    assert_eq!(get_verbosity(), Verbosity::Quiet);
+    set_verbosity(Verbosity::Normal); // reset for other tests
+}
+
+#[test]
+fn test_verbosity_set_get_normal() {
+    set_verbosity(Verbosity::Normal);
+    assert_eq!(get_verbosity(), Verbosity::Normal);
 }
