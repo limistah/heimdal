@@ -26,6 +26,14 @@ fn main() {
     if cli.no_color {
         colored::control::set_override(false);
     }
+    let verbosity = if cli.verbose {
+        utils::Verbosity::Verbose
+    } else if cli.quiet {
+        utils::Verbosity::Quiet
+    } else {
+        utils::Verbosity::Normal
+    };
+    utils::set_verbosity(verbosity);
     if let Err(e) = run(cli) {
         if let Some(heimdal_err) = e.downcast_ref::<error::HeimdallError>() {
             error::print_error_with_help(heimdal_err);
