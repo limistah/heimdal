@@ -84,7 +84,8 @@ pub fn step(msg: &str) {
         println!("  {} {}", "→".cyan(), msg);
     }
 }
-// Wired up when --verbose/--quiet CLI flags are connected in main.rs
+// Called by command modules to emit detail only in --verbose mode
+#[allow(dead_code)]
 pub fn verbose(msg: &str) {
     if get_verbosity() == Verbosity::Verbose {
         println!("  {} {}", "·".dimmed(), msg);
