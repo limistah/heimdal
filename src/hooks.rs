@@ -14,6 +14,11 @@ pub fn run_hooks(hooks: &[HookEntry], dry_run: bool) -> Result<()> {
         };
 
         if !os_filter.is_empty() && !os_filter.iter().any(|o| o == crate::utils::os_name()) {
+            crate::utils::verbose(&format!(
+                "Hook skipped (OS filter [{}] does not match current OS): {}",
+                os_filter.join(", "),
+                cmd,
+            ));
             continue;
         }
 
@@ -23,6 +28,7 @@ pub fn run_hooks(hooks: &[HookEntry], dry_run: bool) -> Result<()> {
         }
 
         crate::utils::step(&format!("Hook: {}", cmd));
+        crate::utils::verbose(&format!("  command: sh -c {}", cmd));
         let status = std::process::Command::new("sh")
             .args(["-c", cmd])
             .status()?;
