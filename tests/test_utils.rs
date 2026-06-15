@@ -54,20 +54,21 @@ fn test_hostname_returns_string() {
     assert!(!host.is_empty());
 }
 
+// NOTE: verbosity tests must run with --test-threads=1 due to shared global state
 #[test]
 fn test_verbosity_set_get_verbose() {
     set_verbosity(Verbosity::Verbose);
     assert_eq!(get_verbosity(), Verbosity::Verbose);
-    set_verbosity(Verbosity::Normal); // reset for other tests
 }
 
+// NOTE: verbosity tests must run with --test-threads=1 due to shared global state
 #[test]
 fn test_verbosity_set_get_quiet() {
     set_verbosity(Verbosity::Quiet);
     assert_eq!(get_verbosity(), Verbosity::Quiet);
-    set_verbosity(Verbosity::Normal); // reset for other tests
 }
 
+// NOTE: verbosity tests must run with --test-threads=1 due to shared global state
 #[test]
 fn test_verbosity_set_get_normal() {
     set_verbosity(Verbosity::Normal);
