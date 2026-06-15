@@ -16,6 +16,8 @@ pub enum Verbosity {
     Quiet,
 }
 
+// These functions are wired up when --verbose/--quiet CLI flags are connected in main.rs
+#[allow(dead_code)]
 pub fn set_verbosity(v: Verbosity) {
     VERBOSITY.store(
         match v {
@@ -84,6 +86,8 @@ pub fn step(msg: &str) {
         println!("  {} {}", "→".cyan(), msg);
     }
 }
+// Wired up when --verbose/--quiet CLI flags are connected in main.rs
+#[allow(dead_code)]
 pub fn verbose(msg: &str) {
     if get_verbosity() == Verbosity::Verbose {
         println!("  {} {}", "·".dimmed(), msg);
