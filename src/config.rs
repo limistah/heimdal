@@ -14,6 +14,8 @@ pub struct HeimdalConfig {
     pub history: Option<HistoryConfig>,
     #[serde(default)]
     pub hooks: ProfileHooks,
+    #[serde(default)]
+    pub defaults: Option<DefaultsConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -35,6 +37,22 @@ pub struct HistoryConfig {
 
 fn max_age_days_default() -> u32 {
     90
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DefaultsConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub include: Vec<String>,
+    #[serde(default)]
+    pub exclude: Vec<String>,
+    #[serde(default = "defaults_path_default")]
+    pub path: String,
+}
+
+fn defaults_path_default() -> String {
+    "macos-defaults".to_string()
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -426,6 +444,7 @@ pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyh
         ignore: vec![],
         history: None,
         hooks: ProfileHooks::default(),
+        defaults: None,
     };
 
     crate::utils::ensure_parent_exists(path)?;
@@ -465,6 +484,7 @@ mod tests {
             ignore: vec![".git".to_string(), "*.md".to_string()],
             history: None,
             hooks: ProfileHooks::default(),
+            defaults: None,
         };
 
         let resolved = resolve_profile(&config, "test").unwrap();
@@ -503,6 +523,7 @@ mod tests {
             ignore: vec![],
             history: None,
             hooks: ProfileHooks::default(),
+            defaults: None,
         };
 
         let resolved = resolve_profile(&config, "test").unwrap();
@@ -540,6 +561,7 @@ mod tests {
                 post_apply: vec![HookEntry::Simple("global-hook".to_string())],
                 ..Default::default()
             },
+            defaults: None,
         };
 
         let resolved = resolve_profile(&config, "test").unwrap();
@@ -554,5 +576,41 @@ mod tests {
             HookEntry::Simple(cmd) => assert_eq!(cmd, "profile-hook"),
             _ => panic!("Expected Simple hook"),
         }
+    }
+
+    #[test]
+    fn test_defaults_config_parses() {
+        let yaml = r#"
+heimdal:
+  version: "1"
+profiles:
+  default:
+    dotfiles: []
+defaults:
+  enabled: true
+  include:
+    - com.apple.dock
+    - com.apple.finder
+  exclude:
+    - com.apple.Safari.SandboxBroker
+"#;
+        let config: HeimdalConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let defaults = config.defaults.unwrap();
+        assert!(defaults.enabled);
+        assert_eq!(defaults.include.len(), 2);
+        assert_eq!(defaults.exclude.len(), 1);
+    }
+
+    #[test]
+    fn test_defaults_config_defaults_to_none() {
+        let yaml = r#"
+heimdal:
+  version: "1"
+profiles:
+  default:
+    dotfiles: []
+"#;
+        let config: HeimdalConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert!(config.defaults.is_none());
     }
 }
