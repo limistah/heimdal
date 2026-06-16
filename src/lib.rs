@@ -2,6 +2,8 @@ pub mod cli;
 pub mod commands;
 pub mod config;
 pub mod crypto;
+#[cfg(target_os = "macos")]
+pub mod defaults;
 pub mod error;
 pub mod git;
 pub mod history;
