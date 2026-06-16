@@ -1,10 +1,10 @@
 //! Configuration helpers for defaults sync.
 
 use crate::config::DefaultsConfig;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Get the defaults export directory path within the dotfiles repo.
-pub fn get_defaults_dir(dotfiles_path: &std::path::Path, config: &DefaultsConfig) -> PathBuf {
+pub fn get_defaults_dir(dotfiles_path: &Path, config: &DefaultsConfig) -> PathBuf {
     dotfiles_path.join(&config.path)
 }
 
