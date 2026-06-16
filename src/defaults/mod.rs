@@ -1,10 +1,10 @@
 //! macOS defaults (preferences) sync functionality.
 
 #[cfg(target_os = "macos")]
-mod config;
+mod paths;
 
 #[cfg(target_os = "macos")]
-pub use config::*;
+pub use paths::*;
 
 /// Returns true if defaults sync is supported on this platform.
 pub fn is_supported() -> bool {
