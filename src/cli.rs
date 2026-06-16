@@ -88,6 +88,12 @@ pub enum Commands {
         #[command(subcommand)]
         action: HistoryCmd,
     },
+    /// macOS defaults (preferences) management
+    #[cfg(target_os = "macos")]
+    Defaults {
+        #[command(subcommand)]
+        action: DefaultsCmd,
+    },
 }
 
 #[derive(Args)]
@@ -353,4 +359,37 @@ pub enum HistoryCmd {
     SessionId,
     /// Re-encrypt all history files with a new bifrost key
     Rekey,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Subcommand)]
+pub enum DefaultsCmd {
+    /// Show differences between local and exported defaults
+    Diff {
+        /// Show all keys, not just conflicts
+        #[arg(short, long)]
+        all: bool,
+    },
+    /// Export macOS defaults to dotfiles
+    Export {
+        /// Specific domains to export (default: all matching)
+        domains: Vec<String>,
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+    },
+    /// Import defaults from dotfiles to system
+    Import {
+        /// Specific domains to import (default: all)
+        domains: Vec<String>,
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+        /// Skip interactive prompts, import all
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Interactive sync with conflict resolution
+    Sync {
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+    },
 }
