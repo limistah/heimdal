@@ -33,10 +33,18 @@ fn export_domain(domain: &str, defaults_dir: &Path, dry_run: bool) -> ExportResu
             error: None,
         };
     }
-    match Preferences::export(
-        Domain::User(domain.to_string()),
-        path.to_str().unwrap_or(""),
-    ) {
+    let path_str = match path.to_str() {
+        Some(s) => s,
+        None => {
+            return ExportResult {
+                domain: domain.to_string(),
+                path,
+                success: false,
+                error: Some("export path contains non-UTF-8 characters".to_string()),
+            }
+        }
+    };
+    match Preferences::export(Domain::User(domain.to_string()), path_str) {
         Ok(()) => ExportResult {
             domain: domain.to_string(),
             path,
