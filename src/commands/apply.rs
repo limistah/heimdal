@@ -86,6 +86,23 @@ pub fn run(args: ApplyArgs) -> Result<()> {
         }
     }
 
+    // Export macOS defaults (if configured)
+    #[cfg(target_os = "macos")]
+    if !args.packages_only {
+        if let Some(ref defaults_config) = ctx.config.defaults {
+            if defaults_config.enabled {
+                verbose("Exporting macOS defaults");
+                if let Err(e) = crate::defaults::export_all(
+                    &ctx.state.dotfiles_path,
+                    defaults_config,
+                    args.dry_run,
+                ) {
+                    crate::utils::warning(&format!("Defaults export failed: {}", e));
+                }
+            }
+        }
+    }
+
     if !args.packages_only {
         verbose("Running post-apply hooks");
         run_hooks(&ctx.profile.hooks.post_apply, args.dry_run)?;
