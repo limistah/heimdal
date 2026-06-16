@@ -2,6 +2,8 @@ mod cli;
 mod commands;
 mod config;
 mod crypto;
+// The defaults module is the public library API; not all items are used by the binary directly.
+#[allow(dead_code, unused_imports)]
 mod defaults;
 mod error;
 mod git;
