@@ -2,6 +2,7 @@ mod cli;
 mod commands;
 mod config;
 mod crypto;
+mod defaults;
 mod error;
 mod git;
 mod history;
@@ -64,5 +65,7 @@ fn run(cli: Cli) -> Result<()> {
         Commands::AutoSync { action } => commands::autosync::run(action),
         Commands::Key { action } => commands::key::run(action),
         Commands::History { action } => commands::history::run(action),
+        #[cfg(target_os = "macos")]
+        Commands::Defaults { action } => commands::defaults::run(action),
     }
 }
