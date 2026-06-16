@@ -51,6 +51,7 @@ libc = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 defaults-rs = { version = "1.2", default-features = false }
+plist = "1.7"
 similar = "3"
 
 [dev-dependencies]
