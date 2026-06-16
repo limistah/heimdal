@@ -39,7 +39,7 @@ fn max_age_days_default() -> u32 {
     90
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DefaultsConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -49,6 +49,17 @@ pub struct DefaultsConfig {
     pub exclude: Vec<String>,
     #[serde(default = "defaults_path_default")]
     pub path: String,
+}
+
+impl Default for DefaultsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            include: vec![],
+            exclude: vec![],
+            path: "macos-defaults".to_string(),
+        }
+    }
 }
 
 fn defaults_path_default() -> String {
@@ -597,8 +608,20 @@ defaults:
         let config: HeimdalConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let defaults = config.defaults.unwrap();
         assert!(defaults.enabled);
-        assert_eq!(defaults.include.len(), 2);
-        assert_eq!(defaults.exclude.len(), 1);
+        assert_eq!(defaults.include, vec!["com.apple.dock", "com.apple.finder"]);
+        assert_eq!(defaults.exclude, vec!["com.apple.Safari.SandboxBroker"]);
+    }
+
+    #[test]
+    fn test_defaults_config_yaml_defaults() {
+        let yaml = r#"
+defaults: {}
+"#;
+        let config: DefaultsConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert!(config.enabled);
+        assert_eq!(config.path, "macos-defaults");
+        assert!(config.include.is_empty());
+        assert!(config.exclude.is_empty());
     }
 
     #[test]
