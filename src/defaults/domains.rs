@@ -13,7 +13,7 @@ pub fn should_include_domain(domain: &str, config: &DefaultsConfig) -> bool {
         return false;
     }
     // Check default excludes
-    if DEFAULT_EXCLUDE.iter().any(|&e| e == domain) {
+    if DEFAULT_EXCLUDE.contains(&domain) {
         return false;
     }
     // If include list is specified, domain must be in it
