@@ -2,6 +2,8 @@
 
 use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// A package install that failed.
@@ -106,27 +108,166 @@ impl ApplyProgress {
     }
 }
 
+#[derive(Debug)]
+struct PackageBarState {
+    pos: usize,
+    total: usize,
+    active: Vec<String>,
+    completed: Vec<(String, bool)>, // (name, success)
+    tick: usize,
+    failures: Vec<FailedPackage>,
+}
+
 /// Animated progress bar + per-package status line for package installations.
-/// Fully implemented in Task 3.
 pub struct PackageBar {
     bar: ProgressBar,
     status: ProgressBar,
+    state: Arc<Mutex<PackageBarState>>,
+    stop: Arc<AtomicBool>,
+    tick_thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl std::fmt::Debug for PackageBar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PackageBar").finish_non_exhaustive()
+    }
 }
 
 impl PackageBar {
-    fn new(mp: &MultiProgress, _total: usize) -> Self {
-        let bar = mp.add(ProgressBar::hidden());
-        let status = mp.add(ProgressBar::hidden());
-        Self { bar, status }
+    fn new(mp: &MultiProgress, total: usize) -> Self {
+        let bar = mp.add(ProgressBar::new_spinner());
+        bar.set_style(ProgressStyle::with_template("      {msg}").unwrap());
+
+        let status = mp.add(ProgressBar::new_spinner());
+        status.set_style(ProgressStyle::with_template("      {msg}").unwrap());
+
+        let state = Arc::new(Mutex::new(PackageBarState {
+            pos: 0,
+            total,
+            active: vec![],
+            completed: vec![],
+            tick: 0,
+            failures: vec![],
+        }));
+        let stop = Arc::new(AtomicBool::new(false));
+
+        // Background thread: advances the tick counter for the leading-edge animation.
+        let state_c = Arc::clone(&state);
+        let bar_c = bar.clone();
+        let status_c = status.clone();
+        let stop_c = Arc::clone(&stop);
+
+        let tick_thread = std::thread::spawn(move || {
+            while !stop_c.load(Ordering::Relaxed) {
+                {
+                    let mut s = state_c.lock().unwrap();
+                    s.tick = s.tick.wrapping_add(1);
+                    Self::render(&bar_c, &status_c, &s);
+                }
+                std::thread::sleep(Duration::from_millis(80));
+            }
+        });
+
+        let pb = Self {
+            bar,
+            status,
+            state,
+            stop,
+            tick_thread: Some(tick_thread),
+        };
+        {
+            let s = pb.state.lock().unwrap();
+            Self::render(&pb.bar, &pb.status, &s);
+        }
+        pb
     }
 
-    pub fn record_start(&self, _pkg: &str) {}
-    pub fn record_success(&self, _pkg: &str) {}
-    pub fn record_failure(&self, _pkg: &str, _reason: &str) {}
-    pub fn into_failures(self) -> Vec<FailedPackage> {
+    fn render(bar: &ProgressBar, status: &ProgressBar, s: &PackageBarState) {
+        const SPINNER: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+        const WIDTH: usize = 28;
+
+        let filled = (s.pos * WIDTH).checked_div(s.total).unwrap_or(0);
+        let tip = if s.pos < s.total {
+            SPINNER[s.tick % SPINNER.len()]
+        } else {
+            "█"
+        };
+        let empty = WIDTH
+            .saturating_sub(filled)
+            .saturating_sub(if s.pos < s.total { 1 } else { 0 });
+
+        let bar_line = format!(
+            "[{}{}{}]  {}/{}",
+            "█".repeat(filled).green(),
+            tip.green(),
+            "░".repeat(empty).dimmed(),
+            s.pos,
+            s.total
+        );
+        bar.set_message(bar_line);
+
+        let mut parts: Vec<String> = Vec::new();
+        for (name, ok) in &s.completed {
+            if *ok {
+                parts.push(format!("{} {}", name.green(), "✓".green()));
+            } else {
+                parts.push(format!("{} {}", name.red(), "✗".red()));
+            }
+        }
+        for name in &s.active {
+            parts.push(name.clone());
+        }
+        status.set_message(parts.join("  "));
+    }
+
+    /// A package has started installing.
+    pub fn record_start(&self, pkg: &str) {
+        let mut s = self.state.lock().unwrap();
+        s.active.push(pkg.to_string());
+        Self::render(&self.bar, &self.status, &s);
+    }
+
+    /// A package installed successfully.
+    pub fn record_success(&self, pkg: &str) {
+        let mut s = self.state.lock().unwrap();
+        s.active.retain(|p| p != pkg);
+        s.completed.push((pkg.to_string(), true));
+        s.pos += 1;
+        Self::render(&self.bar, &self.status, &s);
+    }
+
+    /// A package install failed.
+    pub fn record_failure(&self, pkg: &str, reason: &str) {
+        let mut s = self.state.lock().unwrap();
+        s.active.retain(|p| p != pkg);
+        s.completed.push((pkg.to_string(), false));
+        s.pos += 1;
+        s.failures.push(FailedPackage {
+            name: pkg.to_string(),
+            reason: reason.to_string(),
+        });
+        Self::render(&self.bar, &self.status, &s);
+    }
+
+    /// Stop animation, clear bars, and return the list of failures.
+    pub fn into_failures(mut self) -> Vec<FailedPackage> {
+        self.stop.store(true, Ordering::Relaxed);
+        if let Some(h) = self.tick_thread.take() {
+            let _ = h.join();
+        }
         self.bar.finish_and_clear();
         self.status.finish_and_clear();
-        vec![]
+        // tick_thread is already joined; no other holder of the mutex.
+        self.state.lock().unwrap().failures.clone()
+    }
+}
+
+impl Drop for PackageBar {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+        if let Some(h) = self.tick_thread.take() {
+            let _ = h.join();
+        }
     }
 }
 
@@ -209,5 +350,41 @@ mod tests {
             reason: "not found".to_string(),
         }];
         bar.finish_warn(Duration::from_millis(5000), &failures);
+    }
+
+    #[test]
+    fn test_package_bar_records_and_failures() {
+        let p = ApplyProgress::new(2);
+        let stage = p.stage(1, "Packages");
+        let bar = std::sync::Arc::new(stage.package_bar(3));
+
+        bar.record_start("git");
+        bar.record_start("curl");
+        bar.record_success("git");
+        bar.record_failure("curl", "network error");
+        bar.record_start("wget");
+        bar.record_success("wget");
+
+        let failures = std::sync::Arc::try_unwrap(bar)
+            .expect("arc still borrowed")
+            .into_failures();
+        assert_eq!(failures.len(), 1);
+        assert_eq!(failures[0].name, "curl");
+        assert_eq!(failures[0].reason, "network error");
+    }
+
+    #[test]
+    fn test_package_bar_no_failures() {
+        let p = ApplyProgress::new(1);
+        let stage = p.stage(1, "Packages");
+        let bar = std::sync::Arc::new(stage.package_bar(2));
+        bar.record_start("git");
+        bar.record_success("git");
+        bar.record_start("curl");
+        bar.record_success("curl");
+        let failures = std::sync::Arc::try_unwrap(bar)
+            .expect("arc still borrowed")
+            .into_failures();
+        assert!(failures.is_empty());
     }
 }
