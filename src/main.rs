@@ -13,7 +13,6 @@ mod import;
 mod key;
 mod lock;
 mod packages;
-#[allow(dead_code)]
 mod progress;
 mod secrets;
 mod state;
