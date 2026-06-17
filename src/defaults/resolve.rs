@@ -29,6 +29,7 @@ pub fn format_pref_value(value: &PrefValue) -> String {
             } else {
                 format!("\"{}\"", s)
             }
+        }
         PrefValue::Data(d) => format!("<data: {} bytes>", d.len()),
         PrefValue::Date(ts) => format!("<date: {:.0}>", ts),
         PrefValue::Array(arr) => format!("<array: {} items>", arr.len()),
