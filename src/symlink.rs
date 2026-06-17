@@ -78,7 +78,9 @@ pub fn apply_mappings(
             DotfileEntry::Mapped(m) => (m.source.as_str(), m.target.clone(), m.when.clone()),
         };
 
-        verbose(&format!("Processing entry: {} → {}", src_rel, dest_str));
+        if crate::utils::get_verbosity() == crate::utils::Verbosity::Verbose {
+            verbose(&format!("Processing entry: {} → {}", src_rel, dest_str));
+        }
 
         // Check ignore patterns first
         let src_rel_path = Path::new(src_rel);
