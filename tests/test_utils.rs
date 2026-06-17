@@ -56,9 +56,12 @@ fn test_hostname_returns_string() {
 
 // NOTE: verbosity tests must run with --test-threads=1 due to shared global state
 #[test]
+#[serial_test::serial]
 fn test_verbosity_set_get_verbose() {
+    let prev = get_verbosity();
     set_verbosity(Verbosity::Verbose);
     assert_eq!(get_verbosity(), Verbosity::Verbose);
+    set_verbosity(prev);
 }
 
 // NOTE: verbosity tests must run with --test-threads=1 due to shared global state
