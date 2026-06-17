@@ -1,0 +1,173 @@
+name: Static Analysis
+
+on:
+  push:
+    branches: [main, master, develop, dev]
+  pull_request:
+    branches: [main, master, dev]
+  schedule:
+    # Run weekly on Mondays at 00:00 UTC
+    - cron: '0 0 * * 1'
+
+jobs:
+  clippy:
+    name: Clippy Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features --message-format=json -- -D warnings | tee clippy-results.json
+      - name: Upload Clippy Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: clippy-results
+          path: clippy-results.json
+
+  cargo-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Run Security Audit
+        run: cargo audit --json > audit-results.json
+        continue-on-error: true
+      - name: Upload Audit Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-results
+          path: audit-results.json
+
+  cargo-deny:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+      - name: Run cargo-deny
+        run: cargo deny check
+        continue-on-error: true
+
+  cargo-outdated:
+    name: Outdated Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-outdated
+        run: cargo install cargo-outdated --locked
+      - name: Check Outdated Dependencies
+        run: cargo outdated --format json > outdated-results.json
+        continue-on-error: true
+      - name: Upload Outdated Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: outdated-results
+          path: outdated-results.json
+
+  cargo-unused-deps:
+    name: Unused Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-udeps
+        run: cargo install cargo-udeps --locked
+      - name: Check Unused Dependencies
+        run: cargo +nightly udeps --all-targets
+        continue-on-error: true
+
+  cargo-semver:
+    name: Semver Checks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-semver-checks
+        run: cargo install cargo-semver-checks --locked
+      - name: Check Semver Compatibility
+        run: cargo semver-checks check-release
+        continue-on-error: true
+
+  code-coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --locked
+      - name: Generate Coverage
+        run: cargo tarpaulin --out xml --output-dir coverage --exclude-files 'tests/*'
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: coverage/cobertura.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+        continue-on-error: true
+      - name: Upload Coverage Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-results
+          path: coverage/
+
+  cargo-bloat:
+    name: Binary Size Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-bloat
+        run: cargo install cargo-bloat --locked
+      - name: Analyze Binary Size
+        run: |
+          cargo bloat --release --crates > bloat-crates.txt
+          cargo bloat --release > bloat-functions.txt
+      - name: Upload Bloat Analysis
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bloat-analysis
+          path: |
+            bloat-crates.txt
+            bloat-functions.txt
+
+  summary:
+    name: Analysis Summary
+    runs-on: ubuntu-latest
+    needs: [clippy, cargo-audit, cargo-deny, cargo-outdated, cargo-unused-deps]
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "# Static Analysis Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Clippy: ${{ needs.clippy.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Security Audit: ${{ needs.cargo-audit.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Dependency Check: ${{ needs.cargo-deny.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Outdated Deps: ${{ needs.cargo-outdated.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Unused Deps: ${{ needs.cargo-unused-deps.result }}" >> $GITHUB_STEP_SUMMARY

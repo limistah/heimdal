@@ -1,6 +1,8 @@
 pub mod apply;
 pub mod autosync;
 pub mod commit;
+#[cfg(target_os = "macos")]
+pub mod defaults;
 pub mod diff;
 pub mod history;
 pub mod import;

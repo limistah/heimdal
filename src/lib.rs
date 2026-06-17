@@ -2,6 +2,7 @@ pub mod cli;
 pub mod commands;
 pub mod config;
 pub mod crypto;
+pub mod defaults;
 pub mod error;
 pub mod git;
 pub mod history;
