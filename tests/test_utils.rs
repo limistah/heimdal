@@ -66,9 +66,12 @@ fn test_verbosity_set_get_verbose() {
 
 // NOTE: verbosity tests must run with --test-threads=1 due to shared global state
 #[test]
+#[serial_test::serial]
 fn test_verbosity_set_get_quiet() {
+    let prev = get_verbosity();
     set_verbosity(Verbosity::Quiet);
     assert_eq!(get_verbosity(), Verbosity::Quiet);
+    set_verbosity(prev);
 }
 
 // NOTE: verbosity tests must run with --test-threads=1 due to shared global state
