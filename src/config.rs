@@ -14,6 +14,8 @@ pub struct HeimdalConfig {
     pub history: Option<HistoryConfig>,
     #[serde(default)]
     pub hooks: ProfileHooks,
+    #[serde(default)]
+    pub defaults: Option<DefaultsConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -35,6 +37,33 @@ pub struct HistoryConfig {
 
 fn max_age_days_default() -> u32 {
     90
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DefaultsConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub include: Vec<String>,
+    #[serde(default)]
+    pub exclude: Vec<String>,
+    #[serde(default = "defaults_path_default")]
+    pub path: String,
+}
+
+impl Default for DefaultsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            include: vec![],
+            exclude: vec![],
+            path: "macos-defaults".to_string(),
+        }
+    }
+}
+
+fn defaults_path_default() -> String {
+    "macos-defaults".to_string()
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -426,6 +455,7 @@ pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyh
         ignore: vec![],
         history: None,
         hooks: ProfileHooks::default(),
+        defaults: None,
     };
 
     crate::utils::ensure_parent_exists(path)?;
@@ -465,6 +495,7 @@ mod tests {
             ignore: vec![".git".to_string(), "*.md".to_string()],
             history: None,
             hooks: ProfileHooks::default(),
+            defaults: None,
         };
 
         let resolved = resolve_profile(&config, "test").unwrap();
@@ -503,6 +534,7 @@ mod tests {
             ignore: vec![],
             history: None,
             hooks: ProfileHooks::default(),
+            defaults: None,
         };
 
         let resolved = resolve_profile(&config, "test").unwrap();
@@ -540,6 +572,7 @@ mod tests {
                 post_apply: vec![HookEntry::Simple("global-hook".to_string())],
                 ..Default::default()
             },
+            defaults: None,
         };
 
         let resolved = resolve_profile(&config, "test").unwrap();
@@ -554,5 +587,53 @@ mod tests {
             HookEntry::Simple(cmd) => assert_eq!(cmd, "profile-hook"),
             _ => panic!("Expected Simple hook"),
         }
+    }
+
+    #[test]
+    fn test_defaults_config_parses() {
+        let yaml = r#"
+heimdal:
+  version: "1"
+profiles:
+  default:
+    dotfiles: []
+defaults:
+  enabled: true
+  include:
+    - com.apple.dock
+    - com.apple.finder
+  exclude:
+    - com.apple.Safari.SandboxBroker
+"#;
+        let config: HeimdalConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let defaults = config.defaults.unwrap();
+        assert!(defaults.enabled);
+        assert_eq!(defaults.include, vec!["com.apple.dock", "com.apple.finder"]);
+        assert_eq!(defaults.exclude, vec!["com.apple.Safari.SandboxBroker"]);
+    }
+
+    #[test]
+    fn test_defaults_config_yaml_defaults() {
+        let yaml = r#"
+defaults: {}
+"#;
+        let config: DefaultsConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert!(config.enabled);
+        assert_eq!(config.path, "macos-defaults");
+        assert!(config.include.is_empty());
+        assert!(config.exclude.is_empty());
+    }
+
+    #[test]
+    fn test_defaults_config_defaults_to_none() {
+        let yaml = r#"
+heimdal:
+  version: "1"
+profiles:
+  default:
+    dotfiles: []
+"#;
+        let config: HeimdalConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert!(config.defaults.is_none());
     }
 }
