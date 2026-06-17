@@ -2,6 +2,9 @@ mod cli;
 mod commands;
 mod config;
 mod crypto;
+// The defaults module is only built on macOS.
+#[cfg(target_os = "macos")]
+mod defaults;
 mod error;
 mod git;
 mod history;
@@ -26,6 +29,14 @@ fn main() {
     if cli.no_color {
         colored::control::set_override(false);
     }
+    let verbosity = if cli.verbose {
+        utils::Verbosity::Verbose
+    } else if cli.quiet {
+        utils::Verbosity::Quiet
+    } else {
+        utils::Verbosity::Normal
+    };
+    utils::set_verbosity(verbosity);
     if let Err(e) = run(cli) {
         if let Some(heimdal_err) = e.downcast_ref::<error::HeimdallError>() {
             error::print_error_with_help(heimdal_err);
@@ -56,5 +67,7 @@ fn run(cli: Cli) -> Result<()> {
         Commands::AutoSync { action } => commands::autosync::run(action),
         Commands::Key { action } => commands::key::run(action),
         Commands::History { action } => commands::history::run(action),
+        #[cfg(target_os = "macos")]
+        Commands::Defaults { action } => commands::defaults::run(action),
     }
 }
