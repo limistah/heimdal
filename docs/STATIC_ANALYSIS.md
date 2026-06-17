@@ -94,8 +94,7 @@ cargo bloat --release --crates
 cargo install cargo-audit cargo-deny cargo-outdated cargo-udeps cargo-semver-checks cargo-tarpaulin cargo-bloat
 
 # Run complete check suite
-./scripts/static-analysis.sh  # (to be created)
-```
+./scripts/static-analysis.sh
 
 ## CI/CD Integration
 
