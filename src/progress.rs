@@ -1,8 +1,14 @@
 //! Yarn-style progress UI for the apply command.
+//!
+//! All bars — stage placeholders AND the two package-progress slots — are
+//! pre-allocated inside `ApplyProgress::new()` and registered with the
+//! `MultiProgress` before any stage is activated.  This keeps the
+//! `MultiProgress` height fixed from construction so that `enable_steady_tick`
+//! background threads never race with a height change, which would otherwise
+//! leave stale lines in the terminal scrollback.
 
 use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -13,11 +19,18 @@ pub struct FailedPackage {
     pub reason: String,
 }
 
+/// Which stage owns the package-progress bar slots.
+const PKG_STAGE: u8 = 2;
+
 pub struct ApplyProgress {
     mp: MultiProgress,
     total: u8,
-    /// Placeholder bars — one per stage, reused (in-place) when stage becomes active.
+    /// Stage bars, indexed by `n-1` (0-based).
     bars: Vec<ProgressBar>,
+    /// Pre-allocated package-progress bar, positioned right after stage `PKG_STAGE`.
+    pkg_bar: ProgressBar,
+    /// Pre-allocated package-status line, positioned right after `pkg_bar`.
+    pkg_status: ProgressBar,
     enabled: bool,
 }
 
@@ -28,26 +41,57 @@ pub struct StageBar {
     total: u8,
     mp: MultiProgress,
     enabled: bool,
+    /// Pre-allocated package-progress slot passed down from `ApplyProgress`.
+    /// Hidden for stages that don't install packages.
+    pkg_bar: ProgressBar,
+    pkg_status: ProgressBar,
 }
 
 impl ApplyProgress {
     /// Create a live progress display showing `total_stages` numbered stages.
-    /// All stages are rendered immediately as dim placeholders.
+    ///
+    /// All stage bars **and** the two package-progress placeholder bars are
+    /// added to the `MultiProgress` here, in their final display order, and
+    /// each is `tick()`ed to force an initial draw.  Because the height of the
+    /// dynamic area is set once and never changes afterwards, `enable_steady_tick`
+    /// background threads cannot race with a height change and no lines are
+    /// ever left as duplicates in the scrollback.
     pub fn new(total_stages: u8) -> Self {
         let mp = MultiProgress::new();
         let mut bars = Vec::with_capacity(total_stages as usize);
+        let mut pkg_bar = ProgressBar::hidden();
+        let mut pkg_status = ProgressBar::hidden();
+
         for n in 1..=total_stages {
             let bar = mp.add(ProgressBar::new_spinner());
             bar.set_style(
                 ProgressStyle::with_template(&format!("  [{n}/{total_stages}] · {{msg}}")).unwrap(),
             );
             bar.set_message("·");
+            bar.tick();
             bars.push(bar);
+
+            if n == PKG_STAGE {
+                // Insert the two package-bar slots immediately after this stage
+                // so they appear between PKG_STAGE and the next stage placeholder.
+                pkg_bar = mp.add(ProgressBar::new_spinner());
+                pkg_bar.set_style(ProgressStyle::with_template("      {msg}").unwrap());
+                pkg_bar.set_message("");
+                pkg_bar.tick();
+
+                pkg_status = mp.add(ProgressBar::new_spinner());
+                pkg_status.set_style(ProgressStyle::with_template("      {msg}").unwrap());
+                pkg_status.set_message("");
+                pkg_status.tick();
+            }
         }
+
         Self {
             mp,
             total: total_stages,
             bars,
+            pkg_bar,
+            pkg_status,
             enabled: true,
         }
     }
@@ -58,6 +102,8 @@ impl ApplyProgress {
             mp: MultiProgress::new(),
             total: 0,
             bars: vec![],
+            pkg_bar: ProgressBar::hidden(),
+            pkg_status: ProgressBar::hidden(),
             enabled: false,
         }
     }
@@ -73,6 +119,8 @@ impl ApplyProgress {
                 total: self.total,
                 mp: MultiProgress::new(),
                 enabled: false,
+                pkg_bar: ProgressBar::hidden(),
+                pkg_status: ProgressBar::hidden(),
             };
         }
         // Reuse the placeholder bar at index n-1 — update style in-place.
@@ -87,6 +135,14 @@ impl ApplyProgress {
         );
         bar.set_message(label.to_string());
         bar.enable_steady_tick(Duration::from_millis(80));
+
+        // Hand the pre-allocated pkg slots only to the stage that owns them.
+        let (pkg_bar, pkg_status) = if n == PKG_STAGE {
+            (self.pkg_bar.clone(), self.pkg_status.clone())
+        } else {
+            (ProgressBar::hidden(), ProgressBar::hidden())
+        };
+
         StageBar {
             bar,
             label: label.to_string(),
@@ -94,6 +150,8 @@ impl ApplyProgress {
             total: self.total,
             mp: self.mp.clone(),
             enabled: true,
+            pkg_bar,
+            pkg_status,
         }
     }
 
@@ -114,17 +172,14 @@ struct PackageBarState {
     total: usize,
     active: Vec<String>,
     completed: Vec<(String, bool)>, // (name, success)
-    tick: usize,
     failures: Vec<FailedPackage>,
 }
 
-/// Animated progress bar + per-package status line for package installations.
+/// Progress bar + per-package status line for package installations.
 pub struct PackageBar {
     bar: ProgressBar,
     status: ProgressBar,
     state: Arc<Mutex<PackageBarState>>,
-    stop: Arc<AtomicBool>,
-    tick_thread: Option<std::thread::JoinHandle<()>>,
 }
 
 impl std::fmt::Debug for PackageBar {
@@ -134,47 +189,16 @@ impl std::fmt::Debug for PackageBar {
 }
 
 impl PackageBar {
-    fn new(mp: &MultiProgress, total: usize) -> Self {
-        let bar = mp.add(ProgressBar::new_spinner());
-        bar.set_style(ProgressStyle::with_template("      {msg}").unwrap());
-
-        let status = mp.add(ProgressBar::new_spinner());
-        status.set_style(ProgressStyle::with_template("      {msg}").unwrap());
-
+    /// Initialise using pre-allocated `ProgressBar` slots (no `mp.add()` call).
+    fn from_slots(bar: ProgressBar, status: ProgressBar, total: usize) -> Self {
         let state = Arc::new(Mutex::new(PackageBarState {
             pos: 0,
             total,
             active: vec![],
             completed: vec![],
-            tick: 0,
             failures: vec![],
         }));
-        let stop = Arc::new(AtomicBool::new(false));
-
-        // Background thread: advances the tick counter for the leading-edge animation.
-        let state_c = Arc::clone(&state);
-        let bar_c = bar.clone();
-        let status_c = status.clone();
-        let stop_c = Arc::clone(&stop);
-
-        let tick_thread = std::thread::spawn(move || {
-            while !stop_c.load(Ordering::Relaxed) {
-                {
-                    let mut s = state_c.lock().unwrap();
-                    s.tick = s.tick.wrapping_add(1);
-                    Self::render(&bar_c, &status_c, &s);
-                }
-                std::thread::sleep(Duration::from_millis(80));
-            }
-        });
-
-        let pb = Self {
-            bar,
-            status,
-            state,
-            stop,
-            tick_thread: Some(tick_thread),
-        };
+        let pb = Self { bar, status, state };
         {
             let s = pb.state.lock().unwrap();
             Self::render(&pb.bar, &pb.status, &s);
@@ -182,24 +206,29 @@ impl PackageBar {
         pb
     }
 
+    /// Hidden (no-op) instance — used by `noop` stages and quiet mode.
+    fn hidden(total: usize) -> Self {
+        let hidden_mp = MultiProgress::with_draw_target(indicatif::ProgressDrawTarget::hidden());
+        let bar = hidden_mp.add(ProgressBar::new_spinner());
+        bar.set_style(ProgressStyle::with_template("      {msg}").unwrap());
+        let status = hidden_mp.add(ProgressBar::new_spinner());
+        status.set_style(ProgressStyle::with_template("      {msg}").unwrap());
+        Self::from_slots(bar, status, total)
+    }
+
     fn render(bar: &ProgressBar, status: &ProgressBar, s: &PackageBarState) {
-        const SPINNER: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
         const WIDTH: usize = 28;
 
-        let filled = (s.pos * WIDTH).checked_div(s.total).unwrap_or(0);
-        let tip = if s.pos < s.total {
-            SPINNER[s.tick % SPINNER.len()]
+        let filled = if s.total == 0 {
+            WIDTH
         } else {
-            "█"
+            (s.pos * WIDTH).checked_div(s.total).unwrap_or(0)
         };
-        let empty = WIDTH
-            .saturating_sub(filled)
-            .saturating_sub(if s.pos < s.total { 1 } else { 0 });
+        let empty = WIDTH.saturating_sub(filled);
 
         let bar_line = format!(
-            "[{}{}{}]  {}/{}",
+            "[{}{}]  {}/{}",
             "█".repeat(filled).green(),
-            tip.green(),
             "░".repeat(empty).dimmed(),
             s.pos,
             s.total
@@ -249,25 +278,11 @@ impl PackageBar {
         Self::render(&self.bar, &self.status, &s);
     }
 
-    /// Stop animation, clear bars, and return the list of failures.
-    pub fn into_failures(mut self) -> Vec<FailedPackage> {
-        self.stop.store(true, Ordering::Relaxed);
-        if let Some(h) = self.tick_thread.take() {
-            let _ = h.join();
-        }
+    /// Clear bars and return the list of failures.
+    pub fn into_failures(self) -> Vec<FailedPackage> {
         self.bar.finish_and_clear();
         self.status.finish_and_clear();
-        // tick_thread is already joined; no other holder of the mutex.
         self.state.lock().unwrap().failures.clone()
-    }
-}
-
-impl Drop for PackageBar {
-    fn drop(&mut self) {
-        self.stop.store(true, Ordering::Relaxed);
-        if let Some(h) = self.tick_thread.take() {
-            let _ = h.join();
-        }
     }
 }
 
@@ -307,11 +322,14 @@ impl StageBar {
             ));
         }
     }
-    /// Create a `PackageBar` displayed as a child of this stage.
-    /// (Implementation added in Task 3.)
+
+    /// Create a `PackageBar` using the pre-allocated slots from `ApplyProgress`.
+    /// No `mp.add()` is called — the height of the `MultiProgress` does not change.
     pub fn package_bar(&self, total: usize) -> PackageBar {
-        let hidden_mp = MultiProgress::with_draw_target(indicatif::ProgressDrawTarget::hidden());
-        PackageBar::new(if self.enabled { &self.mp } else { &hidden_mp }, total)
+        if !self.enabled {
+            return PackageBar::hidden(total);
+        }
+        PackageBar::from_slots(self.pkg_bar.clone(), self.pkg_status.clone(), total)
     }
 }
 
@@ -386,5 +404,33 @@ mod tests {
             .expect("arc still borrowed")
             .into_failures();
         assert!(failures.is_empty());
+    }
+
+    /// Verifies that all bars (stage placeholders + pkg slots) are pre-allocated
+    /// in `ApplyProgress::new()`, keeping the `MultiProgress` height fixed from
+    /// construction so `enable_steady_tick` threads cannot race with a height change.
+    #[test]
+    fn test_all_placeholder_bars_initialized_at_construction() {
+        let p = ApplyProgress::new(5);
+        for n in 1u8..=5 {
+            let bar = p.stage(n, &format!("Stage {n}"));
+            bar.finish_success(Duration::from_millis(0));
+        }
+    }
+
+    /// Verifies that `package_bar()` on the correct stage uses the pre-allocated
+    /// slots (no `mp.add()`) and that failure tracking still works end-to-end.
+    #[test]
+    fn test_package_bar_on_pkg_stage_uses_pre_allocated_slots() {
+        let p = ApplyProgress::new(5);
+        let stage2 = p.stage(PKG_STAGE, "Installing packages");
+        let bar = stage2.package_bar(4);
+        bar.record_start("git");
+        bar.record_success("git");
+        bar.record_start("curl");
+        bar.record_failure("curl", "timeout");
+        let failures = bar.into_failures();
+        assert_eq!(failures.len(), 1);
+        assert_eq!(failures[0].name, "curl");
     }
 }
