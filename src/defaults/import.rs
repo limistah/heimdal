@@ -10,6 +10,7 @@ use std::path::Path;
 
 /// Result of importing a single domain.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ImportResult {
     pub domain: String,
     pub success: bool,

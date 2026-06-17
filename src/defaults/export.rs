@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 
 /// Result of exporting a single domain.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ExportResult {
     pub domain: String,
     pub path: PathBuf,

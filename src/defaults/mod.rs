@@ -15,6 +15,9 @@
 //!     - com.apple.Safari.SandboxBroker
 //!   path: macos-defaults  # relative to dotfiles dir
 //! ```
+// The re-exports below form the public library API. Not all of them are consumed
+// by the binary itself, but they are available to downstream library users.
+#![allow(unused_imports, dead_code)]
 
 #[cfg(target_os = "macos")]
 mod diff;
