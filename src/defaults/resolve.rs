@@ -23,12 +23,12 @@ pub fn format_pref_value(value: &PrefValue) -> String {
         PrefValue::Integer(i) => format!("{}", i),
         PrefValue::Float(f) => format!("{:.4}", f),
         PrefValue::String(s) => {
-            if s.len() > 50 {
-                format!("\"{}...\"", &s[..47])
+            if s.chars().count() > 50 {
+                let truncated: String = s.chars().take(47).collect();
+                format!("\"{}...\"", truncated)
             } else {
                 format!("\"{}\"", s)
             }
-        }
         PrefValue::Data(d) => format!("<data: {} bytes>", d.len()),
         PrefValue::Date(ts) => format!("<date: {:.0}>", ts),
         PrefValue::Array(arr) => format!("<array: {} items>", arr.len()),
