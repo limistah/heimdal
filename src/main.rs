@@ -2,8 +2,8 @@ mod cli;
 mod commands;
 mod config;
 mod crypto;
-// The defaults module is the public library API; not all items are used by the binary directly.
-#[allow(dead_code, unused_imports)]
+// The defaults module is only built on macOS.
+#[cfg(target_os = "macos")]
 mod defaults;
 mod error;
 mod git;
