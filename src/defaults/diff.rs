@@ -89,10 +89,9 @@ pub fn diff_domain(
 
     // Read dotfiles version (may not exist)
     let dotfiles_data: HashMap<String, PrefValue> = if plist_path.exists() {
-        read_plist_file(&plist_path)
-            .unwrap_or_default()
-            .iter()
-            .map(|(k, v)| (k.clone(), plist_to_prefvalue(v)))
+        read_plist_file(&plist_path)?
+            .into_iter()
+            .map(|(k, v)| (k, plist_to_prefvalue(&v)))
             .collect()
     } else {
         HashMap::new()
