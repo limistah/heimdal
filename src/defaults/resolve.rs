@@ -180,8 +180,8 @@ mod tests {
 
     #[test]
     fn test_format_pref_value_float() {
-        let formatted = format_pref_value(&PrefValue::Float(3.14));
-        assert!(formatted.contains("3.14"));
+        let formatted = format_pref_value(&PrefValue::Float(2.5));
+        assert!(formatted.contains("2.5"));
     }
 
     #[test]
