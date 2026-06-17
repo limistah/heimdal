@@ -44,7 +44,12 @@ pub fn run(args: ApplyArgs) -> Result<()> {
 
     if !args.dotfiles_only {
         verbose("Installing packages");
-        install_for_profile(&ctx.profile, args.dry_run)?;
+        install_for_profile(
+            &ctx.profile,
+            args.dry_run,
+            &crate::progress::ApplyProgress::noop().stage(1, ""),
+            ctx.config.parallel_jobs,
+        )?;
     }
 
     if !args.packages_only {

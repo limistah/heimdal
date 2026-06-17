@@ -1,4 +1,6 @@
-use anyhow::Result;
+use std::collections::VecDeque;
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 
 /// Check if a command is available on the system.
 fn check_command_available(cmd: &str) -> bool {
@@ -21,7 +23,6 @@ pub trait PackageManager: Send + Sync {
     fn name(&self) -> &str;
     fn field_name(&self) -> &str; // matches PackageMap field: "homebrew", "apt", etc.
     fn is_available(&self) -> bool;
-    fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>>;
 }
 
 // ── Homebrew ──────────────────────────────────────────────────────────────────
@@ -42,10 +43,6 @@ impl PackageManager for Homebrew {
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false)
-    }
-
-    fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
-        install_with_cmd("brew", &["install"], pkgs, dry_run)
     }
 }
 
@@ -68,10 +65,6 @@ impl PackageManager for HomebrewCask {
             .map(|o| o.status.success())
             .unwrap_or(false)
     }
-
-    fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
-        install_with_cmd("brew", &["install", "--cask"], pkgs, dry_run)
-    }
 }
 
 // ── Apt ───────────────────────────────────────────────────────────────────────
@@ -88,10 +81,6 @@ impl PackageManager for Apt {
 
     fn is_available(&self) -> bool {
         check_command_available("apt-get")
-    }
-
-    fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
-        install_with_cmd("apt-get", &["install", "-y"], pkgs, dry_run)
     }
 }
 
@@ -110,10 +99,6 @@ impl PackageManager for Dnf {
     fn is_available(&self) -> bool {
         check_command_available("dnf")
     }
-
-    fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
-        install_with_cmd("dnf", &["install", "-y"], pkgs, dry_run)
-    }
 }
 
 // ── Pacman ────────────────────────────────────────────────────────────────────
@@ -131,10 +116,6 @@ impl PackageManager for Pacman {
     fn is_available(&self) -> bool {
         check_command_available("pacman")
     }
-
-    fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
-        install_with_cmd("pacman", &["-S", "--noconfirm"], pkgs, dry_run)
-    }
 }
 
 // ── Apk ───────────────────────────────────────────────────────────────────────
@@ -151,10 +132,6 @@ impl PackageManager for Apk {
 
     fn is_available(&self) -> bool {
         check_command_available("apk")
-    }
-
-    fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
-        install_with_cmd("apk", &["add"], pkgs, dry_run)
     }
 }
 
@@ -177,133 +154,157 @@ impl PackageManager for Mas {
             .map(|o| o.status.success())
             .unwrap_or(false)
     }
-
-    fn install_many(&self, pkgs: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
-        install_mas_apps(pkgs, dry_run)
-    }
-}
-
-fn install_mas_apps(app_ids: &[String], dry_run: bool) -> Result<Vec<InstallResult>> {
-    if app_ids.is_empty() {
-        return Ok(vec![]);
-    }
-
-    if dry_run {
-        return Ok(app_ids
-            .iter()
-            .map(|id| InstallResult {
-                package: id.clone(),
-                success: true,
-                already_installed: false,
-                message: Some(format!("[dry-run] Would install MAS app: {}", id)),
-            })
-            .collect());
-    }
-
-    // Get list of already installed apps
-    let installed = std::process::Command::new("mas")
-        .args(["list"])
-        .output()
-        .ok()
-        .and_then(|o| {
-            if o.status.success() {
-                Some(String::from_utf8_lossy(&o.stdout).to_string())
-            } else {
-                None
-            }
-        })
-        .unwrap_or_default();
-
-    let mut results = Vec::new();
-    for app_id in app_ids {
-        // Check if already installed
-        if installed.lines().any(|line| line.starts_with(app_id)) {
-            results.push(InstallResult {
-                success: true,
-                already_installed: true,
-                message: Some(format!("Already installed: MAS app {}", app_id)),
-                package: app_id.clone(),
-            });
-            continue;
-        }
-
-        // MAS requires sudo for installation
-        crate::utils::info(&format!("Installing MAS app {}...", app_id));
-        let mut command = std::process::Command::new("sudo");
-        command.args(["mas", "install", app_id]);
-
-        let output = command
-            .output()
-            .map_err(|e| crate::error::HeimdallError::Package {
-                manager: "mas".to_string(),
-                reason: format!("Cannot run mas: {}", e),
-            })?;
-
-        results.push(InstallResult {
-            success: output.status.success(),
-            already_installed: false,
-            message: if output.status.success() {
-                None
-            } else {
-                Some(String::from_utf8_lossy(&output.stderr).trim().to_string())
-            },
-            package: app_id.clone(),
-        });
-    }
-    Ok(results)
-}
-
-// ── Shared helper ─────────────────────────────────────────────────────────────
-
-fn install_with_cmd(
-    cmd: &str,
-    base_args: &[&str],
-    pkgs: &[String],
-    dry_run: bool,
-) -> Result<Vec<InstallResult>> {
-    if pkgs.is_empty() {
-        return Ok(vec![]);
-    }
-
-    if dry_run {
-        return Ok(pkgs
-            .iter()
-            .map(|p| InstallResult {
-                package: p.clone(),
-                success: true,
-                already_installed: false,
-                message: Some(format!("[dry-run] Would install: {}", p)),
-            })
-            .collect());
-    }
-
-    let mut results = Vec::new();
-    for pkg in pkgs {
-        let mut command = std::process::Command::new(cmd);
-        command.args(base_args).arg(pkg);
-        let output = command
-            .output()
-            .map_err(|e| crate::error::HeimdallError::Package {
-                manager: cmd.to_string(),
-                reason: format!("Cannot run {}: {}", cmd, e),
-            })?;
-        results.push(InstallResult {
-            success: output.status.success(),
-            already_installed: false,
-            message: if output.status.success() {
-                None
-            } else {
-                Some(String::from_utf8_lossy(&output.stderr).trim().to_string())
-            },
-            package: pkg.clone(),
-        });
-    }
-    Ok(results)
 }
 
 // ── Public interface ──────────────────────────────────────────────────────────
 
-/// Detect the currently available package manager (first one that's available).
+/// A single unit of package installation work.
+struct WorkItem {
+    cmd: String,
+    args: Vec<String>,
+    pkg: String,
+    dry_run: bool,
+}
+
+/// Install one package synchronously; returns an `InstallResult`.
+fn install_one(item: &WorkItem) -> InstallResult {
+    if item.dry_run {
+        return InstallResult {
+            package: item.pkg.clone(),
+            success: true,
+            already_installed: false,
+            message: Some(format!("[dry-run] Would install: {}", item.pkg)),
+        };
+    }
+    let mut cmd = std::process::Command::new(&item.cmd);
+    cmd.args(&item.args).arg(&item.pkg);
+    cmd.stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped());
+    match cmd.output() {
+        Err(e) => InstallResult {
+            package: item.pkg.clone(),
+            success: false,
+            already_installed: false,
+            message: Some(format!("Cannot run {}: {}", item.cmd, e)),
+        },
+        Ok(out) => InstallResult {
+            package: item.pkg.clone(),
+            success: out.status.success(),
+            already_installed: false,
+            message: if out.status.success() {
+                None
+            } else {
+                Some(String::from_utf8_lossy(&out.stderr).trim().to_string())
+            },
+        },
+    }
+}
+
+/// Returns `(cmd, base_args)` for a package manager name.
+fn manager_cmd(name: &str) -> (String, Vec<String>) {
+    match name {
+        "homebrew" => ("brew".to_string(), vec!["install".to_string()]),
+        "homebrew-cask" => (
+            "brew".to_string(),
+            vec!["install".to_string(), "--cask".to_string()],
+        ),
+        "apt" => (
+            "apt-get".to_string(),
+            vec!["install".to_string(), "-y".to_string()],
+        ),
+        "dnf" => (
+            "dnf".to_string(),
+            vec!["install".to_string(), "-y".to_string()],
+        ),
+        "pacman" => (
+            "pacman".to_string(),
+            vec!["-S".to_string(), "--noconfirm".to_string()],
+        ),
+        "apk" => ("apk".to_string(), vec!["add".to_string()]),
+        "mas" => ("mas".to_string(), vec!["install".to_string()]),
+        _ => (name.to_string(), vec![]),
+    }
+}
+
+/// Extract the package list for a given manager field name from a `PackageMap`.
+fn get_manager_packages(field: &str, pkgs: &crate::config::PackageMap) -> Vec<String> {
+    match field {
+        "homebrew" => pkgs.homebrew.clone(),
+        "homebrew_casks" => pkgs.homebrew_casks.clone(),
+        "apt" => pkgs.apt.clone(),
+        "dnf" => pkgs.dnf.clone(),
+        "pacman" => pkgs.pacman.clone(),
+        "apk" => pkgs.apk.clone(),
+        "mas" => pkgs
+            .mas
+            .iter()
+            .filter_map(|v| {
+                v.get("id")
+                    .and_then(|id| id.as_u64())
+                    .map(|id| id.to_string())
+            })
+            .collect(),
+        _ => vec![],
+    }
+}
+
+/// Run `work` items in parallel across `num_threads` workers.
+/// Results are reported to `bar` as they arrive.
+/// Returns `Vec<FailedPackage>`.
+fn run_parallel(
+    work: Vec<WorkItem>,
+    bar: Arc<crate::progress::PackageBar>,
+    num_threads: usize,
+) -> Vec<crate::progress::FailedPackage> {
+    if work.is_empty() {
+        return vec![];
+    }
+    let queue = Arc::new(Mutex::new(VecDeque::from(work)));
+    let (tx, rx) = mpsc::channel::<InstallResult>();
+
+    let n_threads = num_threads.clamp(1, 16);
+    let handles: Vec<_> = (0..n_threads)
+        .map(|_| {
+            let queue = Arc::clone(&queue);
+            let tx = tx.clone();
+            let bar = Arc::clone(&bar);
+            std::thread::spawn(move || loop {
+                let item = { queue.lock().unwrap().pop_front() };
+                match item {
+                    None => break,
+                    Some(item) => {
+                        bar.record_start(&item.pkg);
+                        let result = install_one(&item);
+                        let _ = tx.send(result);
+                    }
+                }
+            })
+        })
+        .collect();
+
+    drop(tx); // close sender so rx terminates when all workers finish
+
+    for result in rx {
+        if result.success {
+            bar.record_success(&result.package);
+        } else {
+            bar.record_failure(
+                &result.package,
+                result.message.as_deref().unwrap_or("unknown error"),
+            );
+        }
+    }
+
+    for h in handles {
+        let _ = h.join();
+    }
+
+    // Unwrap the Arc before calling into_failures (all workers have finished)
+    Arc::try_unwrap(bar)
+        .expect("PackageBar arc still referenced after all workers joined")
+        .into_failures()
+}
+
 pub fn detect_manager() -> Option<Box<dyn PackageManager>> {
     let managers: Vec<Box<dyn PackageManager>> = vec![
         Box::new(Homebrew),
@@ -315,8 +316,14 @@ pub fn detect_manager() -> Option<Box<dyn PackageManager>> {
     managers.into_iter().find(|m| m.is_available())
 }
 
-/// Install packages for the active profile (called from apply command).
-pub fn install_for_profile(profile: &crate::config::Profile, dry_run: bool) -> Result<()> {
+/// Install packages for the active profile. Reports progress via `stage`.
+/// Returns the list of packages that failed to install.
+pub fn install_for_profile(
+    profile: &crate::config::Profile,
+    dry_run: bool,
+    stage: &crate::progress::StageBar,
+    parallel_jobs: usize,
+) -> anyhow::Result<Vec<crate::progress::FailedPackage>> {
     let managers: Vec<Box<dyn PackageManager>> = vec![
         Box::new(Homebrew),
         Box::new(HomebrewCask),
@@ -328,27 +335,20 @@ pub fn install_for_profile(profile: &crate::config::Profile, dry_run: bool) -> R
     ];
 
     let pkgs = &profile.packages;
+    let mut work: Vec<WorkItem> = Vec::new();
 
-    // Install common packages via the first available package manager
+    // Common packages → first available manager
     if !pkgs.common.is_empty() {
         match managers.iter().find(|m| m.is_available()) {
             Some(manager) => {
-                let results = manager.install_many(&pkgs.common, dry_run)?;
-                for r in &results {
-                    if r.success {
-                        if let Some(msg) = &r.message {
-                            crate::utils::info(msg);
-                        } else {
-                            crate::utils::step(&format!("Installed: {}", r.package));
-                        }
-                    } else {
-                        crate::utils::warning(&format!(
-                            "Failed to install '{}' via {}: {}",
-                            r.package,
-                            manager.name(),
-                            r.message.as_deref().unwrap_or("unknown error")
-                        ));
-                    }
+                let (cmd, args) = manager_cmd(manager.name());
+                for pkg in &pkgs.common {
+                    work.push(WorkItem {
+                        cmd: cmd.clone(),
+                        args: args.clone(),
+                        pkg: pkg.clone(),
+                        dry_run,
+                    });
                 }
             }
             None => {
@@ -360,59 +360,73 @@ pub fn install_for_profile(profile: &crate::config::Profile, dry_run: bool) -> R
         }
     }
 
+    // Manager-specific packages
     for manager in &managers {
-        let to_install = match manager.field_name() {
-            "homebrew" => pkgs.homebrew.clone(),
-            "homebrew_casks" => pkgs.homebrew_casks.clone(),
-            "apt" => pkgs.apt.clone(),
-            "dnf" => pkgs.dnf.clone(),
-            "pacman" => pkgs.pacman.clone(),
-            "apk" => pkgs.apk.clone(),
-            "mas" => {
-                // Extract app IDs from JSON objects
-                pkgs.mas
-                    .iter()
-                    .filter_map(|v| {
-                        v.get("id")
-                            .and_then(|id| id.as_u64())
-                            .map(|id| id.to_string())
-                    })
-                    .collect()
-            }
-            _ => vec![],
-        };
-
+        let to_install = get_manager_packages(manager.field_name(), pkgs);
         if to_install.is_empty() {
             continue;
         }
-
         if !manager.is_available() {
             crate::utils::warning(&format!(
-                "Package manager '{}' is not available on this system. Skipping {} package(s).",
+                "Package manager '{}' not available. Skipping {} package(s).",
                 manager.name(),
                 to_install.len()
             ));
             continue;
         }
-
-        let results = manager.install_many(&to_install, dry_run)?;
-        for r in &results {
-            if r.success {
-                if let Some(msg) = &r.message {
-                    crate::utils::info(msg);
-                } else {
-                    crate::utils::step(&format!("Installed: {}", r.package));
-                }
-            } else {
-                crate::utils::warning(&format!(
-                    "Failed to install '{}' via {}: {}",
-                    r.package,
-                    manager.name(),
-                    r.message.as_deref().unwrap_or("unknown error")
-                ));
-            }
+        let (cmd, args) = manager_cmd(manager.name());
+        for pkg in to_install {
+            work.push(WorkItem {
+                cmd: cmd.clone(),
+                args: args.clone(),
+                pkg,
+                dry_run,
+            });
         }
     }
 
-    Ok(())
+    if work.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let bar = Arc::new(stage.package_bar(work.len()));
+    Ok(run_parallel(work, bar, parallel_jobs))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{PackageMap, Profile};
+    use crate::progress::ApplyProgress;
+
+    fn make_stage() -> (ApplyProgress, crate::progress::StageBar) {
+        let p = ApplyProgress::new(5);
+        let s = p.stage(2, "Installing packages");
+        (p, s)
+    }
+
+    #[test]
+    fn test_install_for_profile_dry_run_no_failures() {
+        let (_p, stage) = make_stage();
+        let profile = Profile {
+            packages: PackageMap {
+                common: vec!["git".to_string(), "curl".to_string()],
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let result = install_for_profile(&profile, true, &stage, 2);
+        assert!(result.is_ok());
+        let failures = result.unwrap();
+        assert!(failures.is_empty(), "dry run should produce no failures");
+    }
+
+    #[test]
+    fn test_install_for_profile_empty_profile() {
+        let (_p, stage) = make_stage();
+        let profile = Profile::default();
+        let result = install_for_profile(&profile, false, &stage, 4);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
 }
