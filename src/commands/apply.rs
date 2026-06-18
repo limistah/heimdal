@@ -41,7 +41,8 @@ pub fn run(args: ApplyArgs) -> Result<()> {
     let t = Instant::now();
     let stage1 = progress.stage(1, "Pre-apply hooks");
     if !args.packages_only {
-        progress.suspend(|| run_hooks(&ctx.profile.hooks.pre_apply, args.dry_run))?;
+        let mut vp = stage1.hook_viewport();
+        run_hooks(&ctx.profile.hooks.pre_apply, args.dry_run, &stage1, &mut vp)?;
     }
     stage1.finish_success(t.elapsed());
 
@@ -170,7 +171,13 @@ pub fn run(args: ApplyArgs) -> Result<()> {
     let t = Instant::now();
     let stage5 = progress.stage(5, "Post-apply hooks");
     if !args.packages_only {
-        progress.suspend(|| run_hooks(&ctx.profile.hooks.post_apply, args.dry_run))?;
+        let mut vp = stage5.hook_viewport();
+        run_hooks(
+            &ctx.profile.hooks.post_apply,
+            args.dry_run,
+            &stage5,
+            &mut vp,
+        )?;
     }
     stage5.finish_success(t.elapsed());
 
