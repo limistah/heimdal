@@ -276,7 +276,9 @@ impl PackageBar {
     /// A package install failed.
     pub fn record_failure(&self, pkg: &str, reason: &str) {
         let mut s = self.state.lock().unwrap();
-        s.active.retain(|p| p != pkg);
+        if let Some(i) = s.active.iter().position(|p| p == pkg) {
+            s.active.remove(i);
+        }
         s.completed.push((pkg.to_string(), false));
         s.pos += 1;
         s.failures.push(FailedPackage {
