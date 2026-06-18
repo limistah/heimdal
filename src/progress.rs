@@ -286,6 +286,65 @@ impl PackageBar {
     }
 }
 
+/// Scrolling log viewport for hook command output.
+///
+/// Bars are dynamically allocated (0 → max 5) via `MultiProgress::insert_after`
+/// as lines arrive. The viewport scrolls once full. On hook completion call
+/// `clear()` (success) or `flush_above()` (failure).
+pub struct HookViewport {
+    mp: MultiProgress,
+    anchor: ProgressBar,
+    pub bars: Vec<ProgressBar>,
+    pub buffer: std::collections::VecDeque<String>,
+    enabled: bool,
+}
+
+impl HookViewport {
+    const MAX_LINES: usize = 5;
+
+    /// Push a new output line. Grows up to MAX_LINES bars then scrolls.
+    pub fn push_line(&mut self, line: String) {
+        if !self.enabled {
+            return;
+        }
+        if self.bars.len() < Self::MAX_LINES {
+            let new_bar = if let Some(last) = self.bars.last() {
+                self.mp.insert_after(last, ProgressBar::new_spinner())
+            } else {
+                self.mp
+                    .insert_after(&self.anchor, ProgressBar::new_spinner())
+            };
+            new_bar.set_style(ProgressStyle::with_template("         │ {msg}").unwrap());
+            new_bar.set_message(line.clone());
+            self.bars.push(new_bar);
+            self.buffer.push_back(line);
+        } else {
+            self.buffer.pop_front();
+            self.buffer.push_back(line);
+            for (bar, msg) in self.bars.iter().zip(self.buffer.iter()) {
+                bar.set_message(msg.clone());
+            }
+        }
+    }
+
+    /// Remove all viewport bars and clear the buffer (hook finished cleanly).
+    pub fn clear(&mut self) {
+        for bar in self.bars.drain(..) {
+            bar.finish_and_clear();
+        }
+        self.buffer.clear();
+    }
+
+    /// Print all buffered lines above the progress bars, then clear.
+    /// Call this when a hook fails to preserve its output in scrollback.
+    pub fn flush_above(&mut self) {
+        for line in &self.buffer {
+            let _ = self.mp.println(format!("         {}", line));
+        }
+        self.clear();
+    }
+}
+
 impl StageBar {
     /// Collapse the stage to a green `✓ Label (Xs)` line.
     pub fn finish_success(&self, elapsed: Duration) {
@@ -380,6 +439,29 @@ impl StageBar {
                 linked,
                 elapsed.as_secs_f64()
             ));
+        }
+    }
+
+    /// Create a `HookViewport` anchored after this stage bar.
+    /// Returns a no-op viewport when progress is disabled (quiet mode).
+    pub fn hook_viewport(&self) -> HookViewport {
+        if !self.enabled {
+            let hidden = MultiProgress::with_draw_target(indicatif::ProgressDrawTarget::hidden());
+            let anchor = hidden.add(ProgressBar::hidden());
+            return HookViewport {
+                mp: hidden,
+                anchor,
+                bars: Vec::new(),
+                buffer: std::collections::VecDeque::new(),
+                enabled: false,
+            };
+        }
+        HookViewport {
+            mp: self.mp.clone(),
+            anchor: self.bar.clone(),
+            bars: Vec::new(),
+            buffer: std::collections::VecDeque::new(),
+            enabled: true,
         }
     }
 }
@@ -518,5 +600,63 @@ mod tests {
         let p = ApplyProgress::new(3);
         let bar = p.stage(3, "Symlinks");
         bar.finish_with_counts(Duration::from_millis(800), 1247, 3);
+    }
+
+    #[test]
+    fn test_hook_viewport_grows_up_to_max() {
+        let p = ApplyProgress::new(2);
+        let stage = p.stage(1, "Hooks");
+        let mut vp = stage.hook_viewport();
+
+        for i in 0..7 {
+            vp.push_line(format!("line {}", i));
+        }
+
+        // Capped at 5 bars
+        assert_eq!(vp.bars.len(), 5);
+        // Buffer holds the last 5 lines
+        let buf: Vec<&String> = vp.buffer.iter().collect();
+        assert_eq!(buf[0], "line 2");
+        assert_eq!(buf[4], "line 6");
+    }
+
+    #[test]
+    fn test_hook_viewport_clear_removes_bars_and_buffer() {
+        let p = ApplyProgress::new(2);
+        let stage = p.stage(1, "Hooks");
+        let mut vp = stage.hook_viewport();
+
+        vp.push_line("line 1".into());
+        vp.push_line("line 2".into());
+        vp.clear();
+
+        assert!(vp.bars.is_empty());
+        assert!(vp.buffer.is_empty());
+    }
+
+    #[test]
+    fn test_hook_viewport_flush_above_clears() {
+        let p = ApplyProgress::new(2);
+        let stage = p.stage(1, "Hooks");
+        let mut vp = stage.hook_viewport();
+
+        vp.push_line("error output".into());
+        vp.flush_above(); // should not panic
+
+        // After flush, bars and buffer are cleared
+        assert!(vp.bars.is_empty());
+        assert!(vp.buffer.is_empty());
+    }
+
+    #[test]
+    fn test_hook_viewport_noop_on_disabled_stage() {
+        let p = ApplyProgress::noop();
+        let stage = p.stage(1, "Hooks");
+        let mut vp = stage.hook_viewport();
+
+        // Should not panic, bars stay empty
+        vp.push_line("line".into());
+        vp.clear();
+        assert!(vp.bars.is_empty());
     }
 }
