@@ -2,6 +2,7 @@ use crate::cli::{ApplyArgs, SyncArgs};
 use crate::config::CommandContext;
 use crate::git::GitRepo;
 use crate::hooks::run_hooks;
+use crate::progress::ApplyProgress;
 use crate::utils::{info, success};
 use anyhow::Result;
 
@@ -16,7 +17,12 @@ pub fn run(args: SyncArgs) -> Result<()> {
     }
 
     // pre_sync hooks
-    run_hooks(&ctx.profile.hooks.pre_sync, args.dry_run)?;
+    {
+        let p = ApplyProgress::noop();
+        let stage = p.stage(1, "Pre-sync hooks");
+        let mut vp = stage.hook_viewport();
+        run_hooks(&ctx.profile.hooks.pre_sync, args.dry_run, &stage, &mut vp)?;
+    }
 
     // pull
     let repo = GitRepo::open(&ctx.state.dotfiles_path);
@@ -42,7 +48,12 @@ pub fn run(args: SyncArgs) -> Result<()> {
     })?;
 
     // post_sync hooks
-    run_hooks(&ctx.profile.hooks.post_sync, args.dry_run)?;
+    {
+        let p = ApplyProgress::noop();
+        let stage = p.stage(1, "Post-sync hooks");
+        let mut vp = stage.hook_viewport();
+        run_hooks(&ctx.profile.hooks.post_sync, args.dry_run, &stage, &mut vp)?;
+    }
 
     if !args.dry_run {
         let mut s = ctx.state;
