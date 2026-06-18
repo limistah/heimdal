@@ -67,7 +67,7 @@ impl ApplyProgress {
         for n in 1..=total_stages {
             let bar = mp.add(ProgressBar::new_spinner());
             bar.set_style(
-                ProgressStyle::with_template(&format!("  [{n}/{total_stages}] · {{msg}}")).unwrap(),
+                ProgressStyle::with_template(&format!("  [{n}/{total_stages}] {{msg}}")).unwrap(),
             );
             bar.set_message("·");
             bar.tick();
