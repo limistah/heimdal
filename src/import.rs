@@ -275,6 +275,7 @@ pub fn generate_heimdal_yaml(result: &ImportResult, profile_name: &str) -> Resul
         history: None,
         hooks: crate::config::ProfileHooks::default(),
         defaults: None,
+        parallel_jobs: 4,
     };
 
     Ok(serde_yaml_ng::to_string(&config)?)
