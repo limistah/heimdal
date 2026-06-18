@@ -1,4 +1,5 @@
 use anyhow::Result;
+use colored::Colorize;
 use std::time::Instant;
 
 use crate::cli::ApplyArgs;
@@ -7,8 +8,7 @@ use crate::hooks::run_hooks;
 use crate::packages::install_for_profile;
 use crate::progress::ApplyProgress;
 use crate::symlink::{
-    apply_mappings, apply_stow_walk, compile_ignore_patterns, print_results, ApplyContext,
-    LinkResult,
+    apply_mappings, apply_stow_walk, compile_ignore_patterns, ApplyContext, LinkResult,
 };
 use crate::utils::{get_verbosity, home_dir, Verbosity};
 
@@ -68,17 +68,56 @@ pub fn run(args: ApplyArgs) -> Result<()> {
     let t = Instant::now();
     let stage3 = progress.stage(3, "Symlinks");
     if !args.packages_only {
+        let mut linked: u64 = 0;
+        let mut warnings: usize = 0;
+
+        let mut on_result = |result: &LinkResult| {
+            linked += 1;
+            match result {
+                LinkResult::Conflict { dest, reason } => {
+                    stage3.println(&format!(
+                        "         {} conflict  {} — {}",
+                        "!".yellow(),
+                        dest.display(),
+                        reason
+                    ));
+                    warnings += 1;
+                }
+                LinkResult::Backed { dest, backup } => {
+                    stage3.println(&format!(
+                        "         {} backed    {} → {}",
+                        "!".yellow(),
+                        dest.display(),
+                        backup.display()
+                    ));
+                    warnings += 1;
+                }
+                LinkResult::Skipped { dest, reason } => {
+                    stage3.println(&format!(
+                        "         {} skipped   {} — {}",
+                        "!".yellow(),
+                        dest.display(),
+                        reason
+                    ));
+                    warnings += 1;
+                }
+                _ => {}
+            }
+            stage3.set_message(format!("{} linked", linked));
+        };
+
         let results = if ctx.profile.dotfiles.is_empty() {
-            apply_stow_walk(&apply_ctx, &mut |_| {})?
+            apply_stow_walk(&apply_ctx, &mut on_result)?
         } else {
             apply_mappings(
                 &apply_ctx,
                 &ctx.profile.dotfiles,
                 &ctx.state.active_profile,
-                &mut |_| {},
+                &mut on_result,
             )?
         };
-        print_results(&results, args.dry_run);
+        drop(on_result); // release borrows on linked/warnings before reading them
+
         let conflicts: Vec<_> = results
             .iter()
             .filter(|r| matches!(r, LinkResult::Conflict { .. }))
@@ -89,8 +128,11 @@ pub fn run(args: ApplyArgs) -> Result<()> {
                 conflicts.len()
             );
         }
+
+        stage3.finish_with_counts(t.elapsed(), linked, warnings);
+    } else {
+        stage3.finish_success(t.elapsed());
     }
-    stage3.finish_success(t.elapsed());
 
     // ── [4/5] Templates ──────────────────────────────────────────────────────
     let t = Instant::now();
