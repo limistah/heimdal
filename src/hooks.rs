@@ -53,20 +53,16 @@ pub fn run_hooks(
         let tx_out = tx.clone();
         let stdout = child.stdout.take().expect("stdout is piped");
         let stdout_thread = std::thread::spawn(move || {
-            for line in BufReader::new(stdout).lines() {
-                if let Ok(l) = line {
-                    let _ = tx_out.send(l);
-                }
+            for l in BufReader::new(stdout).lines().map_while(Result::ok) {
+                let _ = tx_out.send(l);
             }
         });
 
         let tx_err = tx;
         let stderr = child.stderr.take().expect("stderr is piped");
         let stderr_thread = std::thread::spawn(move || {
-            for line in BufReader::new(stderr).lines() {
-                if let Ok(l) = line {
-                    let _ = tx_err.send(l);
-                }
+            for l in BufReader::new(stderr).lines().map_while(Result::ok) {
+                let _ = tx_err.send(l);
             }
         });
 

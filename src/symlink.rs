@@ -16,11 +16,27 @@ pub struct ApplyContext {
 
 #[derive(Debug)]
 pub enum LinkResult {
-    Created { src: PathBuf, dest: PathBuf },
-    AlreadyLinked { dest: PathBuf },
-    Skipped { dest: PathBuf, reason: String },
-    Backed { dest: PathBuf, backup: PathBuf },
-    Conflict { dest: PathBuf, reason: String },
+    #[allow(dead_code)]
+    Created {
+        src: PathBuf,
+        dest: PathBuf,
+    },
+    #[allow(dead_code)]
+    AlreadyLinked {
+        dest: PathBuf,
+    },
+    Skipped {
+        dest: PathBuf,
+        reason: String,
+    },
+    Backed {
+        dest: PathBuf,
+        backup: PathBuf,
+    },
+    Conflict {
+        dest: PathBuf,
+        reason: String,
+    },
 }
 
 static STOW_SKIP: &[&str] = &[
