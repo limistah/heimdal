@@ -158,6 +158,10 @@ impl ApplyProgress {
 
     /// Suspend the progress display, run `f` (allowing subprocess output
     /// to print cleanly), then redraw.
+    ///
+    /// NOTE: No longer called by production code after the `HookViewport` refactor
+    /// (hooks now pipe output directly to viewport bars). Kept for external callers
+    /// and any future use.
     pub fn suspend<F: FnOnce() -> R, R>(&self, f: F) -> R {
         if self.enabled {
             self.mp.suspend(f)

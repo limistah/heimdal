@@ -17,6 +17,9 @@ pub fn run(args: SyncArgs) -> Result<()> {
     }
 
     // pre_sync hooks
+    // NOTE: sync uses a noop progress display — hook stdout/stderr is piped and
+    // discarded on success; on failure the error propagates but no output is printed
+    // above a progress bar. Consider adding a dedicated sync progress in a future task.
     {
         let p = ApplyProgress::noop();
         let stage = p.stage(1, "Pre-sync hooks");
