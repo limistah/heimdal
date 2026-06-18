@@ -11,6 +11,7 @@ pub mod import;
 pub mod key;
 pub mod lock;
 pub mod packages;
+pub mod progress;
 pub mod secrets;
 pub mod state;
 pub mod symlink;

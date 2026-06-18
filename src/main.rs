@@ -13,6 +13,7 @@ mod import;
 mod key;
 mod lock;
 mod packages;
+mod progress;
 mod secrets;
 mod state;
 mod symlink;
