@@ -265,7 +265,9 @@ impl PackageBar {
     /// A package installed successfully.
     pub fn record_success(&self, pkg: &str) {
         let mut s = self.state.lock().unwrap();
-        s.active.retain(|p| p != pkg);
+        if let Some(i) = s.active.iter().position(|p| p == pkg) {
+            s.active.remove(i);
+        }
         s.completed.push((pkg.to_string(), true));
         s.pos += 1;
         Self::render(&self.bar, &self.status, &s);
