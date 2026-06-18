@@ -72,7 +72,14 @@ pub fn run(args: ApplyArgs) -> Result<()> {
         let mut warnings: usize = 0;
 
         let mut on_result = |result: &LinkResult| {
-            linked += 1;
+            match result {
+                LinkResult::Created { .. }
+                | LinkResult::AlreadyLinked { .. }
+                | LinkResult::Backed { .. } => {
+                    linked += 1;
+                }
+                _ => {}
+            }
             match result {
                 LinkResult::Conflict { dest, reason } => {
                     stage3.println(&format!(
@@ -90,16 +97,13 @@ pub fn run(args: ApplyArgs) -> Result<()> {
                         dest.display(),
                         backup.display()
                     ));
-                    warnings += 1;
                 }
                 LinkResult::Skipped { dest, reason } => {
                     stage3.println(&format!(
-                        "         {} skipped   {} — {}",
-                        "!".yellow(),
+                        "         · skipped   {} — {}",
                         dest.display(),
                         reason
                     ));
-                    warnings += 1;
                 }
                 _ => {}
             }
