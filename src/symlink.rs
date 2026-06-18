@@ -64,6 +64,7 @@ pub fn apply_mappings(
     ctx: &ApplyContext,
     entries: &[DotfileEntry],
     active_profile: &str,
+    on_result: &mut dyn FnMut(&LinkResult),
 ) -> Result<Vec<LinkResult>> {
     let os = crate::utils::os_name();
     let hostname = hostname::get()
@@ -85,18 +86,22 @@ pub fn apply_mappings(
         // Check ignore patterns first
         let src_rel_path = Path::new(src_rel);
         if matches_ignore(src_rel_path, &ctx.ignore_patterns) {
-            results.push(LinkResult::Skipped {
+            let r = LinkResult::Skipped {
                 dest: expand_path(&dest_str),
                 reason: "matches ignore pattern".to_string(),
-            });
+            };
+            on_result(&r);
+            results.push(r);
             continue;
         }
 
         if !should_link(&condition, active_profile, os, &hostname) {
-            results.push(LinkResult::Skipped {
+            let r = LinkResult::Skipped {
                 dest: expand_path(&dest_str),
                 reason: "condition not met".to_string(),
-            });
+            };
+            on_result(&r);
+            results.push(r);
             continue;
         }
 
@@ -109,19 +114,23 @@ pub fn apply_mappings(
             ctx.dotfiles_dir.canonicalize(),
         ) {
             if !canonical_src.starts_with(&canonical_dir) {
-                results.push(LinkResult::Skipped {
+                let r = LinkResult::Skipped {
                     dest: expand_path(&dest_str),
                     reason: format!(
                         "source '{}' escapes dotfiles directory — skipped for safety",
                         src_rel
                     ),
-                });
+                };
+                on_result(&r);
+                results.push(r);
                 continue;
             }
         }
 
         let dest = expand_path(&dest_str);
-        results.push(link_one(&src, &dest, ctx)?);
+        let r = link_one(&src, &dest, ctx)?;
+        on_result(&r);
+        results.push(r);
     }
     Ok(results)
 }
@@ -136,8 +145,11 @@ pub fn apply_mappings(
 ///
 /// Ignore patterns from the config are respected at all depths. Hardcoded STOW_SKIP patterns
 /// (.git, heimdal.yaml, etc.) only apply at the top level (depth 0).
-pub fn apply_stow_walk(ctx: &ApplyContext) -> Result<Vec<LinkResult>> {
-    stow_walk_dir(&ctx.dotfiles_dir, &ctx.home_dir, 0, ctx)
+pub fn apply_stow_walk(
+    ctx: &ApplyContext,
+    on_result: &mut dyn FnMut(&LinkResult),
+) -> Result<Vec<LinkResult>> {
+    stow_walk_dir(&ctx.dotfiles_dir, &ctx.home_dir, 0, ctx, on_result)
 }
 
 /// Recursive helper for tree-folding stow walk
@@ -146,6 +158,7 @@ fn stow_walk_dir(
     dest_dir: &Path,
     depth: usize,
     ctx: &ApplyContext,
+    on_result: &mut dyn FnMut(&LinkResult),
 ) -> Result<Vec<LinkResult>> {
     let mut results = Vec::new();
 
@@ -189,10 +202,12 @@ fn stow_walk_dir(
 
         // Check user ignore patterns
         if matches_ignore(rel, &ctx.ignore_patterns) {
-            results.push(LinkResult::Skipped {
+            let r = LinkResult::Skipped {
                 dest: dest_dir.join(&name),
                 reason: "matches ignore pattern".to_string(),
-            });
+            };
+            on_result(&r);
+            results.push(r);
             continue;
         }
 
@@ -209,33 +224,45 @@ fn stow_walk_dir(
                 if let Ok(target) = std::fs::read_link(&dest) {
                     if target == src {
                         // Already correctly linked
-                        results.push(LinkResult::AlreadyLinked { dest: dest.clone() });
+                        let r = LinkResult::AlreadyLinked { dest: dest.clone() };
+                        on_result(&r);
+                        results.push(r);
                     } else {
                         // Symlink points elsewhere — treat as conflict
-                        results.push(link_one(&src, &dest, ctx)?);
+                        let r = link_one(&src, &dest, ctx)?;
+                        on_result(&r);
+                        results.push(r);
                     }
                 } else {
                     // Can't read symlink target — treat as conflict
-                    results.push(link_one(&src, &dest, ctx)?);
+                    let r = link_one(&src, &dest, ctx)?;
+                    on_result(&r);
+                    results.push(r);
                 }
             }
             Ok(meta) if meta.is_dir() => {
                 // dest exists as a real directory
                 if src_is_dir {
                     // Both src and dest are real directories → recurse (tree-fold)
-                    results.extend(stow_walk_dir(&src, &dest, depth + 1, ctx)?);
+                    results.extend(stow_walk_dir(&src, &dest, depth + 1, ctx, on_result)?);
                 } else {
                     // src is a file, dest is a dir → conflict
-                    results.push(link_one(&src, &dest, ctx)?);
+                    let r = link_one(&src, &dest, ctx)?;
+                    on_result(&r);
+                    results.push(r);
                 }
             }
             Ok(_) => {
                 // dest exists as a regular file → conflict
-                results.push(link_one(&src, &dest, ctx)?);
+                let r = link_one(&src, &dest, ctx)?;
+                on_result(&r);
+                results.push(r);
             }
             Err(_) => {
                 // dest doesn't exist → create symlink (works for both files and dirs)
-                results.push(link_one(&src, &dest, ctx)?);
+                let r = link_one(&src, &dest, ctx)?;
+                on_result(&r);
+                results.push(r);
             }
         }
     }
@@ -618,7 +645,7 @@ mod tests {
             ignore_patterns: vec![],
         };
 
-        let results = apply_stow_walk(&ctx).unwrap();
+        let results = apply_stow_walk(&ctx, &mut |_| {}).unwrap();
 
         // Verify: .config itself should NOT be a symlink (it's a real dir)
         assert!(home.join(".config").is_dir());
@@ -660,7 +687,7 @@ mod tests {
             ignore_patterns: vec![],
         };
 
-        apply_stow_walk(&ctx).unwrap();
+        apply_stow_walk(&ctx, &mut |_| {}).unwrap();
 
         // Verify: raycast dir still exists (untracked)
         assert!(home.join(".config/raycast").is_dir());
@@ -696,7 +723,7 @@ mod tests {
             ignore_patterns,
         };
 
-        let results = apply_stow_walk(&ctx).unwrap();
+        let results = apply_stow_walk(&ctx, &mut |_| {}).unwrap();
 
         // Verify: notes.md and .DS_Store should be skipped
         let skipped: Vec<_> = results
@@ -736,7 +763,7 @@ mod tests {
             ignore_patterns: vec![],
         };
 
-        apply_stow_walk(&ctx).unwrap();
+        apply_stow_walk(&ctx, &mut |_| {}).unwrap();
 
         // Verify: internal files not linked
         assert!(!home.join(".git").exists());
@@ -768,7 +795,7 @@ mod tests {
             ignore_patterns: vec![],
         };
 
-        apply_stow_walk(&ctx).unwrap();
+        apply_stow_walk(&ctx, &mut |_| {}).unwrap();
 
         // Verify: nested LICENSE should be symlinked (STOW_SKIP only at depth 0)
         assert!(home.join(".config/app").is_symlink());
@@ -797,7 +824,7 @@ mod tests {
             ignore_patterns: vec![],
         };
 
-        let results = apply_stow_walk(&ctx).unwrap();
+        let results = apply_stow_walk(&ctx, &mut |_| {}).unwrap();
 
         // Verify: should report conflict
         let conflicts: Vec<_> = results
@@ -830,7 +857,7 @@ mod tests {
             ignore_patterns: vec![],
         };
 
-        let results = apply_stow_walk(&ctx).unwrap();
+        let results = apply_stow_walk(&ctx, &mut |_| {}).unwrap();
 
         // Verify: backup should mirror the relative path structure
         let backed: Vec<_> = results
@@ -872,7 +899,7 @@ mod tests {
         };
 
         let entries = vec![DotfileEntry::Simple("README.md".to_string())];
-        let results = apply_mappings(&ctx, &entries, "default").unwrap();
+        let results = apply_mappings(&ctx, &entries, "default", &mut |_| {}).unwrap();
 
         // Verify: mapping should be skipped due to ignore pattern
         assert_eq!(results.len(), 1);
@@ -880,5 +907,97 @@ mod tests {
             results[0],
             LinkResult::Skipped { ref reason, .. } if reason.contains("ignore")
         ));
+    }
+
+    #[test]
+    fn apply_stow_walk_calls_callback_for_each_result() {
+        let tmp = TempDir::new().unwrap();
+        let dotfiles = tmp.path().join("dotfiles");
+        std::fs::create_dir_all(&dotfiles).unwrap();
+        std::fs::write(dotfiles.join(".vimrc"), "vim").unwrap();
+        std::fs::write(dotfiles.join(".zshrc"), "zsh").unwrap();
+
+        let home = tmp.path().join("home");
+        std::fs::create_dir_all(&home).unwrap();
+
+        let ctx = ApplyContext {
+            dotfiles_dir: dotfiles.clone(),
+            home_dir: home.clone(),
+            dry_run: false,
+            force: false,
+            backup: false,
+            ignore_patterns: vec![],
+        };
+
+        let mut count = 0usize;
+        let results = apply_stow_walk(&ctx, &mut |_result| {
+            count += 1;
+        })
+        .unwrap();
+        assert_eq!(count, results.len());
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn apply_mappings_calls_callback_for_each_result() {
+        let tmp = TempDir::new().unwrap();
+        let dotfiles = tmp.path().join("dotfiles");
+        std::fs::create_dir_all(&dotfiles).unwrap();
+        std::fs::write(dotfiles.join(".vimrc"), "vim").unwrap();
+        std::fs::write(dotfiles.join(".zshrc"), "zsh").unwrap();
+
+        let home = tmp.path().join("home");
+        std::fs::create_dir_all(&home).unwrap();
+
+        let ctx = ApplyContext {
+            dotfiles_dir: dotfiles.clone(),
+            home_dir: home.clone(),
+            dry_run: false,
+            force: false,
+            backup: false,
+            ignore_patterns: vec![],
+        };
+
+        let entries = vec![
+            DotfileEntry::Simple(".vimrc".to_string()),
+            DotfileEntry::Simple(".zshrc".to_string()),
+        ];
+
+        let mut count = 0usize;
+        apply_mappings(&ctx, &entries, "default", &mut |_| {
+            count += 1;
+        })
+        .unwrap();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn apply_stow_walk_callback_receives_conflict() {
+        let tmp = TempDir::new().unwrap();
+        let dotfiles = tmp.path().join("dotfiles");
+        std::fs::create_dir_all(&dotfiles).unwrap();
+        std::fs::write(dotfiles.join(".vimrc"), "new").unwrap();
+
+        let home = tmp.path().join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(home.join(".vimrc"), "existing").unwrap();
+
+        let ctx = ApplyContext {
+            dotfiles_dir: dotfiles.clone(),
+            home_dir: home.clone(),
+            dry_run: false,
+            force: false,
+            backup: false,
+            ignore_patterns: vec![],
+        };
+
+        let mut saw_conflict = false;
+        apply_stow_walk(&ctx, &mut |result| {
+            if matches!(result, LinkResult::Conflict { .. }) {
+                saw_conflict = true;
+            }
+        })
+        .unwrap();
+        assert!(saw_conflict);
     }
 }

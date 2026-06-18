@@ -69,9 +69,14 @@ pub fn run(args: ApplyArgs) -> Result<()> {
     let stage3 = progress.stage(3, "Symlinks");
     if !args.packages_only {
         let results = if ctx.profile.dotfiles.is_empty() {
-            apply_stow_walk(&apply_ctx)?
+            apply_stow_walk(&apply_ctx, &mut |_| {})?
         } else {
-            apply_mappings(&apply_ctx, &ctx.profile.dotfiles, &ctx.state.active_profile)?
+            apply_mappings(
+                &apply_ctx,
+                &ctx.profile.dotfiles,
+                &ctx.state.active_profile,
+                &mut |_| {},
+            )?
         };
         print_results(&results, args.dry_run);
         let conflicts: Vec<_> = results
