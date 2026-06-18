@@ -16,6 +16,12 @@ pub struct HeimdalConfig {
     pub hooks: ProfileHooks,
     #[serde(default)]
     pub defaults: Option<DefaultsConfig>,
+    #[serde(default = "default_parallel_jobs")]
+    pub parallel_jobs: usize,
+}
+
+fn default_parallel_jobs() -> usize {
+    4
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -456,6 +462,7 @@ pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyh
         history: None,
         hooks: ProfileHooks::default(),
         defaults: None,
+        parallel_jobs: default_parallel_jobs(),
     };
 
     crate::utils::ensure_parent_exists(path)?;
@@ -496,6 +503,7 @@ mod tests {
             history: None,
             hooks: ProfileHooks::default(),
             defaults: None,
+            parallel_jobs: 4,
         };
 
         let resolved = resolve_profile(&config, "test").unwrap();
@@ -535,6 +543,7 @@ mod tests {
             history: None,
             hooks: ProfileHooks::default(),
             defaults: None,
+            parallel_jobs: 4,
         };
 
         let resolved = resolve_profile(&config, "test").unwrap();
@@ -573,6 +582,7 @@ mod tests {
                 ..Default::default()
             },
             defaults: None,
+            parallel_jobs: 4,
         };
 
         let resolved = resolve_profile(&config, "test").unwrap();
@@ -622,6 +632,20 @@ defaults: {}
         assert_eq!(config.path, "macos-defaults");
         assert!(config.include.is_empty());
         assert!(config.exclude.is_empty());
+    }
+
+    #[test]
+    fn test_parallel_jobs_default() {
+        let yaml = "heimdal:\n  version: \"1\"\nprofiles:\n  default: {}\n";
+        let config: HeimdalConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(config.parallel_jobs, 4);
+    }
+
+    #[test]
+    fn test_parallel_jobs_explicit() {
+        let yaml = "heimdal:\n  version: \"1\"\nprofiles:\n  default: {}\nparallel_jobs: 8\n";
+        let config: HeimdalConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(config.parallel_jobs, 8);
     }
 
     #[test]
