@@ -3,7 +3,7 @@ use chrono::Utc;
 use std::path::{Path, PathBuf};
 
 use crate::config::{DotfileCondition, DotfileEntry};
-use crate::utils::{expand_path, info, step, verbose, warning};
+use crate::utils::{expand_path, verbose, warning};
 
 pub struct ApplyContext {
     pub dotfiles_dir: PathBuf,
@@ -421,33 +421,6 @@ pub fn should_link(
         }
     }
     true
-}
-
-pub fn print_results(results: &[LinkResult], dry_run: bool) {
-    let prefix = if dry_run { "[preview] " } else { "" };
-    for r in results {
-        match r {
-            LinkResult::Created { src, dest } => {
-                step(&format!("{}Linked: {}", prefix, dest.display()));
-                verbose(&format!("{}  source: {}", prefix, src.display()));
-            }
-            LinkResult::AlreadyLinked { dest } => {
-                info(&format!("Already linked: {}", dest.display()))
-            }
-            LinkResult::Skipped { dest, reason } => {
-                info(&format!("Skipped {}: {}", dest.display(), reason))
-            }
-            LinkResult::Backed { dest, backup } => step(&format!(
-                "{}Backed {} \u{2192} {}",
-                prefix,
-                dest.display(),
-                backup.display()
-            )),
-            LinkResult::Conflict { dest, reason } => {
-                warning(&format!("Conflict at {}: {}", dest.display(), reason))
-            }
-        }
-    }
 }
 
 #[cfg(test)]
