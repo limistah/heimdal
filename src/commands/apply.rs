@@ -72,57 +72,58 @@ pub fn run(args: ApplyArgs) -> Result<()> {
         let mut linked: u64 = 0;
         let mut warnings: usize = 0;
 
-        let mut on_result = |result: &LinkResult| {
-            match result {
-                LinkResult::Created { .. }
-                | LinkResult::AlreadyLinked { .. }
-                | LinkResult::Backed { .. } => {
-                    linked += 1;
+        let results = {
+            let mut on_result = |result: &LinkResult| {
+                match result {
+                    LinkResult::Created { .. }
+                    | LinkResult::AlreadyLinked { .. }
+                    | LinkResult::Backed { .. } => {
+                        linked += 1;
+                    }
+                    _ => {}
                 }
-                _ => {}
-            }
-            match result {
-                LinkResult::Conflict { dest, reason } => {
-                    stage3.println(&format!(
-                        "         {} conflict  {} — {}",
-                        "!".yellow(),
-                        dest.display(),
-                        reason
-                    ));
-                    warnings += 1;
+                match result {
+                    LinkResult::Conflict { dest, reason } => {
+                        stage3.println(format!(
+                            "         {} conflict  {} — {}",
+                            "!".yellow(),
+                            dest.display(),
+                            reason
+                        ));
+                        warnings += 1;
+                    }
+                    LinkResult::Backed { dest, backup } => {
+                        stage3.println(format!(
+                            "         {} backed    {} → {}",
+                            "!".yellow(),
+                            dest.display(),
+                            backup.display()
+                        ));
+                        warnings += 1;
+                    }
+                    LinkResult::Skipped { dest, reason } => {
+                        stage3.println(format!(
+                            "         · skipped   {} — {}",
+                            dest.display(),
+                            reason
+                        ));
+                    }
+                    _ => {}
                 }
-                LinkResult::Backed { dest, backup } => {
-                    stage3.println(&format!(
-                        "         {} backed    {} → {}",
-                        "!".yellow(),
-                        dest.display(),
-                        backup.display()
-                    ));
-                    warnings += 1;
-                }
-                LinkResult::Skipped { dest, reason } => {
-                    stage3.println(&format!(
-                        "         · skipped   {} — {}",
-                        dest.display(),
-                        reason
-                    ));
-                }
-                _ => {}
-            }
-            stage3.set_message(format!("{} linked", linked));
-        };
+                stage3.set_message(format!("{} linked", linked));
+            };
 
-        let results = if ctx.profile.dotfiles.is_empty() {
-            apply_stow_walk(&apply_ctx, &mut on_result)?
-        } else {
-            apply_mappings(
-                &apply_ctx,
-                &ctx.profile.dotfiles,
-                &ctx.state.active_profile,
-                &mut on_result,
-            )?
+            if ctx.profile.dotfiles.is_empty() {
+                apply_stow_walk(&apply_ctx, &mut on_result)?
+            } else {
+                apply_mappings(
+                    &apply_ctx,
+                    &ctx.profile.dotfiles,
+                    &ctx.state.active_profile,
+                    &mut on_result,
+                )?
+            }
         };
-        drop(on_result); // release borrows on linked/warnings before reading them
 
         let conflicts: Vec<_> = results
             .iter()

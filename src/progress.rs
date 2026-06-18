@@ -163,6 +163,7 @@ impl ApplyProgress {
     /// NOTE: No longer called by production code after the `HookViewport` refactor
     /// (hooks now pipe output directly to viewport bars). Kept for external callers
     /// and any future use.
+    #[allow(dead_code)]
     pub fn suspend<F: FnOnce() -> R, R>(&self, f: F) -> R {
         if self.enabled {
             self.mp.suspend(f)
