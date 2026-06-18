@@ -331,6 +331,57 @@ impl StageBar {
         }
         PackageBar::from_slots(self.pkg_bar.clone(), self.pkg_status.clone(), total)
     }
+
+    /// Update the running message (e.g. live symlink counter).
+    pub fn set_message(&self, msg: impl Into<String>) {
+        if self.enabled {
+            self.bar.set_message(msg.into());
+        }
+    }
+
+    /// Update the running message to show the active hook name.
+    /// Format: "{stage label} · {hook_name}"
+    pub fn set_hook_name(&self, hook_name: &str) {
+        if self.enabled {
+            self.bar
+                .set_message(format!("{} · {}", self.label, hook_name));
+        }
+    }
+
+    /// Print a line above all progress bars (e.g. inline symlink errors).
+    pub fn println(&self, msg: impl AsRef<str>) {
+        if self.enabled {
+            let _ = self.mp.println(msg.as_ref());
+        }
+    }
+
+    /// Collapse the stage showing a linked-file count. Uses ✓ if warnings == 0, ⚠ otherwise.
+    pub fn finish_with_counts(&self, elapsed: Duration, linked: u64, warnings: usize) {
+        if warnings > 0 {
+            self.bar.set_style(
+                ProgressStyle::with_template(&format!("[{}/{}] ⚠ {{msg}}", self.n, self.total))
+                    .unwrap(),
+            );
+            self.bar.finish_with_message(format!(
+                "{}  {} linked  ({} warnings, {:.1}s)",
+                self.label.yellow(),
+                linked,
+                warnings,
+                elapsed.as_secs_f64()
+            ));
+        } else {
+            self.bar.set_style(
+                ProgressStyle::with_template(&format!("[{}/{}] ✓ {{msg}}", self.n, self.total))
+                    .unwrap(),
+            );
+            self.bar.finish_with_message(format!(
+                "{}  {} linked  ({:.1}s)",
+                self.label.green(),
+                linked,
+                elapsed.as_secs_f64()
+            ));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -432,5 +483,40 @@ mod tests {
         let failures = bar.into_failures();
         assert_eq!(failures.len(), 1);
         assert_eq!(failures[0].name, "curl");
+    }
+
+    #[test]
+    fn test_stage_bar_set_message_no_panic() {
+        let p = ApplyProgress::new(2);
+        let bar = p.stage(1, "Test");
+        bar.set_message("1,234 linked"); // must not panic
+    }
+
+    #[test]
+    fn test_stage_bar_println_no_panic() {
+        let p = ApplyProgress::new(2);
+        let bar = p.stage(1, "Test");
+        bar.println("! conflict  ~/.zshrc");
+    }
+
+    #[test]
+    fn test_stage_bar_set_hook_name_no_panic() {
+        let p = ApplyProgress::new(2);
+        let bar = p.stage(1, "Pre-apply hooks");
+        bar.set_hook_name("install-brew.sh");
+    }
+
+    #[test]
+    fn test_stage_bar_finish_with_counts_clean() {
+        let p = ApplyProgress::new(3);
+        let bar = p.stage(3, "Symlinks");
+        bar.finish_with_counts(Duration::from_millis(800), 1247, 0);
+    }
+
+    #[test]
+    fn test_stage_bar_finish_with_counts_warnings() {
+        let p = ApplyProgress::new(3);
+        let bar = p.stage(3, "Symlinks");
+        bar.finish_with_counts(Duration::from_millis(800), 1247, 3);
     }
 }
