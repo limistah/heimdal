@@ -9,6 +9,7 @@
 
 use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -294,8 +295,8 @@ impl PackageBar {
 pub struct HookViewport {
     mp: MultiProgress,
     anchor: ProgressBar,
-    pub bars: Vec<ProgressBar>,
-    pub buffer: std::collections::VecDeque<String>,
+    pub(crate) bars: Vec<ProgressBar>,
+    pub(crate) buffer: VecDeque<String>,
     enabled: bool,
 }
 
@@ -309,10 +310,9 @@ impl HookViewport {
         }
         if self.bars.len() < Self::MAX_LINES {
             let new_bar = if let Some(last) = self.bars.last() {
-                self.mp.insert_after(last, ProgressBar::new_spinner())
+                self.mp.insert_after(last, ProgressBar::new(0))
             } else {
-                self.mp
-                    .insert_after(&self.anchor, ProgressBar::new_spinner())
+                self.mp.insert_after(&self.anchor, ProgressBar::new(0))
             };
             new_bar.set_style(ProgressStyle::with_template("         │ {msg}").unwrap());
             new_bar.set_message(line.clone());
@@ -328,6 +328,9 @@ impl HookViewport {
     }
 
     /// Remove all viewport bars and clear the buffer (hook finished cleanly).
+    ///
+    /// Safe to call on a disabled viewport: `push_line` guards on `!self.enabled`,
+    /// so `bars` and `buffer` are always empty when disabled.
     pub fn clear(&mut self) {
         for bar in self.bars.drain(..) {
             bar.finish_and_clear();
@@ -337,6 +340,9 @@ impl HookViewport {
 
     /// Print all buffered lines above the progress bars, then clear.
     /// Call this when a hook fails to preserve its output in scrollback.
+    ///
+    /// Safe to call on a disabled viewport: `push_line` guards on `!self.enabled`,
+    /// so `buffer` is always empty when disabled and nothing is printed.
     pub fn flush_above(&mut self) {
         for line in &self.buffer {
             let _ = self.mp.println(format!("         {}", line));
@@ -444,6 +450,7 @@ impl StageBar {
 
     /// Create a `HookViewport` anchored after this stage bar.
     /// Returns a no-op viewport when progress is disabled (quiet mode).
+    #[must_use]
     pub fn hook_viewport(&self) -> HookViewport {
         if !self.enabled {
             let hidden = MultiProgress::with_draw_target(indicatif::ProgressDrawTarget::hidden());
@@ -452,7 +459,7 @@ impl StageBar {
                 mp: hidden,
                 anchor,
                 bars: Vec::new(),
-                buffer: std::collections::VecDeque::new(),
+                buffer: VecDeque::new(),
                 enabled: false,
             };
         }
@@ -460,7 +467,7 @@ impl StageBar {
             mp: self.mp.clone(),
             anchor: self.bar.clone(),
             bars: Vec::new(),
-            buffer: std::collections::VecDeque::new(),
+            buffer: VecDeque::new(),
             enabled: true,
         }
     }
