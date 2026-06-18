@@ -1,11 +1,12 @@
 //! Yarn-style progress UI for the apply command.
 //!
-//! All bars — stage placeholders AND the two package-progress slots — are
-//! pre-allocated inside `ApplyProgress::new()` and registered with the
-//! `MultiProgress` before any stage is activated.  This keeps the
-//! `MultiProgress` height fixed from construction so that `enable_steady_tick`
-//! background threads never race with a height change, which would otherwise
-//! leave stale lines in the terminal scrollback.
+//! All stage bars — plus the two package-progress slots — are pre-allocated inside
+//! `ApplyProgress::new()` and registered with the `MultiProgress` before any stage
+//! is activated. This keeps the base layout stable so `enable_steady_tick`
+//! background threads don't race with stage/package bar creation.
+//!
+//! Note: hook output uses `HookViewport`, which may temporarily insert additional
+//! lines while a hook is running.
 
 use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
