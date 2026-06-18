@@ -97,6 +97,7 @@ pub fn run(args: ApplyArgs) -> Result<()> {
                         dest.display(),
                         backup.display()
                     ));
+                    warnings += 1;
                 }
                 LinkResult::Skipped { dest, reason } => {
                     stage3.println(&format!(
