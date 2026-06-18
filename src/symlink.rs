@@ -964,11 +964,12 @@ mod tests {
         ];
 
         let mut count = 0usize;
-        apply_mappings(&ctx, &entries, "default", &mut |_| {
+        let results = apply_mappings(&ctx, &entries, "default", &mut |_| {
             count += 1;
         })
         .unwrap();
         assert_eq!(count, 2);
+        assert_eq!(count, results.len());
     }
 
     #[test]
