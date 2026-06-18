@@ -347,5 +347,3 @@ MIT License - see [LICENSE](LICENSE) for details
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 
 ---
-
-**Built by [@limistah](https://github.com/limistah)**

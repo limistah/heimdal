@@ -198,8 +198,8 @@ jobs:
       
       - name: Download binary
         run: |
-          curl -LO "https://github.com/limistah/heimdal/releases/download/v${VERSION}/heimdal-linux-amd64-musl.tar.gz"
-          tar xzf heimdal-linux-amd64-musl.tar.gz
+          curl -LO "https://github.com/limistah/heimdal/releases/download/v${VERSION}/heimdal-linux-amd64.tar.gz"
+          tar xzf heimdal-linux-amd64.tar.gz
       
       - name: Create APK build user
         run: |
