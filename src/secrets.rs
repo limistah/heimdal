@@ -94,19 +94,33 @@ pub fn get_secret(name: &str) -> Result<String> {
     let key = format!("{}:{}", whoami::username(), name);
     let entry = keyring::Entry::new(SERVICE_NAME, &key)
         .map_err(|e| crate::error::HeimdallError::Secret(e.to_string()))?;
-    entry.get_password().map_err(|_| {
-        crate::error::HeimdallError::Secret(format!(
+    entry.get_password().map_err(|e| match e {
+        keyring::Error::NoEntry => crate::error::HeimdallError::Secret(format!(
             "Secret '{}' not found. Add it with: heimdal secret add {}",
             name, name
         ))
-        .into()
+        .into(),
+        other => crate::error::HeimdallError::Secret(format!(
+            "Could not read secret '{}' from the OS keychain: {}",
+            name, other
+        ))
+        .into(),
     })
 }
 
 pub fn delete_secret(dotfiles_path: &Path, name: &str) -> Result<()> {
     let key = format!("{}:{}", whoami::username(), name);
-    if let Ok(entry) = keyring::Entry::new(SERVICE_NAME, &key) {
-        let _ = entry.delete_credential();
+    let entry = keyring::Entry::new(SERVICE_NAME, &key)
+        .map_err(|e| crate::error::HeimdallError::Secret(e.to_string()))?;
+    match entry.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => {}
+        Err(e) => {
+            return Err(crate::error::HeimdallError::Secret(format!(
+                "Could not remove secret '{}' from the OS keychain: {}",
+                name, e
+            ))
+            .into());
+        }
     }
     let mut manifest = load_manifest(dotfiles_path);
     manifest.names.retain(|n| n != name);

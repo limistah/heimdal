@@ -147,9 +147,18 @@ fn enable_launchd(interval_secs: u64) -> Result<()> {
     std::fs::write(&plist_path, plist)?;
 
     // Load the agent
-    std::process::Command::new("launchctl")
+    let status = std::process::Command::new("launchctl")
         .args(["load", plist_path.to_str().unwrap()])
         .status()?;
+    if !status.success() {
+        anyhow::bail!(
+            "Wrote {} but `launchctl load` failed (exit {}). AutoSync is NOT active.",
+            plist_path.display(),
+            status
+                .code()
+                .map_or("unknown".to_string(), |c| c.to_string())
+        );
+    }
 
     success(&format!(
         "AutoSync enabled (every {} seconds)",
