@@ -56,6 +56,22 @@ pub fn ensure_parent_exists(path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Restrict a file to owner-only read/write (0600) on Unix. No-op elsewhere.
+/// Used for local files that hold plaintext shell history — every typed
+/// command, secrets included — so they aren't left world-readable.
+pub fn restrict_file_permissions(path: &Path) -> anyhow::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+    }
+    Ok(())
+}
+
 /// Get the system hostname as a String.
 pub fn hostname() -> String {
     hostname::get()
