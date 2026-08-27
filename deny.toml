@@ -8,7 +8,14 @@ all-features = true
 # https://embarkstudios.github.io/cargo-deny/checks/advisories/cfg.html
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
-ignore = []
+# See .cargo/audit.toml for the justification — quick-xml is pulled in
+# transitively via defaults-rs 1.2.2 (latest release), which pins
+# `plist = "=1.7.4"` exactly, so no fix is available on our side yet.
+#
+# RUSTSEC-2025-0119: number_prefix (pulled in by indicatif, for progress-bar
+# byte-size formatting) is unmaintained with "no safe upgrade available" per
+# the advisory itself — not a vulnerability, and there's nothing to bump to.
+ignore = ["RUSTSEC-2026-0195", "RUSTSEC-2026-0194", "RUSTSEC-2025-0119"]
 
 [licenses]
 # https://embarkstudios.github.io/cargo-deny/checks/licenses/cfg.html
