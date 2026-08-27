@@ -14,7 +14,7 @@ pub fn run() -> Result<()> {
         .items(&choices)
         .default(0)
         .interact()
-        .unwrap_or(0);
+        .map_err(|e| anyhow::anyhow!("Wizard requires an interactive terminal: {e}"))?;
 
     match selection {
         0 => fresh_setup(),
