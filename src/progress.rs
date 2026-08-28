@@ -21,6 +21,20 @@ pub struct FailedPackage {
     pub reason: String,
 }
 
+/// Current terminal column count, falling back to a conservative default
+/// when it can't be determined (e.g. not a tty). Used to keep any single
+/// rendered line from exceeding one terminal row — indicatif assumes one
+/// line of output equals one terminal row, and a soft-wrapped line breaks
+/// its redraw math for every subsequent tick.
+fn terminal_width() -> usize {
+    let (_, cols) = console::Term::stdout().size();
+    if cols > 0 {
+        cols as usize
+    } else {
+        80
+    }
+}
+
 /// Which stage owns the package-progress bar slots.
 const PKG_STAGE: u8 = 2;
 
@@ -242,18 +256,51 @@ impl PackageBar {
         );
         bar.set_message(bar_line);
 
+        let budget = terminal_width().saturating_sub(6 /* leading indent */);
+        status.set_message(Self::status_line(&s.active, &s.completed, budget));
+    }
+
+    /// Build the package-status line, budgeted to `width` visible columns.
+    ///
+    /// Left unbounded, this line grows with every completed package and will
+    /// eventually exceed the terminal's column count — at which point the
+    /// terminal soft-wraps it to two-plus rows while indicatif still thinks
+    /// it's one, and every redraw after that miscounts how many rows to move
+    /// up, corrupting the whole display (stale/duplicated lines). Keep only
+    /// the most recent completions that fit, oldest-first, with a "+N done"
+    /// summary for the rest. Active (in-progress) packages are never dropped.
+    fn status_line(active: &[String], completed: &[(String, bool)], width: usize) -> String {
+        let mut used = 0usize;
+        for name in active {
+            used += name.chars().count() + 2;
+        }
+        let mut shown = 0usize;
+        for (name, _) in completed.iter().rev() {
+            let len = name.chars().count() + 3; // name + " ✓"/" ✗" + separator
+            if used + len > width {
+                break;
+            }
+            used += len;
+            shown += 1;
+        }
+        let hidden = completed.len() - shown;
+        let visible_completed = &completed[completed.len() - shown..];
+
         let mut parts: Vec<String> = Vec::new();
-        for (name, ok) in &s.completed {
+        if hidden > 0 {
+            parts.push(format!("+{hidden} done").dimmed().to_string());
+        }
+        for (name, ok) in visible_completed {
             if *ok {
                 parts.push(format!("{} {}", name.green(), "✓".green()));
             } else {
                 parts.push(format!("{} {}", name.red(), "✗".red()));
             }
         }
-        for name in &s.active {
+        for name in active {
             parts.push(name.clone());
         }
-        status.set_message(parts.join("  "));
+        parts.join("  ")
     }
 
     /// A package has started installing.
@@ -312,6 +359,26 @@ pub struct HookViewport {
 
 impl HookViewport {
     const MAX_LINES: usize = 5;
+    /// Visible chars reserved for the "         │ " prefix in front of {msg}.
+    const PREFIX_WIDTH: usize = 11;
+
+    /// Strip ANSI codes (a raw hook line may contain color codes from the
+    /// underlying command, e.g. a package manager's own progress output) and
+    /// clip to what fits on this terminal row. Same rationale as the package
+    /// status line: a line indicatif thinks is one row but the terminal
+    /// wraps to two-plus corrupts every redraw after it.
+    fn clip(line: &str) -> String {
+        Self::clip_to(line, terminal_width().saturating_sub(Self::PREFIX_WIDTH))
+    }
+
+    fn clip_to(line: &str, budget: usize) -> String {
+        let plain = console::strip_ansi_codes(line);
+        if plain.chars().count() <= budget {
+            return plain.into_owned();
+        }
+        let clipped: String = plain.chars().take(budget.saturating_sub(1)).collect();
+        format!("{clipped}…")
+    }
 
     /// Push a new output line. Grows up to MAX_LINES bars then scrolls.
     pub fn push_line(&mut self, line: String) {
@@ -325,14 +392,14 @@ impl HookViewport {
                 self.mp.insert_after(&self.anchor, ProgressBar::new(0))
             };
             new_bar.set_style(ProgressStyle::with_template("         │ {msg}").unwrap());
-            new_bar.set_message(line.clone());
+            new_bar.set_message(Self::clip(&line));
             self.bars.push(new_bar);
             self.buffer.push_back(line);
         } else {
             self.buffer.pop_front();
             self.buffer.push_back(line);
             for (bar, msg) in self.bars.iter().zip(self.buffer.iter()) {
-                bar.set_message(msg.clone());
+                bar.set_message(Self::clip(msg));
             }
         }
     }
@@ -486,6 +553,77 @@ impl StageBar {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Strip ANSI color codes so length assertions check visible width, not
+    /// byte length inflated by escape sequences.
+    fn visible_len(s: &str) -> usize {
+        console::strip_ansi_codes(s).chars().count()
+    }
+
+    #[test]
+    fn test_package_status_line_stays_within_budget_with_many_completions() {
+        let active: Vec<String> = vec!["installing-pkg".to_string()];
+        let completed: Vec<(String, bool)> = (0..50)
+            .map(|i| (format!("package-with-a-fairly-long-name-{i}"), true))
+            .collect();
+        let width = 80;
+
+        let line = PackageBar::status_line(&active, &completed, width);
+
+        assert!(
+            visible_len(&line) <= width,
+            "status line ({} cols) exceeds budget ({width} cols): {line:?}",
+            visible_len(&line)
+        );
+        // The active package must never be dropped, even under a tight budget.
+        assert!(line.contains("installing-pkg"));
+        // With 50 long names and an 80-col budget, most must be summarized.
+        assert!(line.contains("done"));
+    }
+
+    #[test]
+    fn test_package_status_line_shows_all_when_it_fits() {
+        let active: Vec<String> = vec![];
+        let completed: Vec<(String, bool)> =
+            vec![("git".to_string(), true), ("curl".to_string(), false)];
+
+        let line = PackageBar::status_line(&active, &completed, 80);
+
+        assert!(line.contains("git"));
+        assert!(line.contains("curl"));
+        assert!(!line.contains("done")); // nothing hidden — no summary needed
+    }
+
+    #[test]
+    fn test_package_status_line_keeps_most_recent_completions() {
+        let active: Vec<String> = vec![];
+        let completed: Vec<(String, bool)> = vec![
+            ("oldest".to_string(), true),
+            ("middle".to_string(), true),
+            ("newest".to_string(), true),
+        ];
+        // Budget for exactly one short name plus its marker.
+        let line = PackageBar::status_line(&active, &completed, 10);
+
+        assert!(line.contains("newest"));
+        assert!(!line.contains("oldest"));
+    }
+
+    #[test]
+    fn test_hook_viewport_clip_strips_ansi_and_truncates() {
+        let colored = "\x1b[32mshort ok\x1b[0m";
+        assert_eq!(HookViewport::clip_to(colored, 80), "short ok");
+
+        let long = "x".repeat(200);
+        let clipped = HookViewport::clip_to(&long, 80);
+        assert_eq!(clipped.chars().count(), 80);
+        assert!(clipped.ends_with('…'));
+    }
+
+    #[test]
+    fn test_hook_viewport_clip_passes_short_lines_through() {
+        assert_eq!(HookViewport::clip_to("hello", 80), "hello");
+    }
 
     #[test]
     fn test_apply_progress_noop_stage_finishes() {
