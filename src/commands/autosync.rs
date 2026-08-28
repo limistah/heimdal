@@ -104,16 +104,15 @@ fn parse_interval(s: &str) -> Result<u64> {
 const LAUNCHD_LABEL: &str = "com.heimdal.autosync";
 
 #[cfg(target_os = "macos")]
-fn launchd_plist_path() -> PathBuf {
-    dirs::home_dir()
-        .unwrap()
+fn launchd_plist_path() -> Result<PathBuf> {
+    Ok(crate::utils::home_dir()?
         .join("Library/LaunchAgents")
-        .join(format!("{}.plist", LAUNCHD_LABEL))
+        .join(format!("{}.plist", LAUNCHD_LABEL)))
 }
 
 #[cfg(target_os = "macos")]
 fn enable_launchd(interval_secs: u64) -> Result<()> {
-    let plist_path = launchd_plist_path();
+    let plist_path = launchd_plist_path()?;
     let heimdal_path = std::env::current_exe()?;
 
     let plist = format!(
@@ -147,9 +146,18 @@ fn enable_launchd(interval_secs: u64) -> Result<()> {
     std::fs::write(&plist_path, plist)?;
 
     // Load the agent
-    std::process::Command::new("launchctl")
+    let status = std::process::Command::new("launchctl")
         .args(["load", plist_path.to_str().unwrap()])
         .status()?;
+    if !status.success() {
+        anyhow::bail!(
+            "Wrote {} but `launchctl load` failed (exit {}). AutoSync is NOT active.",
+            plist_path.display(),
+            status
+                .code()
+                .map_or("unknown".to_string(), |c| c.to_string())
+        );
+    }
 
     success(&format!(
         "AutoSync enabled (every {} seconds)",
@@ -161,7 +169,7 @@ fn enable_launchd(interval_secs: u64) -> Result<()> {
 
 #[cfg(target_os = "macos")]
 fn disable_launchd() -> Result<()> {
-    let plist_path = launchd_plist_path();
+    let plist_path = launchd_plist_path()?;
 
     if plist_path.exists() {
         // Try to unload, but don't fail if it's not loaded
@@ -184,7 +192,7 @@ fn status_launchd() -> Result<()> {
 
     if output.status.success() {
         success("AutoSync is enabled (launchd).");
-        let plist_path = launchd_plist_path();
+        let plist_path = launchd_plist_path()?;
         info(&format!("Plist: {}", plist_path.display()));
     } else {
         info("AutoSync is not enabled.");
@@ -213,13 +221,13 @@ fn has_systemd() -> bool {
 }
 
 #[cfg(target_os = "linux")]
-fn systemd_dir() -> PathBuf {
-    dirs::home_dir().unwrap().join(".config/systemd/user")
+fn systemd_dir() -> Result<PathBuf> {
+    Ok(crate::utils::home_dir()?.join(".config/systemd/user"))
 }
 
 #[cfg(target_os = "linux")]
 fn enable_systemd(interval_secs: u64) -> Result<()> {
-    let dir = systemd_dir();
+    let dir = systemd_dir()?;
     crate::utils::ensure_parent_exists(&dir.join("dummy"))?;
 
     let heimdal_path = std::env::current_exe()?;
@@ -275,7 +283,7 @@ fn disable_systemd() -> Result<()> {
         .args(["--user", "disable", "--now", "heimdal-autosync.timer"])
         .status()?;
 
-    let dir = systemd_dir();
+    let dir = systemd_dir()?;
     let _ = std::fs::remove_file(dir.join("heimdal-autosync.service"));
     let _ = std::fs::remove_file(dir.join("heimdal-autosync.timer"));
 

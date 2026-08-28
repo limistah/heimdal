@@ -21,7 +21,7 @@ Heimdal uses automated security scanning tools:
 If you discover a security vulnerability in Heimdal, please report it by:
 
 1. **DO NOT** open a public issue
-2. Email the maintainers directly at: [security email - to be configured]
+2. Use GitHub's private vulnerability reporting: https://github.com/limistah/heimdal/security/advisories/new
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce

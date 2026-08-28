@@ -1,13 +1,16 @@
 name: Comprehensive Tests (Legacy - Disabled)
 
 on:
-  # Disabled - use Rust CLI Tests workflow instead
+  # Disabled - use Rust CLI Tests workflow instead. Also, the
+  # `tests/comprehensive/run-all-tests.sh` script this workflow calls no
+  # longer exists in the repo, so a scheduled run would just fail and
+  # auto-file a GitHub issue (see the create-issues job below). Keeping
+  # workflow_dispatch only, for manual use once that script is restored.
   # push:
   #   branches: [master, dev]
+  # schedule:
+  #   - cron: '0 2 * * 0'
   workflow_dispatch:
-  schedule:
-    # Run weekly on Sunday at 2am UTC (for regression testing)
-    - cron: '0 2 * * 0'
 
 env:
   CARGO_TERM_COLOR: always

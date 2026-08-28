@@ -1,0 +1,22 @@
+# cargo-audit configuration
+# https://github.com/RustSec/rustsec/tree/main/cargo-audit#configuration
+
+[advisories]
+ignore = [
+    # quick-xml (via plist 1.7.4, pulled in transitively by defaults-rs 1.2.2)
+    # RUSTSEC-2026-0195: unbounded namespace-declaration allocation (memory-exhaustion DoS)
+    # RUSTSEC-2026-0194: quadratic run time on duplicate-attribute-name checks
+    # Both require quick-xml >=0.41.0. defaults-rs 1.2.2 (the latest release on
+    # crates.io) pins `plist = "=1.7.4"` exactly, so we cannot pull a newer
+    # quick-xml without defaults-rs releasing an update — there is no fix
+    # available on our side today.
+    # Threat model: heimdal only uses defaults-rs/plist to read/write the
+    # local user's own macOS `defaults` plists (`heimdal defaults
+    # import/export/diff`), never to parse untrusted network-facing XML —
+    # the DoS scenario these advisories describe (a remote attacker feeding
+    # crafted XML to a long-running server process) does not apply here.
+    # Re-check when defaults-rs publishes a release that unpins plist:
+    # https://github.com/machlit/defaults-rs
+    "RUSTSEC-2026-0195",
+    "RUSTSEC-2026-0194",
+]
