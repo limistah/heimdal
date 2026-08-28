@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-08-28
+
+### Changed
+
+- **`heimdal rollback` now asks for confirmation** before running `git reset --hard`
+  (skip with `-y`/`--force`). **This is a breaking change for non-interactive/scripted
+  use**: without a tty, the confirmation prompt defaults to "no" and the command is a
+  no-op — scripts calling `heimdal rollback` unattended must add `-y`/`--force`.
+
+### Fixed
+
+- Closed a race in the process lock (`heimdal.lock`): two processes could
+  previously both believe they held it under contention.
+- `heimdal history rekey` could permanently lose history data if it failed
+  partway through — all files are now staged and the new key is persisted
+  before anything is committed to disk.
+- `heimdal secret get`/`remove` no longer mask real OS-keychain errors
+  (locked/denied/ambiguous) as a generic "not found" or silent success.
+- Local history files (shell staging log, per-machine encrypted logs) are
+  now created with `0600` permissions instead of the process umask default.
+- `heimdal autosync enable` no longer reports success when the underlying
+  `launchctl load` actually failed; `autosync`'s macOS/Linux home-directory
+  lookups no longer panic if `HOME` is unset.
+- `heimdal wizard` now errors on a non-interactive terminal instead of
+  silently defaulting to "fresh setup".
+- `heimdal import` no longer prints a duplicate message when the output
+  path already exists.
+- **Fixed `heimdal apply` progress display corruption** on real installs:
+  the package-install status line grew unboundedly with every completed
+  package and would overflow the terminal width on any non-trivial package
+  list, corrupting the whole multi-bar redraw. Both the package status line
+  and hook-output lines are now budgeted to the terminal's actual width.
+
+### Security
+
+- `SECURITY.md`'s vulnerability-reporting contact (previously an
+  unconfigured placeholder) now points to GitHub's private vulnerability
+  reporting.
+- CI's `cargo-audit`/`cargo-deny` checks now fail the build on a real
+  finding instead of silently continuing; two advisories with no available
+  fix (`RUSTSEC-2026-0195`/`-0194` via `defaults-rs`'s exact `plist` pin,
+  `RUSTSEC-2025-0119` unmaintained `number_prefix`) are documented and
+  ignored rather than left unchecked entirely.
+- `release.yml` now runs `cargo test` and `cargo clippy -D warnings` before
+  building/publishing release binaries; the broken, unused weekly
+  `comprehensive-tests.yml` schedule (referencing a deleted test script)
+  is disabled.
+
 ## [3.1.0] - 2026-06-18
 
 ### Added
