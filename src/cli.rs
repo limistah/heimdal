@@ -179,6 +179,12 @@ pub struct RollbackArgs {
     pub target: Option<String>,
     #[arg(short = 'n', long, help = "Preview without making changes")]
     pub dry_run: bool,
+    #[arg(
+        short = 'y',
+        long,
+        help = "Skip confirmation (this discards uncommitted changes via git reset --hard)"
+    )]
+    pub force: bool,
 }
 
 #[derive(Subcommand)]

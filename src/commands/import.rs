@@ -80,11 +80,10 @@ pub fn run(args: ImportArgs) -> Result<()> {
     };
 
     if output_path.exists() {
-        warning(&format!(
+        anyhow::bail!(
             "'{}' already exists. Use --output to specify a different path.",
             output_path.display()
-        ));
-        anyhow::bail!("Output file already exists: {}", output_path.display());
+        );
     }
 
     crate::utils::ensure_parent_exists(&output_path)?;

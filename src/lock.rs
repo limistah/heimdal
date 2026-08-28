@@ -23,30 +23,48 @@ impl HeimdallLock {
         let path = Self::lock_path()?;
         crate::utils::ensure_parent_exists(&path)?;
 
-        // Check for existing lock
-        if let Some(info) = Self::info()? {
-            // Check if PID is still running
-            if Self::is_process_running(info.pid) {
-                anyhow::bail!(
-                    "Heimdal is already running (PID {}, started {})",
-                    info.pid,
-                    info.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
-                );
-            }
-            // Stale lock, remove it
-            std::fs::remove_file(&path)?;
-        }
-
-        let mut file = File::create(&path)?;
         let info = LockInfo {
             pid: std::process::id(),
             timestamp: chrono::Utc::now(),
             hostname: crate::utils::hostname(),
         };
-        file.write_all(serde_json::to_string(&info)?.as_bytes())?;
-        file.sync_all()?; // Ensure data is written to disk
+        let payload = serde_json::to_string(&info)?;
 
-        Ok(Self { path, _file: file })
+        // `create_new` fails atomically at the OS level if the file already
+        // exists, so two processes racing here can never both succeed —
+        // unlike the previous check-then-`File::create` (which truncates)
+        // pattern, which left a window where both would pass the "no lock"
+        // check and overwrite each other's lock.
+        for _ in 0..2 {
+            match File::options().write(true).create_new(true).open(&path) {
+                Ok(mut file) => {
+                    file.write_all(payload.as_bytes())?;
+                    file.sync_all()?; // Ensure data is written to disk
+                    return Ok(Self { path, _file: file });
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                    if let Some(existing) = Self::info()? {
+                        if Self::is_process_running(existing.pid) {
+                            anyhow::bail!(
+                                "Heimdal is already running (PID {}, started {})",
+                                existing.pid,
+                                existing.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
+                            );
+                        }
+                        // Stale lock from a dead process — remove it and retry once.
+                        std::fs::remove_file(&path)?;
+                        continue;
+                    }
+                    // Lock file vanished between the AlreadyExists error and
+                    // reading it back (e.g. another process just released
+                    // it) — retry.
+                    continue;
+                }
+                Err(e) => return Err(e.into()),
+            }
+        }
+
+        anyhow::bail!("Could not acquire heimdal lock: contended by another process")
     }
 
     /// Get info about current lock, if any.
@@ -80,7 +98,10 @@ impl HeimdallLock {
     fn lock_path() -> Result<PathBuf> {
         // Lock goes in same dir as state.json (~/.heimdal/)
         let state_path = crate::utils::state_path()?;
-        Ok(state_path.parent().unwrap().join("heimdal.lock"))
+        let parent = state_path
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("state path has no parent directory"))?;
+        Ok(parent.join("heimdal.lock"))
     }
 
     pub fn is_process_running(pid: u32) -> bool {

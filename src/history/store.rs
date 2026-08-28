@@ -14,10 +14,14 @@ pub fn append_encrypted(path: &Path, entry: &HistoryEntry, key: &[u8; 32]) -> Re
     let blob = crate::crypto::encrypt(key, &json)?;
     let line = URL_SAFE_NO_PAD.encode(&blob);
 
+    let is_new = !path.exists();
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(path)?;
+    if is_new {
+        crate::utils::restrict_file_permissions(path)?;
+    }
     writeln!(file, "{}", line)?;
     Ok(())
 }

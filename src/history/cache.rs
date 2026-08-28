@@ -23,6 +23,7 @@ pub fn write_cache(path: &Path, entries: &[HistoryEntry]) -> Result<()> {
         std::fs::create_dir_all(parent)?;
     }
     let mut file = std::fs::File::create(path)?;
+    crate::utils::restrict_file_permissions(path)?;
     for entry in entries {
         let line = serde_json::to_string(entry)?;
         writeln!(file, "{}", line)?;

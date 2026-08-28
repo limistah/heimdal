@@ -44,11 +44,15 @@ fn try_record(cmd: &str, exit: i32, dir: &str, session: &str) -> anyhow::Result<
 
     let staging = crate::history::staging_path()?;
     crate::utils::ensure_parent_exists(&staging)?;
+    let is_new = !staging.exists();
     let json = serde_json::to_string(&entry)?;
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(&staging)?;
+    if is_new {
+        crate::utils::restrict_file_permissions(&staging)?;
+    }
     writeln!(file, "{}", json)?;
     Ok(())
 }
