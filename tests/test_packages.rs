@@ -180,3 +180,88 @@ fn test_packages_remove_nonexistent_is_ok() {
         .assert()
         .success();
 }
+
+#[test]
+#[serial]
+fn test_packages_add_mas_writes_id_and_name() {
+    let home = setup_home_with_packages();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args([
+            "packages",
+            "add",
+            "Slack",
+            "--manager",
+            "mas",
+            "--id",
+            "803453959",
+            "--no-install",
+        ])
+        .env("HOME", home.path())
+        .assert()
+        .success();
+
+    let dotfiles = home.path().join(".dotfiles");
+    let content = std::fs::read_to_string(dotfiles.join("heimdal.yaml")).unwrap();
+    assert!(
+        content.contains("803453959") && content.contains("Slack"),
+        "mas entry not found in heimdal.yaml:\n{}",
+        content
+    );
+}
+
+#[test]
+#[serial]
+fn test_packages_add_mas_without_id_fails() {
+    let home = setup_home_with_packages();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args([
+            "packages",
+            "add",
+            "Slack",
+            "--manager",
+            "mas",
+            "--no-install",
+        ])
+        .env("HOME", home.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--id"));
+}
+
+#[test]
+#[serial]
+fn test_packages_remove_mas_by_name_updates_config() {
+    let home = setup_home_with_packages();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args([
+            "packages",
+            "add",
+            "Slack",
+            "--manager",
+            "mas",
+            "--id",
+            "803453959",
+            "--no-install",
+        ])
+        .env("HOME", home.path())
+        .assert()
+        .success();
+
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(["packages", "remove", "Slack", "--no-uninstall"])
+        .env("HOME", home.path())
+        .assert()
+        .success();
+
+    let dotfiles = home.path().join(".dotfiles");
+    let content = std::fs::read_to_string(dotfiles.join("heimdal.yaml")).unwrap();
+    assert!(
+        !content.contains("803453959"),
+        "mas entry still in heimdal.yaml after remove:\n{}",
+        content
+    );
+}
