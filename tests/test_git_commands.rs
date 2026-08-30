@@ -128,6 +128,125 @@ fn test_status_shows_profile_and_path() {
         .stdout(predicate::str::contains("default").and(predicate::str::contains(".dotfiles")));
 }
 
+// A real-machine smoke test: whatever package managers are actually present
+// here, `--packages` must not crash, matching
+// `test_packages_list_installed_flag_runs_without_error`'s approach for
+// `packages list --installed`.
+#[test]
+#[serial]
+fn test_status_packages_flag_runs_without_error() {
+    let (home, _) = setup_initialized_home();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(["status", "--packages"])
+        .env("HOME", home.path())
+        .assert()
+        .success();
+}
+
+// ── status --packages drift computation ──────────────────────────────────────
+//
+// Covers "status --packages" drift logic against a mocked/injected installed
+// set, the same pattern `test_packages_list_installed_annotates_against_injected_set`
+// established for `packages list --installed` — so this never depends on
+// brew/apt/etc. actually being present in CI.
+
+#[test]
+fn test_status_packages_no_drift() {
+    use heimdal::commands::status::compute_package_drift;
+    use std::collections::{HashMap, HashSet};
+
+    let mut declared: HashMap<String, HashSet<String>> = HashMap::new();
+    declared.insert("homebrew".to_string(), HashSet::from(["git".to_string()]));
+    let mut installed: HashMap<String, HashSet<String>> = HashMap::new();
+    installed.insert("homebrew".to_string(), HashSet::from(["git".to_string()]));
+
+    let drift = compute_package_drift(&declared, &installed);
+    assert!(
+        drift.is_empty(),
+        "matching declared/installed sets should report no drift"
+    );
+}
+
+#[test]
+fn test_status_packages_missing_only() {
+    use heimdal::commands::status::compute_package_drift;
+    use std::collections::{HashMap, HashSet};
+
+    // Declared in yaml (git, fzf) but the machine only actually has git.
+    let mut declared: HashMap<String, HashSet<String>> = HashMap::new();
+    declared.insert(
+        "homebrew".to_string(),
+        HashSet::from(["git".to_string(), "fzf".to_string()]),
+    );
+    let mut installed: HashMap<String, HashSet<String>> = HashMap::new();
+    installed.insert("homebrew".to_string(), HashSet::from(["git".to_string()]));
+
+    let drift = compute_package_drift(&declared, &installed);
+    assert_eq!(drift.len(), 1);
+    assert_eq!(drift[0].label, "homebrew");
+    assert_eq!(drift[0].missing, vec!["fzf".to_string()]);
+    assert!(drift[0].untracked.is_empty());
+}
+
+#[test]
+fn test_status_packages_untracked_only() {
+    use heimdal::commands::status::compute_package_drift;
+    use std::collections::{HashMap, HashSet};
+
+    // Nothing declared for apt at all, but htop is actually installed via it.
+    let declared: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut installed: HashMap<String, HashSet<String>> = HashMap::new();
+    installed.insert("apt".to_string(), HashSet::from(["htop".to_string()]));
+
+    let drift = compute_package_drift(&declared, &installed);
+    assert_eq!(drift.len(), 1);
+    assert_eq!(drift[0].label, "apt");
+    assert!(drift[0].missing.is_empty());
+    assert_eq!(drift[0].untracked, vec!["htop".to_string()]);
+}
+
+#[test]
+fn test_status_packages_missing_and_untracked_simultaneously() {
+    use heimdal::commands::status::compute_package_drift;
+    use std::collections::{HashMap, HashSet};
+
+    let mut declared: HashMap<String, HashSet<String>> = HashMap::new();
+    declared.insert("homebrew".to_string(), HashSet::from(["fzf".to_string()]));
+    let mut installed: HashMap<String, HashSet<String>> = HashMap::new();
+    installed.insert("homebrew".to_string(), HashSet::from(["htop".to_string()]));
+
+    let drift = compute_package_drift(&declared, &installed);
+    assert_eq!(drift.len(), 1);
+    assert_eq!(drift[0].label, "homebrew");
+    assert_eq!(drift[0].missing, vec!["fzf".to_string()]);
+    assert_eq!(drift[0].untracked, vec!["htop".to_string()]);
+}
+
+// Declared packages must be resolved across BOTH the active profile's own
+// manager-specific lists and the top-level shared `packages` block (via
+// `config::resolve_profile` merging before `declared_identifiers` runs), not
+// just the profile's own section.
+#[test]
+fn test_status_packages_declared_identifiers_merges_shared_and_profile_packages() {
+    use heimdal::config::PackageMap;
+    use heimdal::packages::declared_identifiers;
+
+    // Simulates the already-merged PackageMap `resolve_profile` produces:
+    // top-level shared `packages.homebrew: [git]` merged with this profile's
+    // own `packages.homebrew: [fzf]`.
+    let merged = PackageMap {
+        homebrew: vec!["git".to_string(), "fzf".to_string()],
+        ..Default::default()
+    };
+
+    let declared = declared_identifiers(&merged, None);
+    assert_eq!(
+        declared.get("homebrew").unwrap(),
+        &std::collections::HashSet::from(["git".to_string(), "fzf".to_string()])
+    );
+}
+
 // ── diff tests ────────────────────────────────────────────────────────────────
 
 #[test]
