@@ -43,6 +43,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   updates this after every successful package install. This is additive and
   backward compatible — state.json files written before this field existed
   still load fine, with an empty inventory.
+- New `toolchains:` section in `heimdal.yaml` for language-toolchain global
+  installs — npm, cargo, `go install`, gem, and pip — as a separate axis from
+  `packages:`. Unlike homebrew/apt/dnf/pacman/apk/mas (only one of which ever
+  applies on a given OS), toolchain managers are not mutually exclusive: a
+  single machine can have npm *and* cargo *and* go tools installed at once,
+  so every manager present on the machine installs its own declared list. A
+  top-level `toolchains:` section applies to all profiles and merges with
+  each profile's own `toolchains:`, exactly like `packages:` does; every key
+  defaults to an empty list, so a `heimdal.yaml` with no `toolchains:`
+  section at all still parses unchanged. `npm`/`cargo`/`gem`/`pip` entries
+  are plain package names installed at latest, matching the existing
+  flat-list convention; `pip` installs go through `pipx` rather than raw
+  `pip install --user`, isolating each tool in its own venv. `go` entries
+  must be a full module import path with an explicit `@version` suffix (e.g.
+  `golang.org/x/tools/cmd/goimports@latest`), since `go install` requires
+  one — a bare import path is rejected with a clear error, both by `heimdal
+  validate` and before `apply` installs anything. Idempotency is checked per
+  manager (`npm ls -g --depth=0 --json`, `cargo install --list`, `gem list
+  --local`, `pipx list --json`), except for `go`, which has no live
+  "what's installed" query — `go install` keeps no system-level record of
+  what it has installed — so heimdal's own `package_inventory` (see above) is
+  the sole source of truth for whether a go-installed module is already
+  present.
 
 ### Fixed
 

@@ -9,6 +9,8 @@ pub struct HeimdalConfig {
     #[serde(default)]
     pub packages: PackageMap,
     #[serde(default)]
+    pub toolchains: ToolchainMap,
+    #[serde(default)]
     pub ignore: Vec<String>,
     #[serde(default)]
     pub history: Option<HistoryConfig>,
@@ -80,6 +82,8 @@ pub struct Profile {
     pub dotfiles: Vec<DotfileEntry>,
     #[serde(default)]
     pub packages: PackageMap,
+    #[serde(default)]
+    pub toolchains: ToolchainMap,
     #[serde(default)]
     pub hooks: ProfileHooks,
     #[serde(default)]
@@ -218,6 +222,61 @@ pub struct PackageMap {
     pub mas: Vec<serde_json::Value>,
 }
 
+/// Global language-toolchain package installs — npm, cargo, `go install`,
+/// gem, pip — declared as a `toolchains:` section separate from `packages:`.
+///
+/// This is a genuinely different axis from OS-level packages: only one of
+/// homebrew/apt/dnf/pacman/apk ever applies on a given machine, so `packages`
+/// picks whichever is available. Language toolchains are not mutually
+/// exclusive that way — one machine can legitimately have npm AND cargo AND
+/// go tools installed at once — so every manager present here runs its own
+/// declared list, and package identifiers don't vary by OS the way system
+/// package names sometimes do.
+///
+/// Every field defaults to an empty list and the whole section is optional:
+/// a `heimdal.yaml` with no `toolchains:` key at all still parses, exactly
+/// like a `heimdal.yaml` with no `packages:` key.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ToolchainMap {
+    /// `npm install -g <pkg>`. Plain package names, installed at latest.
+    #[serde(default)]
+    pub npm: Vec<String>,
+    /// `cargo install <pkg>`. Plain crate names, installed at latest.
+    #[serde(default)]
+    pub cargo: Vec<String>,
+    /// `go install <entry>`. Unlike the other four, entries here must be a
+    /// full module import path *with* an explicit `@version` suffix (e.g.
+    /// `golang.org/x/tools/cmd/goimports@latest` or
+    /// `github.com/bufbuild/buf/cmd/buf@v1.32.0`) — `go install` itself
+    /// requires one; see `validate_go_module_entry`.
+    #[serde(default)]
+    pub go: Vec<String>,
+    /// `gem install <pkg>`. Plain gem names, installed at latest.
+    #[serde(default)]
+    pub gem: Vec<String>,
+    /// Installed via `pipx install <pkg>` rather than raw
+    /// `pip install --user` — pipx isolates each CLI tool in its own venv,
+    /// avoiding the classic "installing tool B breaks tool A" problem with
+    /// global pip installs. Plain package names, installed at latest.
+    #[serde(default)]
+    pub pip: Vec<String>,
+}
+
+/// Validate that a `toolchains.go` entry carries an explicit `@version`
+/// suffix. `go install` requires one — a bare import path like
+/// `golang.org/x/tools/cmd/goimports` is not a valid `go install` argument
+/// the way a bare package name is for npm/cargo/gem/pip, so a missing
+/// version must fail clearly here rather than mis-invoking `go install`.
+pub fn validate_go_module_entry(entry: &str) -> Result<(), String> {
+    match entry.rsplit_once('@') {
+        Some((path, version)) if !path.is_empty() && !version.is_empty() => Ok(()),
+        _ => Err(format!(
+            "toolchains.go entry '{entry}' is missing an explicit @version suffix — \
+            `go install` requires one (e.g. '{entry}@latest' or '{entry}@v1.2.3')"
+        )),
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ProfileHooks {
     #[serde(default)]
@@ -308,6 +367,8 @@ pub fn resolve_profile(config: &HeimdalConfig, name: &str) -> anyhow::Result<Pro
     let mut profile = resolve_recursive(config, name, &mut Vec::new())?;
     // Prepend top-level packages so profile-specific ones take effect after
     profile.packages = merge_packages(config.packages.clone(), profile.packages);
+    // Prepend top-level toolchains so profile-specific ones take effect after
+    profile.toolchains = merge_toolchains(config.toolchains.clone(), profile.toolchains);
     // Prepend top-level ignore so profile-specific ones take effect after
     let mut combined_ignore = config.ignore.clone();
     combined_ignore.extend(profile.ignore);
@@ -356,6 +417,7 @@ fn merge_profiles(base: Profile, child: Profile) -> Profile {
             d
         },
         packages: merge_packages(base.packages, child.packages),
+        toolchains: merge_toolchains(base.toolchains, child.toolchains),
         // Hooks: child completely replaces parent hooks (not merged).
         // A child profile that wants parent hooks must explicitly repeat them.
         // This is intentional — lifecycle hooks are profile-specific scripts.
@@ -391,6 +453,16 @@ fn merge_packages(base: PackageMap, child: PackageMap) -> PackageMap {
         pacman: merge_vec!(base.pacman, child.pacman),
         apk: merge_vec!(base.apk, child.apk),
         mas: merge_vec!(base.mas, child.mas),
+    }
+}
+
+fn merge_toolchains(base: ToolchainMap, child: ToolchainMap) -> ToolchainMap {
+    ToolchainMap {
+        npm: merge_vec!(base.npm, child.npm),
+        cargo: merge_vec!(base.cargo, child.cargo),
+        go: merge_vec!(base.go, child.go),
+        gem: merge_vec!(base.gem, child.gem),
+        pip: merge_vec!(base.pip, child.pip),
     }
 }
 
@@ -499,6 +571,21 @@ pub fn validate_config(config: &HeimdalConfig) -> Vec<String> {
         }
     }
 
+    // Check toolchains.go entries carry an explicit @version (go install
+    // requires one; see validate_go_module_entry).
+    for entry in &config.toolchains.go {
+        if let Err(e) = validate_go_module_entry(entry) {
+            errors.push(format!("Top-level toolchains.go: {}", e));
+        }
+    }
+    for (name, profile) in &config.profiles {
+        for entry in &profile.toolchains.go {
+            if let Err(e) = validate_go_module_entry(entry) {
+                errors.push(format!("Profile '{}' toolchains.go: {}", name, e));
+            }
+        }
+    }
+
     errors
 }
 
@@ -525,6 +612,7 @@ pub fn create_minimal_config(path: &std::path::Path, profile_name: &str) -> anyh
         },
         profiles,
         packages: PackageMap::default(),
+        toolchains: ToolchainMap::default(),
         ignore: vec![],
         history: None,
         hooks: ProfileHooks::default(),
@@ -566,6 +654,7 @@ mod tests {
             },
             profiles,
             packages: PackageMap::default(),
+            toolchains: ToolchainMap::default(),
             ignore: vec![".git".to_string(), "*.md".to_string()],
             history: None,
             hooks: ProfileHooks::default(),
@@ -606,6 +695,7 @@ mod tests {
                 common: vec![CommonPackage::Simple("top-pkg".to_string())],
                 ..Default::default()
             },
+            toolchains: ToolchainMap::default(),
             ignore: vec![],
             history: None,
             hooks: ProfileHooks::default(),
@@ -648,6 +738,7 @@ mod tests {
             },
             profiles,
             packages: PackageMap::default(),
+            toolchains: ToolchainMap::default(),
             ignore: vec![],
             history: None,
             hooks: ProfileHooks {
@@ -792,5 +883,146 @@ common:
         let round_tripped: Vec<CommonPackage> = serde_yaml_ng::from_str(&yaml).unwrap();
 
         assert_eq!(round_tripped, original);
+    }
+
+    // ── toolchains: schema parsing ───────────────────────────────────────────
+
+    #[test]
+    fn toolchains_missing_section_defaults_to_empty_everywhere() {
+        // A heimdal.yaml with no `toolchains:` key at all — the common case —
+        // must keep parsing exactly as it did before this section existed.
+        let yaml = "heimdal:\n  version: \"1\"\nprofiles:\n  default: {}\n";
+        let config: HeimdalConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert!(config.toolchains.npm.is_empty());
+        assert!(config.toolchains.cargo.is_empty());
+        assert!(config.toolchains.go.is_empty());
+        assert!(config.toolchains.gem.is_empty());
+        assert!(config.toolchains.pip.is_empty());
+    }
+
+    #[test]
+    fn toolchains_all_five_keys_parse() {
+        let yaml = r#"
+npm: [typescript, eslint]
+cargo: [ripgrep, fd-find]
+go: ["golang.org/x/tools/cmd/goimports@latest", "github.com/bufbuild/buf/cmd/buf@v1.32.0"]
+gem: [bundler]
+pip: [black]
+"#;
+        let tc: ToolchainMap = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(tc.npm, vec!["typescript", "eslint"]);
+        assert_eq!(tc.cargo, vec!["ripgrep", "fd-find"]);
+        assert_eq!(
+            tc.go,
+            vec![
+                "golang.org/x/tools/cmd/goimports@latest",
+                "github.com/bufbuild/buf/cmd/buf@v1.32.0"
+            ]
+        );
+        assert_eq!(tc.gem, vec!["bundler"]);
+        assert_eq!(tc.pip, vec!["black"]);
+    }
+
+    #[test]
+    fn resolve_profile_merges_top_level_toolchains() {
+        let mut profiles = HashMap::new();
+        profiles.insert(
+            "test".to_string(),
+            Profile {
+                toolchains: ToolchainMap {
+                    npm: vec!["profile-tool".to_string()],
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        );
+
+        let config = HeimdalConfig {
+            heimdal: HeimdalMeta {
+                version: "1".to_string(),
+                repo: None,
+            },
+            profiles,
+            packages: PackageMap::default(),
+            toolchains: ToolchainMap {
+                npm: vec!["top-tool".to_string()],
+                cargo: vec!["ripgrep".to_string()],
+                ..Default::default()
+            },
+            ignore: vec![],
+            history: None,
+            hooks: ProfileHooks::default(),
+            defaults: None,
+            parallel_jobs: 4,
+        };
+
+        let resolved = resolve_profile(&config, "test").unwrap();
+
+        // Top-level toolchain entries are prepended, mirroring how top-level
+        // `packages:` merges into each profile's own `packages:`.
+        assert_eq!(resolved.toolchains.npm, vec!["top-tool", "profile-tool"]);
+        assert_eq!(resolved.toolchains.cargo, vec!["ripgrep"]);
+        assert!(resolved.toolchains.go.is_empty());
+    }
+
+    // ── toolchains.go: @version validation ───────────────────────────────────
+
+    #[test]
+    fn go_module_entry_with_version_is_valid() {
+        assert!(validate_go_module_entry("golang.org/x/tools/cmd/goimports@latest").is_ok());
+        assert!(validate_go_module_entry("github.com/bufbuild/buf/cmd/buf@v1.32.0").is_ok());
+    }
+
+    #[test]
+    fn go_module_entry_missing_version_is_rejected() {
+        let err = validate_go_module_entry("golang.org/x/tools/cmd/goimports").unwrap_err();
+        assert!(
+            err.contains("@version"),
+            "error should explain the missing @version, got: {}",
+            err
+        );
+        assert!(err.contains("golang.org/x/tools/cmd/goimports"));
+    }
+
+    #[test]
+    fn go_module_entry_with_empty_version_is_rejected() {
+        // Trailing "@" with nothing after it is not a valid version either.
+        assert!(validate_go_module_entry("golang.org/x/tools/cmd/goimports@").is_err());
+    }
+
+    #[test]
+    fn validate_config_reports_go_entry_missing_version() {
+        let mut profiles = HashMap::new();
+        profiles.insert(
+            "default".to_string(),
+            Profile {
+                toolchains: ToolchainMap {
+                    go: vec!["golang.org/x/tools/cmd/goimports".to_string()],
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        );
+        let config = HeimdalConfig {
+            heimdal: HeimdalMeta {
+                version: "1".to_string(),
+                repo: None,
+            },
+            profiles,
+            packages: PackageMap::default(),
+            toolchains: ToolchainMap::default(),
+            ignore: vec![],
+            history: None,
+            hooks: ProfileHooks::default(),
+            defaults: None,
+            parallel_jobs: 4,
+        };
+
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.contains("@version")),
+            "expected a validation error about the missing @version, got: {:?}",
+            errors
+        );
     }
 }
