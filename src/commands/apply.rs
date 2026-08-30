@@ -55,6 +55,7 @@ pub fn run(args: ApplyArgs) -> Result<()> {
             args.dry_run,
             &stage2,
             ctx.config.parallel_jobs,
+            args.force,
             &mut ctx.state,
         )?;
         if failures.is_empty() {

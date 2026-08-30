@@ -572,30 +572,80 @@ pub fn declared_identifiers(
     declared
 }
 
-/// Install packages for the active profile. Reports progress via `stage`.
-/// Every package that installs successfully (outside of `dry_run`) is
-/// recorded into `state`'s package inventory — callers are responsible for
-/// calling `state.save()` afterwards.
-/// Returns the list of packages that failed to install.
-pub fn install_for_profile(
-    profile: &crate::config::Profile,
-    dry_run: bool,
+/// If `pkg` is already installed for `field` (per `installed_sets`) and
+/// `force` isn't set, report it as a skip and return `true` — the caller
+/// must not enqueue a `WorkItem` for it. A skip that heimdal's own
+/// `state.package_inventory` doesn't yet know about is appended to
+/// `newly_tracked` so the caller can record it without running the install
+/// command.
+#[allow(clippy::too_many_arguments)]
+fn maybe_skip_installed(
+    field: &str,
+    pkg: &str,
+    display_name: &str,
+    force: bool,
+    installed_sets: &HashMap<String, HashSet<String>>,
+    state: &crate::state::State,
     stage: &crate::progress::StageBar,
-    parallel_jobs: usize,
-    state: &mut crate::state::State,
-) -> anyhow::Result<Vec<crate::progress::FailedPackage>> {
-    let managers: Vec<Box<dyn PackageManager>> = vec![
-        Box::new(Homebrew),
-        Box::new(HomebrewCask),
-        Box::new(Apt),
-        Box::new(Dnf),
-        Box::new(Pacman),
-        Box::new(Apk),
-        Box::new(Mas),
-    ];
+    newly_tracked: &mut Vec<(String, String)>,
+) -> bool {
+    if force {
+        return false;
+    }
+    let already_installed = installed_sets
+        .get(field)
+        .map(|set| set.contains(pkg))
+        .unwrap_or(false);
+    if !already_installed {
+        return false;
+    }
+    let already_tracked = state
+        .package_inventory
+        .get(field)
+        .map(|entry| entry.identifiers.contains(pkg))
+        .unwrap_or(false);
+    if !already_tracked {
+        newly_tracked.push((field.to_string(), pkg.to_string()));
+    }
+    stage.println(format!(
+        "         · skip       {} — already installed",
+        display_name
+    ));
+    true
+}
 
-    let pkgs = &profile.packages;
+/// Decide which declared packages still need their install command to run,
+/// and which are already installed on the system but not yet reflected in
+/// heimdal's own inventory.
+///
+/// `force` bypasses the "already installed" check entirely, matching apply's
+/// `--force`: every declared package still gets a `WorkItem`.
+///
+/// Returns `(work, newly_tracked)` — `work` is what `run_parallel` should
+/// actually run; `newly_tracked` is `(manager_field, pkg)` pairs the caller
+/// should record directly into `state`, without running an install command.
+fn plan_work(
+    pkgs: &crate::config::PackageMap,
+    managers: &[Box<dyn PackageManager>],
+    force: bool,
+    state: &crate::state::State,
+    stage: &crate::progress::StageBar,
+    dry_run: bool,
+) -> (Vec<WorkItem>, Vec<(String, String)>) {
+    // Skip the live query entirely when forcing: every package installs
+    // regardless of what's already present, so there's nothing to check.
+    let installed_sets: HashMap<String, HashSet<String>> = if force {
+        HashMap::new()
+    } else {
+        managers
+            .iter()
+            .filter(|m| m.is_available())
+            .map(|m| (m.field_name().to_string(), m.installed()))
+            .collect()
+    };
+
     let mut work: Vec<WorkItem> = Vec::new();
+    let mut newly_tracked: Vec<(String, String)> = Vec::new();
 
     // Common packages → first available manager
     if !pkgs.common.is_empty() {
@@ -605,6 +655,18 @@ pub fn install_for_profile(
                 let field = manager.field_name();
                 for pkg in &pkgs.common {
                     let name = pkg.resolve(field);
+                    if maybe_skip_installed(
+                        field,
+                        &name,
+                        &name,
+                        force,
+                        &installed_sets,
+                        state,
+                        stage,
+                        &mut newly_tracked,
+                    ) {
+                        continue;
+                    }
                     work.push(WorkItem {
                         cmd: cmd.clone(),
                         args: args.clone(),
@@ -625,7 +687,7 @@ pub fn install_for_profile(
     }
 
     // Manager-specific packages
-    for manager in &managers {
+    for manager in managers {
         let to_install = get_manager_packages(manager.field_name(), pkgs);
         if to_install.is_empty() {
             continue;
@@ -639,15 +701,72 @@ pub fn install_for_profile(
             continue;
         }
         let (cmd, args) = manager_cmd(manager.name());
+        let field = manager.field_name();
         for (pkg, display_name) in to_install {
+            if maybe_skip_installed(
+                field,
+                &pkg,
+                &display_name,
+                force,
+                &installed_sets,
+                state,
+                stage,
+                &mut newly_tracked,
+            ) {
+                continue;
+            }
             work.push(WorkItem {
                 cmd: cmd.clone(),
                 args: args.clone(),
                 pkg,
-                manager_field: manager.field_name().to_string(),
+                manager_field: field.to_string(),
                 display_name,
                 dry_run,
             });
+        }
+    }
+
+    (work, newly_tracked)
+}
+
+/// Install packages for the active profile. Reports progress via `stage`.
+/// Every package that installs successfully (outside of `dry_run`) is
+/// recorded into `state`'s package inventory — callers are responsible for
+/// calling `state.save()` afterwards.
+///
+/// A package already present on the system (per the live `installed()`
+/// query) is skipped without running its install command, unless `force` is
+/// set — but if heimdal's own inventory didn't already know about it, it is
+/// still recorded, so "installed outside heimdal" and "installed by heimdal
+/// before" both end up accurately tracked.
+///
+/// Returns the list of packages that failed to install.
+pub fn install_for_profile(
+    profile: &crate::config::Profile,
+    dry_run: bool,
+    stage: &crate::progress::StageBar,
+    parallel_jobs: usize,
+    force: bool,
+    state: &mut crate::state::State,
+) -> anyhow::Result<Vec<crate::progress::FailedPackage>> {
+    let managers: Vec<Box<dyn PackageManager>> = vec![
+        Box::new(Homebrew),
+        Box::new(HomebrewCask),
+        Box::new(Apt),
+        Box::new(Dnf),
+        Box::new(Pacman),
+        Box::new(Apk),
+        Box::new(Mas),
+    ];
+
+    let (work, newly_tracked) =
+        plan_work(&profile.packages, &managers, force, state, stage, dry_run);
+
+    // Packages the system already has but heimdal didn't know about: record
+    // them now. Skipped in dry-run — dry-run must never modify state.
+    if !dry_run {
+        for (manager_field, pkg) in newly_tracked {
+            state.record_installed(&manager_field, [pkg]);
         }
     }
 
@@ -695,7 +814,7 @@ mod tests {
             ..Default::default()
         };
         let mut state = crate::state::State::default();
-        let result = install_for_profile(&profile, true, &stage, 2, &mut state);
+        let result = install_for_profile(&profile, true, &stage, 2, false, &mut state);
         assert!(result.is_ok());
         let failures = result.unwrap();
         assert!(failures.is_empty(), "dry run should produce no failures");
@@ -710,7 +829,7 @@ mod tests {
         let (_p, stage) = make_stage();
         let profile = Profile::default();
         let mut state = crate::state::State::default();
-        let result = install_for_profile(&profile, false, &stage, 4, &mut state);
+        let result = install_for_profile(&profile, false, &stage, 4, false, &mut state);
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
     }
@@ -854,9 +973,123 @@ mod tests {
         // dry_run: install_for_profile only needs the entry to resolve
         // without panicking and to report success either way.
         let mut state = crate::state::State::default();
-        let result = install_for_profile(&profile, true, &stage, 2, &mut state);
+        let result = install_for_profile(&profile, true, &stage, 2, false, &mut state);
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
+    }
+
+    // ── Idempotent install (skip already-installed packages) ────────────────
+
+    /// A `PackageManager` stand-in for tests: no real subprocess is ever
+    /// spawned — `installed()` returns whatever set the test configures.
+    struct MockManager {
+        name: &'static str,
+        field: &'static str,
+        available: bool,
+        installed_set: HashSet<String>,
+    }
+
+    impl PackageManager for MockManager {
+        fn name(&self) -> &str {
+            self.name
+        }
+        fn field_name(&self) -> &str {
+            self.field
+        }
+        fn is_available(&self) -> bool {
+            self.available
+        }
+        fn installed(&self) -> HashSet<String> {
+            self.installed_set.clone()
+        }
+    }
+
+    fn mock_homebrew(installed: &[&str]) -> Vec<Box<dyn PackageManager>> {
+        vec![Box::new(MockManager {
+            name: "homebrew",
+            field: "homebrew",
+            available: true,
+            installed_set: installed.iter().map(|s| s.to_string()).collect(),
+        })]
+    }
+
+    #[test]
+    fn test_plan_work_skips_already_installed_package() {
+        let (_p, stage) = make_stage();
+        let pkgs = PackageMap {
+            homebrew: vec!["git".to_string()],
+            ..Default::default()
+        };
+        let managers = mock_homebrew(&["git"]);
+        let state = crate::state::State::default();
+        let (work, newly_tracked) = plan_work(&pkgs, &managers, false, &state, &stage, false);
+        assert!(
+            work.is_empty(),
+            "an already-installed package must not enqueue an install command"
+        );
+        assert_eq!(
+            newly_tracked,
+            vec![("homebrew".to_string(), "git".to_string())],
+            "an untracked-but-installed package should still be recorded"
+        );
+    }
+
+    #[test]
+    fn test_plan_work_installs_not_yet_installed_package() {
+        let (_p, stage) = make_stage();
+        let pkgs = PackageMap {
+            homebrew: vec!["git".to_string()],
+            ..Default::default()
+        };
+        let managers = mock_homebrew(&[]);
+        let state = crate::state::State::default();
+        let (work, newly_tracked) = plan_work(&pkgs, &managers, false, &state, &stage, false);
+        assert_eq!(
+            work.len(),
+            1,
+            "a not-yet-installed package must still install"
+        );
+        assert_eq!(work[0].pkg, "git");
+        assert!(newly_tracked.is_empty());
+    }
+
+    #[test]
+    fn test_plan_work_force_bypasses_skip() {
+        let (_p, stage) = make_stage();
+        let pkgs = PackageMap {
+            homebrew: vec!["git".to_string()],
+            ..Default::default()
+        };
+        let managers = mock_homebrew(&["git"]);
+        let state = crate::state::State::default();
+        let (work, newly_tracked) = plan_work(&pkgs, &managers, true, &state, &stage, false);
+        assert_eq!(
+            work.len(),
+            1,
+            "--force must reinstall even an already-installed package"
+        );
+        assert!(
+            newly_tracked.is_empty(),
+            "force reinstalls via the command instead of a tracking-only record"
+        );
+    }
+
+    #[test]
+    fn test_plan_work_does_not_re_track_already_tracked_package() {
+        let (_p, stage) = make_stage();
+        let pkgs = PackageMap {
+            homebrew: vec!["git".to_string()],
+            ..Default::default()
+        };
+        let managers = mock_homebrew(&["git"]);
+        let mut state = crate::state::State::default();
+        state.record_installed("homebrew", vec!["git".to_string()]);
+        let (work, newly_tracked) = plan_work(&pkgs, &managers, false, &state, &stage, false);
+        assert!(work.is_empty());
+        assert!(
+            newly_tracked.is_empty(),
+            "a package heimdal already tracks must not be re-recorded on every apply"
+        );
     }
 
     // ── Installed-set parsing ────────────────────────────────────────────────
