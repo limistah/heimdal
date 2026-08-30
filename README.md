@@ -123,6 +123,20 @@ profiles:
       homebrew: [slack, zoom]
 ```
 
+A `common:` entry can also be an object instead of a plain string, for packages whose name differs by ecosystem (VS Code is `visual-studio-code` on a Homebrew cask but `code` on apt/dnf/pacman). `default` is used whenever the manager that actually runs has no override of its own:
+
+```yaml
+packages:
+  common:
+    - zsh                    # same name everywhere
+    - default: docker-desktop
+      homebrew_casks: docker-desktop
+      apt: docker-ce
+      dnf: docker-ce
+      pacman: docker
+      apk: docker
+```
+
 ### Search & Install
 ```bash
 # Search via the native OS package manager
@@ -347,5 +361,3 @@ MIT License - see [LICENSE](LICENSE) for details
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 
 ---
-
-**Built by [@limistah](https://github.com/limistah)**

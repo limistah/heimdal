@@ -3,6 +3,7 @@ use assert_fs::prelude::*;
 use assert_fs::TempDir;
 use predicates::prelude::*;
 use serial_test::serial;
+use std::collections::{HashMap, HashSet};
 
 fn setup_home_with_packages() -> TempDir {
     let home = TempDir::new().unwrap();
@@ -179,4 +180,166 @@ fn test_packages_remove_nonexistent_is_ok() {
         .env("HOME", home.path())
         .assert()
         .success();
+}
+
+#[test]
+#[serial]
+fn test_packages_add_mas_writes_id_and_name() {
+    let home = setup_home_with_packages();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args([
+            "packages",
+            "add",
+            "Slack",
+            "--manager",
+            "mas",
+            "--id",
+            "803453959",
+            "--no-install",
+        ])
+        .env("HOME", home.path())
+        .assert()
+        .success();
+
+    let dotfiles = home.path().join(".dotfiles");
+    let content = std::fs::read_to_string(dotfiles.join("heimdal.yaml")).unwrap();
+    assert!(
+        content.contains("803453959") && content.contains("Slack"),
+        "mas entry not found in heimdal.yaml:\n{}",
+        content
+    );
+}
+
+#[test]
+#[serial]
+fn test_packages_add_mas_without_id_fails() {
+    let home = setup_home_with_packages();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args([
+            "packages",
+            "add",
+            "Slack",
+            "--manager",
+            "mas",
+            "--no-install",
+        ])
+        .env("HOME", home.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--id"));
+}
+
+#[test]
+#[serial]
+fn test_packages_remove_mas_by_name_updates_config() {
+    let home = setup_home_with_packages();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args([
+            "packages",
+            "add",
+            "Slack",
+            "--manager",
+            "mas",
+            "--id",
+            "803453959",
+            "--no-install",
+        ])
+        .env("HOME", home.path())
+        .assert()
+        .success();
+
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(["packages", "remove", "Slack", "--no-uninstall"])
+        .env("HOME", home.path())
+        .assert()
+        .success();
+
+    let dotfiles = home.path().join(".dotfiles");
+    let content = std::fs::read_to_string(dotfiles.join("heimdal.yaml")).unwrap();
+    assert!(
+        !content.contains("803453959"),
+        "mas entry still in heimdal.yaml after remove:\n{}",
+        content
+    );
+}
+
+#[test]
+#[serial]
+fn test_packages_list_installed_flag_runs_without_error() {
+    // A real-machine smoke test: whatever package managers are actually
+    // present here, `--installed` must not crash and must still surface the
+    // declared packages (annotated, rather than in the plain `--installed`
+    // = false format asserted by `test_packages_list_shows_packages`).
+    let home = setup_home_with_packages();
+    Command::cargo_bin("heimdal")
+        .unwrap()
+        .args(["packages", "list", "--installed"])
+        .env("HOME", home.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("git"))
+        .stdout(predicate::str::contains("vim"));
+}
+
+// Covers "packages list --installed" cross-referencing logic against a
+// mocked/injected installed set, the way `tests/test_state_lock.rs` drives
+// `heimdal::lock::HeimdallLock` directly rather than shelling out for real —
+// so this never depends on brew/apt/etc. actually being present in CI.
+#[test]
+fn test_packages_list_installed_annotates_against_injected_set() {
+    use heimdal::commands::packages::build_package_sections;
+    use heimdal::config::PackageMap;
+
+    let pkgs = PackageMap {
+        homebrew: vec!["git".to_string(), "curl".to_string()],
+        apt: vec!["vim".to_string()],
+        ..Default::default()
+    };
+
+    // Mocked/injected "real system" state: homebrew is present and has git
+    // (but not curl); apt is not present on this machine at all.
+    let mut installed_sets: HashMap<String, HashSet<String>> = HashMap::new();
+    installed_sets.insert("homebrew".to_string(), HashSet::from(["git".to_string()]));
+
+    let sections = build_package_sections(&pkgs, Some(&installed_sets));
+
+    let homebrew = sections
+        .iter()
+        .find(|(label, _)| *label == "homebrew")
+        .expect("homebrew section must be present");
+    assert_eq!(
+        homebrew.1,
+        vec![
+            "  - git (installed)".to_string(),
+            "  - curl (missing)".to_string(),
+        ]
+    );
+
+    let apt = sections
+        .iter()
+        .find(|(label, _)| *label == "apt")
+        .expect("apt section must be present");
+    assert_eq!(apt.1, vec!["  - vim (missing)".to_string()]);
+}
+
+#[test]
+fn test_packages_list_without_installed_flag_has_no_annotation() {
+    use heimdal::commands::packages::build_package_sections;
+    use heimdal::config::PackageMap;
+
+    let pkgs = PackageMap {
+        homebrew: vec!["git".to_string()],
+        ..Default::default()
+    };
+
+    let sections = build_package_sections(&pkgs, None);
+    let homebrew = sections
+        .iter()
+        .find(|(label, _)| *label == "homebrew")
+        .unwrap();
+    assert_eq!(homebrew.1, vec!["  - git".to_string()]);
 }
