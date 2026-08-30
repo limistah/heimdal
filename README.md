@@ -157,6 +157,39 @@ heimdal packages add neovim
 - ✅ Dependency detection and suggestions
 - ✅ Installation status checking
 
+## Toolchain Packages
+
+Language-toolchain-level global installs — npm, cargo, `go install`, gem, and pip — are declared separately in a `toolchains:` section, because they're a genuinely different axis from `packages:`: only one of homebrew/apt/dnf/pacman/apk/mas ever applies on a given OS, but a single machine can legitimately have npm *and* cargo *and* go tools installed at once, and these package names don't vary by OS. Like `packages:`, a top-level `toolchains:` section applies to all profiles, and each profile can add its own.
+
+```yaml
+toolchains:
+  npm: [typescript, eslint]          # npm install -g <pkg>
+  cargo: [ripgrep, fd-find]          # cargo install <pkg>
+  gem: [bundler]                     # gem install <pkg>
+  pip: [black, httpie]               # installed via `pipx install <pkg>`
+  go:
+    - golang.org/x/tools/cmd/goimports@latest
+    - github.com/bufbuild/buf/cmd/buf@v1.32.0
+
+profiles:
+  default:
+    toolchains:
+      cargo: [cargo-audit]
+```
+
+`npm`/`cargo`/`gem`/`pip` entries are plain package names installed at latest, same as the flat lists under `packages:`. `pip` installs go through [`pipx`](https://pipx.pypa.io/) rather than raw `pip install --user`, since pipx isolates each CLI tool in its own venv and avoids one global install breaking another.
+
+`go` entries are the one exception: each must be a full module import path *with* an explicit `@version` (`...@latest` or `...@vX.Y.Z`), because `go install` itself requires one — `heimdal apply`/`heimdal validate` reject a bare import path with a clear error rather than mis-invoking `go install`.
+
+At `apply` time, every toolchain manager actually present on the machine runs its own list — unlike `packages:`, there's no "pick the first one available" behavior here. Each manager that supports a real "what's installed" query (`npm ls -g --depth=0 --json`, `cargo install --list`, `gem list --local`, `pipx list --json`) is checked before reinstalling, same as `packages:`. `go` is the one exception: `go install` keeps no record of what it has installed system-side, so heimdal tracks each go-installed module path and version itself (in `~/.heimdal/state.json`) and treats that record — not a live query — as the "already installed" check.
+
+### Supported Toolchain Managers
+- **npm** — Node.js global packages
+- **cargo** — Rust binaries
+- **go** — Go tools, via `go install` (state-tracked; see above)
+- **gem** — Ruby gems
+- **pip** — Python CLI tools, via pipx
+
 ---
 
 ## Architecture

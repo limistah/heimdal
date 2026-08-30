@@ -3,7 +3,7 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 
 /// Check if a command is available on the system.
-fn check_command_available(cmd: &str) -> bool {
+pub(crate) fn check_command_available(cmd: &str) -> bool {
     std::process::Command::new(cmd)
         .arg("--version")
         .output()
@@ -14,7 +14,7 @@ fn check_command_available(cmd: &str) -> bool {
 /// Run `cmd args...` and return its captured stdout on success.
 /// Returns `None` (never an error) if the command can't be spawned or exits
 /// unsuccessfully — callers treat that the same as "nothing installed".
-fn capture_stdout(cmd: &str, args: &[&str]) -> Option<String> {
+pub(crate) fn capture_stdout(cmd: &str, args: &[&str]) -> Option<String> {
     std::process::Command::new(cmd)
         .args(args)
         .output()
@@ -303,16 +303,20 @@ impl PackageManager for Mas {
 // ── Public interface ──────────────────────────────────────────────────────────
 
 /// A single unit of package installation work.
-struct WorkItem {
-    cmd: String,
-    args: Vec<String>,
+///
+/// Shared with `crate::toolchains`, which builds these for npm/cargo/go/gem/
+/// pip installs and runs them through the same `run_parallel` used here —
+/// there is one execution path for every kind of install heimdal does.
+pub(crate) struct WorkItem {
+    pub(crate) cmd: String,
+    pub(crate) args: Vec<String>,
     /// CLI argument passed to the install command (e.g. the numeric ID for mas).
-    pkg: String,
+    pub(crate) pkg: String,
     /// `PackageManager::field_name()` this install runs through.
-    manager_field: String,
+    pub(crate) manager_field: String,
     /// Human-readable name shown in the progress bar (e.g. "Xcode" instead of "409183694").
-    display_name: String,
-    dry_run: bool,
+    pub(crate) display_name: String,
+    pub(crate) dry_run: bool,
 }
 
 /// Install one package synchronously; returns an `InstallResult`.
@@ -426,7 +430,7 @@ fn get_manager_packages(field: &str, pkgs: &crate::config::PackageMap) -> Vec<(S
 /// `(manager_field, pkg)` pairs for every install that succeeded — including
 /// dry-run "installs", which callers should filter out before recording
 /// anything as actually installed.
-fn run_parallel(
+pub(crate) fn run_parallel(
     work: Vec<WorkItem>,
     bar: Arc<crate::progress::PackageBar>,
     num_threads: usize,
@@ -579,7 +583,7 @@ pub fn declared_identifiers(
 /// `newly_tracked` so the caller can record it without running the install
 /// command.
 #[allow(clippy::too_many_arguments)]
-fn maybe_skip_installed(
+pub(crate) fn maybe_skip_installed(
     field: &str,
     pkg: &str,
     display_name: &str,

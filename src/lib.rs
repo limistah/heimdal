@@ -16,4 +16,5 @@ pub mod secrets;
 pub mod state;
 pub mod symlink;
 pub mod templates;
+pub mod toolchains;
 pub mod utils;
