@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when `--manager mas` is used (e.g. `heimdal packages add "Slack" --manager mas
   --id 803453959`) and errors clearly if `--id` is omitted; `remove` matches an
   existing `mas` entry by either its name or numeric id.
+- `packages.common` entries can now optionally carry per-package-manager name
+  overrides, for packages whose name diverges by ecosystem (e.g. Docker
+  Desktop is `docker-desktop` on a Homebrew cask but `docker-ce`/`docker` on
+  apt/dnf/pacman/apk):
+  ```yaml
+  common:
+    - zsh                    # plain string still works exactly as before
+    - default: docker-desktop
+      homebrew_casks: docker-desktop
+      apt: docker-ce
+      dnf: docker-ce
+      pacman: docker
+      apk: docker
+  ```
+  Existing plain-string `common` entries continue to parse and behave exactly
+  as before; the resolved name falls back to `default` when the manager that
+  actually runs has no override of its own.
 
 ## [3.2.0] - 2026-08-28
 

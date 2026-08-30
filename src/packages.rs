@@ -368,12 +368,14 @@ pub fn install_for_profile(
         match managers.iter().find(|m| m.is_available()) {
             Some(manager) => {
                 let (cmd, args) = manager_cmd(manager.name());
+                let field = manager.field_name();
                 for pkg in &pkgs.common {
+                    let name = pkg.resolve(field);
                     work.push(WorkItem {
                         cmd: cmd.clone(),
                         args: args.clone(),
-                        pkg: pkg.clone(),
-                        display_name: pkg.clone(),
+                        pkg: name.clone(),
+                        display_name: name,
                         dry_run,
                     });
                 }
@@ -424,7 +426,7 @@ pub fn install_for_profile(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{PackageMap, Profile};
+    use crate::config::{CommonPackage, CommonPackageAliases, PackageMap, Profile};
     use crate::progress::ApplyProgress;
 
     fn make_stage() -> (ApplyProgress, crate::progress::StageBar) {
@@ -438,7 +440,10 @@ mod tests {
         let (_p, stage) = make_stage();
         let profile = Profile {
             packages: PackageMap {
-                common: vec!["git".to_string(), "curl".to_string()],
+                common: vec![
+                    CommonPackage::Simple("git".to_string()),
+                    CommonPackage::Simple("curl".to_string()),
+                ],
                 ..Default::default()
             },
             ..Default::default()
@@ -527,5 +532,76 @@ mod tests {
         assert_eq!(items.len(), 2);
         assert_eq!(items[0], ("git".to_string(), "git".to_string()));
         assert_eq!(items[1], ("curl".to_string(), "curl".to_string()));
+    }
+
+    // A plain-string `common` entry must resolve to the exact same name no
+    // matter which package manager actually ran (pre-existing behavior).
+    #[test]
+    fn test_common_package_simple_resolves_same_name_for_every_manager() {
+        let pkg = CommonPackage::Simple("zsh".to_string());
+        for field in [
+            "homebrew",
+            "homebrew_casks",
+            "apt",
+            "dnf",
+            "pacman",
+            "apk",
+            "mas",
+        ] {
+            assert_eq!(pkg.resolve(field), "zsh");
+        }
+    }
+
+    // An aliased `common` entry should resolve to the manager-specific
+    // override when present, and fall back to `default` otherwise.
+    #[test]
+    fn test_common_package_aliased_resolves_per_manager() {
+        let pkg = CommonPackage::Aliased(CommonPackageAliases {
+            default: "docker-desktop".to_string(),
+            homebrew: None,
+            homebrew_casks: Some("docker-desktop".to_string()),
+            apt: Some("docker-ce".to_string()),
+            dnf: Some("docker-ce".to_string()),
+            pacman: Some("docker".to_string()),
+            apk: Some("docker".to_string()),
+            mas: None,
+        });
+
+        assert_eq!(pkg.resolve("homebrew_casks"), "docker-desktop");
+        assert_eq!(pkg.resolve("apt"), "docker-ce");
+        assert_eq!(pkg.resolve("dnf"), "docker-ce");
+        assert_eq!(pkg.resolve("pacman"), "docker");
+        assert_eq!(pkg.resolve("apk"), "docker");
+        // "homebrew" and "mas" have no override → fall back to `default`.
+        assert_eq!(pkg.resolve("homebrew"), "docker-desktop");
+        assert_eq!(pkg.resolve("mas"), "docker-desktop");
+    }
+
+    // install_for_profile should resolve an aliased common package using
+    // the field name of whichever manager ran, not the literal string.
+    #[test]
+    fn test_install_for_profile_resolves_aliased_common_package_dry_run() {
+        let (_p, stage) = make_stage();
+        let profile = Profile {
+            packages: PackageMap {
+                common: vec![CommonPackage::Aliased(CommonPackageAliases {
+                    default: "docker-desktop".to_string(),
+                    homebrew: None,
+                    homebrew_casks: Some("docker-desktop".to_string()),
+                    apt: Some("docker-ce".to_string()),
+                    dnf: Some("docker-ce".to_string()),
+                    pacman: Some("docker".to_string()),
+                    apk: Some("docker".to_string()),
+                    mas: None,
+                })],
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        // dry_run: install_for_profile only needs the entry to resolve
+        // without panicking and to report success either way.
+        let result = install_for_profile(&profile, true, &stage, 2);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
     }
 }
