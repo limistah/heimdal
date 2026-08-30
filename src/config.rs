@@ -131,10 +131,77 @@ pub struct DotfileCondition {
     pub profile: Vec<String>,
 }
 
+/// An entry in `packages.common`.
+///
+/// Most packages have the same name across every package manager (e.g.
+/// `zsh`), so a plain string is enough. Some packages diverge by ecosystem
+/// (VS Code is `visual-studio-code` on a Homebrew cask but `code` on
+/// apt/dnf/pacman) and need a per-manager name override instead.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum CommonPackage {
+    /// A package name that is identical across every package manager.
+    Simple(String),
+    /// A package whose install name differs per package manager.
+    Aliased(CommonPackageAliases),
+}
+
+/// Per-manager name overrides for a `common` package entry. `default` is
+/// used whenever the manager that actually ran has no override of its own.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct CommonPackageAliases {
+    pub default: String,
+    #[serde(default)]
+    pub homebrew: Option<String>,
+    #[serde(default)]
+    pub homebrew_casks: Option<String>,
+    #[serde(default)]
+    pub apt: Option<String>,
+    #[serde(default)]
+    pub dnf: Option<String>,
+    #[serde(default)]
+    pub pacman: Option<String>,
+    #[serde(default)]
+    pub apk: Option<String>,
+    #[serde(default)]
+    pub mas: Option<String>,
+}
+
+impl CommonPackage {
+    /// Resolve the package name to use for the given manager field name
+    /// (a `PackageManager::field_name()`, e.g. "homebrew", "apt",
+    /// "homebrew_casks"). Falls back to the aliased entry's `default`, or
+    /// returns the plain string unchanged for a `Simple` entry.
+    pub fn resolve(&self, field: &str) -> String {
+        match self {
+            CommonPackage::Simple(name) => name.clone(),
+            CommonPackage::Aliased(aliases) => aliases
+                .for_field(field)
+                .cloned()
+                .unwrap_or_else(|| aliases.default.clone()),
+        }
+    }
+}
+
+impl CommonPackageAliases {
+    fn for_field(&self, field: &str) -> Option<&String> {
+        match field {
+            "homebrew" => self.homebrew.as_ref(),
+            "homebrew_casks" => self.homebrew_casks.as_ref(),
+            "apt" => self.apt.as_ref(),
+            "dnf" => self.dnf.as_ref(),
+            "pacman" => self.pacman.as_ref(),
+            "apk" => self.apk.as_ref(),
+            "mas" => self.mas.as_ref(),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct PackageMap {
     #[serde(default)]
-    pub common: Vec<String>,
+    pub common: Vec<CommonPackage>,
     #[serde(default)]
     pub homebrew: Vec<String>,
     #[serde(default)]
@@ -522,7 +589,7 @@ mod tests {
             "test".to_string(),
             Profile {
                 packages: PackageMap {
-                    common: vec!["profile-pkg".to_string()],
+                    common: vec![CommonPackage::Simple("profile-pkg".to_string())],
                     ..Default::default()
                 },
                 ..Default::default()
@@ -536,7 +603,7 @@ mod tests {
             },
             profiles,
             packages: PackageMap {
-                common: vec!["top-pkg".to_string()],
+                common: vec![CommonPackage::Simple("top-pkg".to_string())],
                 ..Default::default()
             },
             ignore: vec![],
@@ -550,8 +617,14 @@ mod tests {
 
         // Verify: top-level packages prepended to profile packages
         assert_eq!(resolved.packages.common.len(), 2);
-        assert_eq!(resolved.packages.common[0], "top-pkg");
-        assert_eq!(resolved.packages.common[1], "profile-pkg");
+        assert_eq!(
+            resolved.packages.common[0],
+            CommonPackage::Simple("top-pkg".to_string())
+        );
+        assert_eq!(
+            resolved.packages.common[1],
+            CommonPackage::Simple("profile-pkg".to_string())
+        );
     }
 
     #[test]
@@ -659,5 +732,65 @@ profiles:
 "#;
         let config: HeimdalConfig = serde_yaml_ng::from_str(yaml).unwrap();
         assert!(config.defaults.is_none());
+    }
+
+    #[test]
+    fn common_package_plain_string_parses_and_resolves_unchanged() {
+        let yaml = "common:\n  - zsh\n";
+        let pkgs: PackageMap = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(pkgs.common, vec![CommonPackage::Simple("zsh".to_string())]);
+        // A plain-string entry resolves to the same name regardless of
+        // which manager actually ran.
+        assert_eq!(pkgs.common[0].resolve("homebrew"), "zsh");
+        assert_eq!(pkgs.common[0].resolve("apt"), "zsh");
+        assert_eq!(pkgs.common[0].resolve("anything-unknown"), "zsh");
+    }
+
+    #[test]
+    fn common_package_aliased_resolves_per_manager_with_default_fallback() {
+        let yaml = r#"
+common:
+  - default: docker-desktop
+    homebrew_casks: docker-desktop
+    apt: docker-ce
+    dnf: docker-ce
+    pacman: docker
+    apk: docker
+"#;
+        let pkgs: PackageMap = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(pkgs.common.len(), 1);
+        let entry = &pkgs.common[0];
+
+        assert_eq!(entry.resolve("homebrew_casks"), "docker-desktop");
+        assert_eq!(entry.resolve("apt"), "docker-ce");
+        assert_eq!(entry.resolve("dnf"), "docker-ce");
+        assert_eq!(entry.resolve("pacman"), "docker");
+        assert_eq!(entry.resolve("apk"), "docker");
+        // No "mas" override was given, so it falls back to `default`.
+        assert_eq!(entry.resolve("mas"), "docker-desktop");
+        // A manager with no matching field at all also falls back to `default`.
+        assert_eq!(entry.resolve("homebrew"), "docker-desktop");
+    }
+
+    #[test]
+    fn common_package_yaml_round_trip_plain_and_aliased() {
+        let original = vec![
+            CommonPackage::Simple("zsh".to_string()),
+            CommonPackage::Aliased(CommonPackageAliases {
+                default: "docker-desktop".to_string(),
+                homebrew: None,
+                homebrew_casks: Some("docker-desktop".to_string()),
+                apt: Some("docker-ce".to_string()),
+                dnf: Some("docker-ce".to_string()),
+                pacman: Some("docker".to_string()),
+                apk: Some("docker".to_string()),
+                mas: None,
+            }),
+        ];
+
+        let yaml = serde_yaml_ng::to_string(&original).unwrap();
+        let round_tripped: Vec<CommonPackage> = serde_yaml_ng::from_str(&yaml).unwrap();
+
+        assert_eq!(round_tripped, original);
     }
 }
