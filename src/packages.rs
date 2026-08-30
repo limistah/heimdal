@@ -523,6 +523,55 @@ pub fn query_installed() -> HashMap<String, HashSet<String>> {
         .collect()
 }
 
+/// Compute the fully-resolved set of identifiers `pkgs` declares per package
+/// manager, keyed by `PackageManager::field_name()` — the "what should be
+/// installed" counterpart to `query_installed`'s "what actually is".
+///
+/// `pkgs` is expected to already have any top-level shared packages merged
+/// in (see `config::resolve_profile`), so this only needs to expand the
+/// manager-specific fields plus `common`.
+///
+/// `common_manager_field` is the field name of whichever manager `common`
+/// packages would actually install through — the same manager
+/// `install_for_profile` picks (the first available of Homebrew/Apt/Dnf/
+/// Pacman/Apk, mirrored by `detect_manager()`). Pass `None` when no manager
+/// is available on this machine, matching `install_for_profile`'s "skip
+/// common, nothing to resolve against" behavior.
+pub fn declared_identifiers(
+    pkgs: &crate::config::PackageMap,
+    common_manager_field: Option<&str>,
+) -> HashMap<String, HashSet<String>> {
+    const FIELDS: [&str; 7] = [
+        "homebrew",
+        "homebrew_casks",
+        "apt",
+        "dnf",
+        "pacman",
+        "apk",
+        "mas",
+    ];
+
+    let mut declared: HashMap<String, HashSet<String>> = HashMap::new();
+    for field in FIELDS {
+        let ids: HashSet<String> = get_manager_packages(field, pkgs)
+            .into_iter()
+            .map(|(pkg, _display_name)| pkg)
+            .collect();
+        if !ids.is_empty() {
+            declared.insert(field.to_string(), ids);
+        }
+    }
+
+    if let Some(field) = common_manager_field {
+        let entry = declared.entry(field.to_string()).or_default();
+        for pkg in &pkgs.common {
+            entry.insert(pkg.resolve(field));
+        }
+    }
+
+    declared
+}
+
 /// If `pkg` is already installed for `field` (per `installed_sets`) and
 /// `force` isn't set, report it as a skip and return `true` — the caller
 /// must not enqueue a `WorkItem` for it. A skip that heimdal's own
@@ -1116,5 +1165,67 @@ mod tests {
         let output = "409183694 Xcode (15.0)\n\n803453959 Slack (4.36.140)\n";
         let installed = parse_mas_installed(output);
         assert_eq!(installed.len(), 2);
+    }
+
+    // ── declared_identifiers ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_declared_identifiers_expands_manager_specific_fields() {
+        let pkgs = PackageMap {
+            homebrew: vec!["git".to_string(), "curl".to_string()],
+            apt: vec!["vim".to_string()],
+            ..Default::default()
+        };
+        let declared = declared_identifiers(&pkgs, None);
+        assert_eq!(
+            declared.get("homebrew").unwrap(),
+            &HashSet::from(["git".to_string(), "curl".to_string()])
+        );
+        assert_eq!(
+            declared.get("apt").unwrap(),
+            &HashSet::from(["vim".to_string()])
+        );
+        // Managers with nothing declared should not appear at all.
+        assert!(!declared.contains_key("dnf"));
+        assert!(!declared.contains_key("pacman"));
+    }
+
+    #[test]
+    fn test_declared_identifiers_resolves_common_into_given_manager() {
+        let pkgs = PackageMap {
+            common: vec![
+                CommonPackage::Simple("zsh".to_string()),
+                CommonPackage::Aliased(CommonPackageAliases {
+                    default: "docker-desktop".to_string(),
+                    homebrew: None,
+                    homebrew_casks: Some("docker-desktop".to_string()),
+                    apt: Some("docker-ce".to_string()),
+                    dnf: None,
+                    pacman: None,
+                    apk: None,
+                    mas: None,
+                }),
+            ],
+            ..Default::default()
+        };
+
+        let declared = declared_identifiers(&pkgs, Some("apt"));
+        assert_eq!(
+            declared.get("apt").unwrap(),
+            &HashSet::from(["zsh".to_string(), "docker-ce".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_declared_identifiers_skips_common_when_no_manager_available() {
+        let pkgs = PackageMap {
+            common: vec![CommonPackage::Simple("zsh".to_string())],
+            ..Default::default()
+        };
+        let declared = declared_identifiers(&pkgs, None);
+        assert!(
+            declared.is_empty(),
+            "no manager-specific packages and no common_manager_field should yield nothing"
+        );
     }
 }
