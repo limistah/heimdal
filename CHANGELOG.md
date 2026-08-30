@@ -43,6 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   updates this after every successful package install. This is additive and
   backward compatible — state.json files written before this field existed
   still load fine, with an empty inventory.
+- `heimdal status --packages` now reports package drift for the active
+  profile, per package manager: identifiers declared in `heimdal.yaml`
+  (the active profile plus the top-level shared `packages` block) that
+  aren't actually installed (`missing`), and identifiers actually installed
+  that aren't declared anywhere (`untracked`). Queries the same real
+  package-manager state as `heimdal packages list --installed`.
 
 ## [3.2.0] - 2026-08-28
 

@@ -122,8 +122,14 @@ pub struct ApplyArgs {
     pub packages_only: bool,
 }
 
-#[derive(Args)]
-pub struct StatusArgs {}
+#[derive(Args, Default)]
+pub struct StatusArgs {
+    #[arg(
+        long,
+        help = "Also report package drift (declared vs. actually installed) for the active profile"
+    )]
+    pub packages: bool,
+}
 
 #[derive(Args, Default)]
 pub struct SyncArgs {
