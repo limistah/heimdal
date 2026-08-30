@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Reverted the v3.2.0 progress-display corruption fix's coverage: the new
+  "already installed" skip notices added in v3.3.0 (`heimdal apply` package
+  skips, and the `go`-specific skip note in `toolchains:` installs) printed
+  via `StageBar::println` without going through the terminal-width clipping
+  the rest of the progress UI relies on, so a long package name or `go`
+  module import path (e.g. `golang.org/x/tools/cmd/goimports@latest`) could
+  again wrap to a second terminal row and corrupt every redraw after it.
+  `StageBar::println` now clips to the terminal width like `HookViewport`
+  already does, closing this for every current and future caller.
+
 ## [3.3.0] - 2026-08-30
 
 ### Added
