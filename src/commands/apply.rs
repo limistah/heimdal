@@ -14,7 +14,7 @@ use crate::utils::{get_verbosity, home_dir, Verbosity};
 
 pub fn run(args: ApplyArgs) -> Result<()> {
     let _lock = crate::lock::HeimdallLock::acquire()?;
-    let ctx = CommandContext::load()?;
+    let mut ctx = CommandContext::load()?;
 
     // Build progress: 5 stages. Use noop in quiet mode.
     let progress = if get_verbosity() == Verbosity::Quiet {
@@ -55,6 +55,7 @@ pub fn run(args: ApplyArgs) -> Result<()> {
             args.dry_run,
             &stage2,
             ctx.config.parallel_jobs,
+            &mut ctx.state,
         )?;
         if failures.is_empty() {
             stage2.finish_success(t.elapsed());

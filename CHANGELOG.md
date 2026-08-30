@@ -7,77 +7,164 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.1.0] - 2026-05-13
-
 ### Added
 
-- **Lock System for Concurrent Operation Prevention**
-  - Prevents multiple Heimdal instances from interfering with each other
-  - File-based locking with PID tracking for safety
-  - Stale lock detection and automatic cleanup after 300 seconds
-  - Force unlock capability via `heimdal state unlock --force`
-  - Lock status checking via `heimdal state lock info`
-  - Integrated into critical commands: `sync`, `apply`, `commit`, `rollback`
-  - 6 new tests for lock lifecycle and concurrent operations
+- `heimdal packages add`/`remove` now support `--manager mas` for Mac App Store
+  packages. Since `mas` entries in `heimdal.yaml` are `{ id, name }` objects
+  rather than plain strings, `add` requires a new `--id <APP_STORE_ID>` flag
+  when `--manager mas` is used (e.g. `heimdal packages add "Slack" --manager mas
+  --id 803453959`) and errors clearly if `--id` is omitted; `remove` matches an
+  existing `mas` entry by either its name or numeric id.
+- `packages.common` entries can now optionally carry per-package-manager name
+  overrides, for packages whose name diverges by ecosystem (e.g. Docker
+  Desktop is `docker-desktop` on a Homebrew cask but `docker-ce`/`docker` on
+  apt/dnf/pacman/apk):
+  ```yaml
+  common:
+    - zsh                    # plain string still works exactly as before
+    - default: docker-desktop
+      homebrew_casks: docker-desktop
+      apt: docker-ce
+      dnf: docker-ce
+      pacman: docker
+      apk: docker
+  ```
+  Existing plain-string `common` entries continue to parse and behave exactly
+  as before; the resolved name falls back to `default` when the manager that
+  actually runs has no override of its own.
+- Heimdal can now check what's actually installed on the machine, rather than
+  only what's declared in `heimdal.yaml`. `heimdal packages list --installed`
+  (previously a silently-ignored flag) now queries each available package
+  manager for real (`brew list --formula`/`--cask`, `dpkg-query`, `rpm -qa`,
+  `pacman -Qq`, `apk info`, `mas list`) and annotates every declared package
+  as `(installed)` or `(missing)`.
+- `~/.heimdal/state.json` now records a `package_inventory`: per manager, the
+  identifiers heimdal itself has successfully installed and when. `apply`
+  updates this after every successful package install. This is additive and
+  backward compatible — state.json files written before this field existed
+  still load fine, with an empty inventory.
 
-- **Autosync with Native Platform Support**
-  - **macOS**: Native launchd integration with proper daemon management
-    - Creates `~/Library/LaunchAgents/com.heimdal.autosync.plist`
-    - Uses `launchctl bootstrap` for service registration
-    - Status checking via `launchctl print` for accurate state
-    - Proper cleanup on disable with `launchctl bootout`
-  - **Linux**: systemd timer support for modern distributions
-    - Creates `~/.config/systemd/user/heimdal-autosync.{service,timer}`
-    - Uses `systemctl --user` for service management
-    - Timer-based scheduling with configurable intervals
-    - Status checking shows next/last run times
-  - **Fallback**: Cron-based implementation for compatibility
-    - Works on systems without launchd/systemd
-    - Crontab entry management with interval conversion
-    - Legacy support maintained for all platforms
-  - Commands: `enable`, `disable`, `status` work consistently across platforms
-  - 10 new tests covering all three scheduler implementations
+## [3.2.0] - 2026-08-28
 
 ### Changed
 
-- **Consolidated Duplicate Utility Functions**
-  - Unified `ensure_parent_exists()` implementation in `utils.rs`
-  - Removed duplicate implementation from `symlink.rs`
-  - Single source of truth for directory creation logic
-  - Improved maintainability and consistency
-
-- **Removed Dead Code and Stubs**
-  - Removed stub message in `autosync disable` command
-  - Removed redundant cron references from launchd implementation
-  - Cleaned up unused code paths and placeholders
-  - Added `#[allow(dead_code)]` attributes for future-use code
-
-- **Updated Example Files**
-  - Fixed `examples/heimdal-minimal.yaml` to match current schema
-  - Updated `examples/heimdal-full.yaml` with correct structure
-  - Removed deprecated fields from example configurations
-  - Ensured all examples pass validation
+- **`heimdal rollback` now asks for confirmation** before running `git reset --hard`
+  (skip with `-y`/`--force`). **This is a breaking change for non-interactive/scripted
+  use**: without a tty, the confirmation prompt defaults to "no" and the command is a
+  no-op — scripts calling `heimdal rollback` unattended must add `-y`/`--force`.
 
 ### Fixed
 
-- **Clippy Warnings Resolved**
-  - Fixed needless borrow warnings in `symlink.rs`
-  - Added proper allow attributes for intentional dead code
-  - All clippy checks now pass with `-D warnings`
+- Closed a race in the process lock (`heimdal.lock`): two processes could
+  previously both believe they held it under contention.
+- `heimdal history rekey` could permanently lose history data if it failed
+  partway through — all files are now staged and the new key is persisted
+  before anything is committed to disk.
+- `heimdal secret get`/`remove` no longer mask real OS-keychain errors
+  (locked/denied/ambiguous) as a generic "not found" or silent success.
+- Local history files (shell staging log, per-machine encrypted logs) are
+  now created with `0600` permissions instead of the process umask default.
+- `heimdal autosync enable` no longer reports success when the underlying
+  `launchctl load` actually failed; `autosync`'s macOS/Linux home-directory
+  lookups no longer panic if `HOME` is unset.
+- `heimdal wizard` now errors on a non-interactive terminal instead of
+  silently defaulting to "fresh setup".
+- `heimdal import` no longer prints a duplicate message when the output
+  path already exists.
+- **Fixed `heimdal apply` progress display corruption** on real installs:
+  the package-install status line grew unboundedly with every completed
+  package and would overflow the terminal width on any non-trivial package
+  list, corrupting the whole multi-bar redraw. Both the package status line
+  and hook-output lines are now budgeted to the terminal's actual width.
 
-### Technical
+### Security
 
-- **Test Suite**: 173 tests passing (10 new autosync tests, 6 new lock tests)
-- **Build Status**: Compiles successfully with zero warnings in strict mode
-- **Platform Coverage**: Tested on macOS (launchd), Linux (systemd), and fallback (cron)
+- `SECURITY.md`'s vulnerability-reporting contact (previously an
+  unconfigured placeholder) now points to GitHub's private vulnerability
+  reporting.
+- CI's `cargo-audit`/`cargo-deny` checks now fail the build on a real
+  finding instead of silently continuing; two advisories with no available
+  fix (`RUSTSEC-2026-0195`/`-0194` via `defaults-rs`'s exact `plist` pin,
+  `RUSTSEC-2025-0119` unmaintained `number_prefix`) are documented and
+  ignored rather than left unchecked entirely.
+- `release.yml` now runs `cargo test` and `cargo clippy -D warnings` before
+  building/publishing release binaries; the broken, unused weekly
+  `comprehensive-tests.yml` schedule (referencing a deleted test script)
+  is disabled.
+
+## [3.1.0] - 2026-06-18
+
+### Added
+
+- **Yarn-style Progress UI for `heimdal apply`**
+  - Numbered stage bars for all 5 apply stages (pre-hooks, packages, symlinks, templates, post-hooks)
+  - Live symlink counter (`N linked`) updated after each file; Conflict and Backed results printed inline with `!`; Skipped printed inline with `·`
+  - Scrolling 5-line hook log viewport: grows 0→5 bars as hook output arrives, scrolls when full, clears on success, flushes to scrollback on failure
+  - Parallel package install with animated progress bar and per-package status line
+  - `--quiet` flag suppresses all progress output; `--verbose` enables per-file logging
+
+- **Encrypted Shell History Sync**
+  - `heimdal history record` — shell hook capture (zsh/bash/fish)
+  - `heimdal history search` — interactive fuzzy search with Ctrl+R widget
+  - `heimdal history shell-init` — emits shell init code to wire the Ctrl+R widget
+  - `heimdal history sync` — flush local staging buffer to encrypted repo file
+  - XChaCha20-Poly1305 encryption with BLAKE3 key derivation per machine
+  - `heimdal key` subcommands: `gen`, `set`, `show`, `export`, `import`
+  - Secret variables in templates resolved from OS keychain at apply time via `{{ secret:name }}`
+
+- **macOS Defaults Sync**
+  - `heimdal defaults export` — snapshot current `defaults` preferences into dotfiles
+  - `heimdal defaults import` — apply stored preferences back to the system
+  - `heimdal defaults diff` — compare live system preferences against dotfiles snapshot
+  - `heimdal defaults sync` — export and commit in one step
+  - Integrated automatically into `heimdal apply`
+  - Interactive conflict resolution when preferences diverge
+
+- **Lock System for Concurrent Operation Prevention**
+  - File-based locking with PID tracking prevents multiple Heimdal instances from interfering
+  - Stale lock detection and automatic cleanup after 300 seconds
+  - `heimdal state unlock --force` for manual recovery
+  - `heimdal state lock info` to inspect current lock state
+  - Integrated into `sync`, `apply`, `commit`, `rollback`
+
+- **Autosync with Native Platform Support**
+  - **macOS**: Native launchd — creates `~/Library/LaunchAgents/com.heimdal.autosync.plist`
+  - **Linux**: systemd timer — creates `~/.config/systemd/user/heimdal-autosync.{service,timer}`
+  - **Fallback**: Cron-based scheduling for systems without launchd/systemd
+  - `enable`, `disable`, `status` commands work consistently across all platforms
+
+- **GNU Stow Tree-folding and Mac App Store Support**
+  - Proper tree-folding behaviour matching GNU Stow semantics
+  - `mas` (Mac App Store) package manager support added
+
+- **Git Submodule Handling**
+  - Dotfile repositories with git submodules are automatically cloned and pulled
+
+- **Global Hooks**
+  - Hooks defined at the global config level apply across all profiles
+
+- **Static Code Analysis Workflow**
+  - `.github/workflows/static-analysis.yml` with clippy (`-D warnings`), cargo deny, and codecov
+
+### Fixed
+
+- All clippy warnings resolved under `-D warnings` (needless borrows, drop-non-drop, manual-flatten, lines-filter-map-ok, dead-code)
+- Hook skip message now includes current OS name; `sh -c` command quoted correctly
+- `DefaultsConfig::default()` aligned with serde defaults
+
+### Changed
+
+- Hook runner switched from inherited stdio to piped stdout+stderr streamed to viewport via two reader threads and an mpsc channel; `progress.suspend()` removed from apply
+- `apply_stow_walk`, `stow_walk_dir`, and `apply_mappings` accept an `on_result: &mut dyn FnMut(&LinkResult)` callback for live progress updates
+- `print_results` batch dump removed; all symlink result output now happens inline during the walk
+- Consolidated `ensure_parent_exists()` to a single implementation in `utils.rs`
+- Example YAML files updated to match current schema
 
 ### Migration Notes
 
-- Existing cron-based autosync configurations will continue to work
-- To migrate to native platform support:
-  - macOS: `heimdal autosync disable` then `heimdal autosync enable`
-  - Linux: `heimdal autosync disable` then `heimdal autosync enable`
-  - System will automatically detect and use the best scheduler available
+- Existing cron-based autosync configurations continue to work unchanged
+- To migrate to native platform scheduling: `heimdal autosync disable && heimdal autosync enable`
+- Shell history Ctrl+R widget requires adding `eval "$(heimdal history shell-init)"` to your shell rc file
 
 ## [2.0.0] - 2026-02-08
 
@@ -1053,5 +1140,12 @@ If upgrading from v1.1.2 or earlier:
 - Installation script
 - MIT License
 
-[Unreleased]: https://github.com/limistah/heimdal/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/limistah/heimdal/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/limistah/heimdal/compare/v3.0.2...v3.1.0
+[2.0.0]: https://github.com/limistah/heimdal/compare/v1.2.2...v2.0.0
+[1.2.2]: https://github.com/limistah/heimdal/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/limistah/heimdal/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/limistah/heimdal/compare/v1.1.1...v1.2.0
+[1.1.1]: https://github.com/limistah/heimdal/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/limistah/heimdal/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/limistah/heimdal/releases/tag/v1.0.0
