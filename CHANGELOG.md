@@ -44,6 +44,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   backward compatible — state.json files written before this field existed
   still load fine, with an empty inventory.
 
+### Fixed
+
+- `heimdal apply` no longer re-runs the install command for a package that is
+  already installed, checking each declared package against what the real
+  package manager reports as installed before deciding to install it. This
+  cuts out wasted work and noisy per-package output on every apply once a
+  machine is fully provisioned. `apply --force` still force-reinstalls every
+  declared package regardless, and `--dry-run` reports an already-installed
+  package as a clean skip rather than "would install". A package found
+  already installed but not yet in heimdal's own `package_inventory` (e.g.
+  installed outside heimdal) is still recorded there, without running the
+  install command.
+
 ## [3.2.0] - 2026-08-28
 
 ### Changed

@@ -112,7 +112,11 @@ pub struct InitArgs {
 pub struct ApplyArgs {
     #[arg(short = 'n', long, help = "Preview without making changes")]
     pub dry_run: bool,
-    #[arg(short, long, help = "Overwrite existing files")]
+    #[arg(
+        short,
+        long,
+        help = "Overwrite existing files and force-reinstall packages"
+    )]
     pub force: bool,
     #[arg(long, help = "Backup existing files instead of failing")]
     pub backup: bool,
