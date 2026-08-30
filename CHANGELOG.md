@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `heimdal packages add`/`remove` now support `--manager mas` for Mac App Store
+  packages. Since `mas` entries in `heimdal.yaml` are `{ id, name }` objects
+  rather than plain strings, `add` requires a new `--id <APP_STORE_ID>` flag
+  when `--manager mas` is used (e.g. `heimdal packages add "Slack" --manager mas
+  --id 803453959`) and errors clearly if `--id` is omitted; `remove` matches an
+  existing `mas` entry by either its name or numeric id.
+
 ## [3.2.0] - 2026-08-28
 
 ### Changed

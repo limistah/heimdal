@@ -229,6 +229,9 @@ pub enum PackagesCmd {
         manager: Option<String>,
         #[arg(long)]
         no_install: bool,
+        /// App Store numeric ID (required when --manager mas)
+        #[arg(long)]
+        id: Option<u64>,
     },
     /// Remove a package
     Remove {

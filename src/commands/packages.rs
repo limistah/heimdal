@@ -11,7 +11,8 @@ pub fn run(action: PackagesCmd) -> Result<()> {
             name,
             manager,
             no_install,
-        } => add(&name, manager.as_deref(), no_install),
+            id,
+        } => add(&name, manager.as_deref(), no_install, id),
         PackagesCmd::Remove { name, no_uninstall } => remove(&name, no_uninstall),
         PackagesCmd::Search { query } => search(&query),
         PackagesCmd::Info { name } => pkg_info(&name),
@@ -56,7 +57,7 @@ fn list() -> Result<()> {
     Ok(())
 }
 
-fn add(pkg: &str, manager: Option<&str>, no_install: bool) -> Result<()> {
+fn add(pkg: &str, manager: Option<&str>, no_install: bool, id: Option<u64>) -> Result<()> {
     let state = State::load()?;
     let config_path = state.dotfiles_path.join("heimdal.yaml");
     let mut config = load_config(&config_path)?;
@@ -82,6 +83,42 @@ fn add(pkg: &str, manager: Option<&str>, no_install: bool) -> Result<()> {
             name: state.active_profile.clone(),
         })?;
 
+    if mgr == "mas" {
+        // mas entries are objects ({ id, name }), not plain strings, so they
+        // need their own add path with a required App Store ID.
+        let app_id = id.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Missing required '--id <APP_STORE_ID>' for package manager 'mas'. \
+                Example: heimdal packages add \"Slack\" --manager mas --id 803453959"
+            )
+        })?;
+
+        let already = profile
+            .packages
+            .mas
+            .iter()
+            .any(|v| v.get("id").and_then(|i| i.as_u64()) == Some(app_id));
+        if already {
+            info(&format!(
+                "App Store id '{}' is already in the mas package list.",
+                app_id
+            ));
+            return Ok(());
+        }
+
+        profile
+            .packages
+            .mas
+            .push(serde_json::json!({ "id": app_id, "name": pkg }));
+        write_config(&config_path, &config)?;
+        success(&format!("Added '{}' (id {}) to mas packages", pkg, app_id));
+
+        if !no_install {
+            info(&format!("Run 'heimdal apply' to install '{}'.", pkg));
+        }
+        return Ok(());
+    }
+
     let list = match mgr.as_str() {
         "homebrew" => &mut profile.packages.homebrew,
         "homebrew_casks" | "homebrew-cask" => &mut profile.packages.homebrew_casks,
@@ -90,7 +127,7 @@ fn add(pkg: &str, manager: Option<&str>, no_install: bool) -> Result<()> {
         "pacman" => &mut profile.packages.pacman,
         "apk" => &mut profile.packages.apk,
         other => anyhow::bail!(
-            "Unknown package manager '{}'. Valid: homebrew, apt, dnf, pacman, apk",
+            "Unknown package manager '{}'. Valid: homebrew, apt, dnf, pacman, apk, mas",
             other
         ),
     };
@@ -142,6 +179,22 @@ fn remove(pkg: &str, no_uninstall: bool) -> Result<()> {
     remove_from!(profile.packages.dnf);
     remove_from!(profile.packages.pacman);
     remove_from!(profile.packages.apk);
+
+    // mas entries are objects ({ id, name }) rather than plain strings, so
+    // match against either the app name or the numeric App Store id.
+    let mas_before = profile.packages.mas.len();
+    profile.packages.mas.retain(|v| {
+        let name_matches = v.get("name").and_then(|n| n.as_str()) == Some(pkg);
+        let id_matches = v
+            .get("id")
+            .and_then(|i| i.as_u64())
+            .map(|i| i.to_string() == pkg)
+            .unwrap_or(false);
+        !(name_matches || id_matches)
+    });
+    if profile.packages.mas.len() < mas_before {
+        removed = true;
+    }
 
     if removed {
         write_config(&config_path, &config)?;
