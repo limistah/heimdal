@@ -112,7 +112,11 @@ pub struct InitArgs {
 pub struct ApplyArgs {
     #[arg(short = 'n', long, help = "Preview without making changes")]
     pub dry_run: bool,
-    #[arg(short, long, help = "Overwrite existing files")]
+    #[arg(
+        short,
+        long,
+        help = "Overwrite existing files and force-reinstall packages"
+    )]
     pub force: bool,
     #[arg(long, help = "Backup existing files instead of failing")]
     pub backup: bool,
@@ -122,8 +126,14 @@ pub struct ApplyArgs {
     pub packages_only: bool,
 }
 
-#[derive(Args)]
-pub struct StatusArgs {}
+#[derive(Args, Default)]
+pub struct StatusArgs {
+    #[arg(
+        long,
+        help = "Also report package drift (declared vs. actually installed) for the active profile"
+    )]
+    pub packages: bool,
+}
 
 #[derive(Args, Default)]
 pub struct SyncArgs {

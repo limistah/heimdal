@@ -271,6 +271,7 @@ pub fn generate_heimdal_yaml(result: &ImportResult, profile_name: &str) -> Resul
         },
         profiles,
         packages: crate::config::PackageMap::default(),
+        toolchains: crate::config::ToolchainMap::default(),
         ignore: vec![],
         history: None,
         hooks: crate::config::ProfileHooks::default(),

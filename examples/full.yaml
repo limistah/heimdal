@@ -72,6 +72,34 @@ packages:
     - build-base
     - python3
 
+# Language-toolchain global installs (available to all profiles).
+#
+# Unlike `packages` above, this is not "pick whichever OS manager is
+# available" — npm/cargo/go/gem/pip are not mutually exclusive, so every one
+# of them present on the machine installs its own list.
+toolchains:
+  npm:
+    - typescript
+    - eslint
+
+  cargo:
+    - cargo-audit
+
+  # go install requires an explicit @version — a bare import path is rejected
+  # with a clear error rather than silently mis-invoking `go install`.
+  go:
+    - golang.org/x/tools/cmd/goimports@latest
+    - github.com/bufbuild/buf/cmd/buf@v1.32.0
+
+  gem:
+    - bundler
+
+  # Installed via `pipx install`, not raw `pip install --user` — pipx
+  # isolates each CLI tool in its own venv.
+  pip:
+    - black
+    - httpie
+
 # History tracking configuration (optional)
 history:
   enabled: true
@@ -144,7 +172,13 @@ profiles:
       homebrew_casks:
         - postman
         - zoom
-    
+
+    # Profile-specific toolchain installs (merged with global, same pattern
+    # as `packages` above)
+    toolchains:
+      cargo:
+        - kubectl-view-allocations
+
     # Profile-specific ignore patterns (in addition to global)
     ignore:
       - "*.swp"

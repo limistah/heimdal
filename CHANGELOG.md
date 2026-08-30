@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-08-30
+
 ### Added
 
 - `heimdal packages add`/`remove` now support `--manager mas` for Mac App Store
@@ -15,6 +17,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when `--manager mas` is used (e.g. `heimdal packages add "Slack" --manager mas
   --id 803453959`) and errors clearly if `--id` is omitted; `remove` matches an
   existing `mas` entry by either its name or numeric id.
+- `packages.common` entries can now optionally carry per-package-manager name
+  overrides, for packages whose name diverges by ecosystem (e.g. Docker
+  Desktop is `docker-desktop` on a Homebrew cask but `docker-ce`/`docker` on
+  apt/dnf/pacman/apk):
+  ```yaml
+  common:
+    - zsh                    # plain string still works exactly as before
+    - default: docker-desktop
+      homebrew_casks: docker-desktop
+      apt: docker-ce
+      dnf: docker-ce
+      pacman: docker
+      apk: docker
+  ```
+  Existing plain-string `common` entries continue to parse and behave exactly
+  as before; the resolved name falls back to `default` when the manager that
+  actually runs has no override of its own.
+- Heimdal can now check what's actually installed on the machine, rather than
+  only what's declared in `heimdal.yaml`. `heimdal packages list --installed`
+  (previously a silently-ignored flag) now queries each available package
+  manager for real (`brew list --formula`/`--cask`, `dpkg-query`, `rpm -qa`,
+  `pacman -Qq`, `apk info`, `mas list`) and annotates every declared package
+  as `(installed)` or `(missing)`.
+- `~/.heimdal/state.json` now records a `package_inventory`: per manager, the
+  identifiers heimdal itself has successfully installed and when. `apply`
+  updates this after every successful package install. This is additive and
+  backward compatible — state.json files written before this field existed
+  still load fine, with an empty inventory.
+- `heimdal status --packages` now reports package drift for the active
+  profile, per package manager: identifiers declared in `heimdal.yaml`
+  (the active profile plus the top-level shared `packages` block) that
+  aren't actually installed (`missing`), and identifiers actually installed
+  that aren't declared anywhere (`untracked`). Queries the same real
+  package-manager state as `heimdal packages list --installed`.
+- New `toolchains:` section in `heimdal.yaml` for language-toolchain global
+  installs — npm, cargo, `go install`, gem, and pip — as a separate axis from
+  `packages:`. Unlike homebrew/apt/dnf/pacman/apk/mas (only one of which ever
+  applies on a given OS), toolchain managers are not mutually exclusive: a
+  single machine can have npm *and* cargo *and* go tools installed at once,
+  so every manager present on the machine installs its own declared list. A
+  top-level `toolchains:` section applies to all profiles and merges with
+  each profile's own `toolchains:`, exactly like `packages:` does; every key
+  defaults to an empty list, so a `heimdal.yaml` with no `toolchains:`
+  section at all still parses unchanged. `npm`/`cargo`/`gem`/`pip` entries
+  are plain package names installed at latest, matching the existing
+  flat-list convention; `pip` installs go through `pipx` rather than raw
+  `pip install --user`, isolating each tool in its own venv. `go` entries
+  must be a full module import path with an explicit `@version` suffix (e.g.
+  `golang.org/x/tools/cmd/goimports@latest`), since `go install` requires
+  one — a bare import path is rejected with a clear error, both by `heimdal
+  validate` and before `apply` installs anything. Idempotency is checked per
+  manager (`npm ls -g --depth=0 --json`, `cargo install --list`, `gem list
+  --local`, `pipx list --json`), except for `go`, which has no live
+  "what's installed" query — `go install` keeps no system-level record of
+  what it has installed — so heimdal's own `package_inventory` (see above) is
+  the sole source of truth for whether a go-installed module is already
+  present.
+
+### Fixed
+
+- `heimdal apply` no longer re-runs the install command for a package that is
+  already installed, checking each declared package against what the real
+  package manager reports as installed before deciding to install it. This
+  cuts out wasted work and noisy per-package output on every apply once a
+  machine is fully provisioned. `apply --force` still force-reinstalls every
+  declared package regardless, and `--dry-run` reports an already-installed
+  package as a clean skip rather than "would install". A package found
+  already installed but not yet in heimdal's own `package_inventory` (e.g.
+  installed outside heimdal) is still recorded there, without running the
+  install command.
 
 ## [3.2.0] - 2026-08-28
 

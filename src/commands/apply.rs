@@ -10,11 +10,12 @@ use crate::progress::ApplyProgress;
 use crate::symlink::{
     apply_mappings, apply_stow_walk, compile_ignore_patterns, ApplyContext, LinkResult,
 };
+use crate::toolchains::install_toolchains_for_profile;
 use crate::utils::{get_verbosity, home_dir, Verbosity};
 
 pub fn run(args: ApplyArgs) -> Result<()> {
     let _lock = crate::lock::HeimdallLock::acquire()?;
-    let ctx = CommandContext::load()?;
+    let mut ctx = CommandContext::load()?;
 
     // Build progress: 5 stages. Use noop in quiet mode.
     let progress = if get_verbosity() == Verbosity::Quiet {
@@ -50,12 +51,25 @@ pub fn run(args: ApplyArgs) -> Result<()> {
     let t = Instant::now();
     let stage2 = progress.stage(2, "Installing packages");
     if !args.dotfiles_only {
-        let failures = install_for_profile(
+        let mut failures = install_for_profile(
             &ctx.profile,
             args.dry_run,
             &stage2,
             ctx.config.parallel_jobs,
+            args.force,
+            &mut ctx.state,
         )?;
+        // Language-toolchain installs (npm/cargo/go/gem/pip) are a separate
+        // axis from OS-level packages — see `crate::toolchains` — but share
+        // this same stage and its failure reporting.
+        failures.extend(install_toolchains_for_profile(
+            &ctx.profile,
+            args.dry_run,
+            &stage2,
+            ctx.config.parallel_jobs,
+            args.force,
+            &mut ctx.state,
+        )?);
         if failures.is_empty() {
             stage2.finish_success(t.elapsed());
         } else {

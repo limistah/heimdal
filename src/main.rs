@@ -18,6 +18,7 @@ mod secrets;
 mod state;
 mod symlink;
 mod templates;
+mod toolchains;
 mod utils;
 
 use anyhow::Result;
