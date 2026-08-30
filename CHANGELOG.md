@@ -32,6 +32,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Existing plain-string `common` entries continue to parse and behave exactly
   as before; the resolved name falls back to `default` when the manager that
   actually runs has no override of its own.
+- Heimdal can now check what's actually installed on the machine, rather than
+  only what's declared in `heimdal.yaml`. `heimdal packages list --installed`
+  (previously a silently-ignored flag) now queries each available package
+  manager for real (`brew list --formula`/`--cask`, `dpkg-query`, `rpm -qa`,
+  `pacman -Qq`, `apk info`, `mas list`) and annotates every declared package
+  as `(installed)` or `(missing)`.
+- `~/.heimdal/state.json` now records a `package_inventory`: per manager, the
+  identifiers heimdal itself has successfully installed and when. `apply`
+  updates this after every successful package install. This is additive and
+  backward compatible — state.json files written before this field existed
+  still load fine, with an empty inventory.
 
 ## [3.2.0] - 2026-08-28
 

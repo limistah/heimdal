@@ -1,12 +1,13 @@
 use crate::cli::PackagesCmd;
-use crate::config::{load_config, write_config};
+use crate::config::{load_config, write_config, PackageMap};
 use crate::state::State;
 use crate::utils::{info, success, warning};
 use anyhow::Result;
+use std::collections::{HashMap, HashSet};
 
 pub fn run(action: PackagesCmd) -> Result<()> {
     match action {
-        PackagesCmd::List { installed: _ } => list(),
+        PackagesCmd::List { installed } => list(installed),
         PackagesCmd::Add {
             name,
             manager,
@@ -19,7 +20,7 @@ pub fn run(action: PackagesCmd) -> Result<()> {
     }
 }
 
-fn list() -> Result<()> {
+fn list(installed: bool) -> Result<()> {
     let state = State::load()?;
     let config_path = state.dotfiles_path.join("heimdal.yaml");
     let config = load_config(&config_path)?;
@@ -29,32 +30,83 @@ fn list() -> Result<()> {
         }
     })?;
 
-    let pkgs = &profile.packages;
-    let mut any = false;
+    // `--installed` cross-references declared packages against a real query
+    // of the system (see `packages::query_installed`); without it, packages
+    // are listed exactly as declared, matching prior behavior.
+    let installed_sets = if installed {
+        Some(crate::packages::query_installed())
+    } else {
+        None
+    };
 
-    macro_rules! list_pm {
-        ($field:expr, $label:expr) => {
-            if !$field.is_empty() {
-                println!("{}:", $label);
-                for p in &$field {
-                    println!("  - {}", p);
-                }
-                any = true;
-            }
-        };
-    }
-
-    list_pm!(pkgs.homebrew, "homebrew");
-    list_pm!(pkgs.homebrew_casks, "homebrew-cask");
-    list_pm!(pkgs.apt, "apt");
-    list_pm!(pkgs.dnf, "dnf");
-    list_pm!(pkgs.pacman, "pacman");
-    list_pm!(pkgs.apk, "apk");
-
-    if !any {
+    let sections = build_package_sections(&profile.packages, installed_sets.as_ref());
+    if sections.is_empty() {
         info("No packages configured for this profile.");
+        return Ok(());
+    }
+    for (label, lines) in sections {
+        println!("{}:", label);
+        for line in lines {
+            println!("{}", line);
+        }
     }
     Ok(())
+}
+
+/// Build the `label -> display lines` sections for `packages list`.
+///
+/// When `installed_sets` is `Some` (i.e. `--installed` was passed), each
+/// declared package is annotated `(installed)` / `(missing)` by
+/// cross-referencing it against that manager's real installed-identifier
+/// set. When `None`, packages are listed as declared with no annotation,
+/// matching the format `packages list` has always used.
+pub fn build_package_sections(
+    pkgs: &PackageMap,
+    installed_sets: Option<&HashMap<String, HashSet<String>>>,
+) -> Vec<(&'static str, Vec<String>)> {
+    let manager_sections: [(&'static str, &Vec<String>, &str); 6] = [
+        ("homebrew", &pkgs.homebrew, "homebrew"),
+        ("homebrew-cask", &pkgs.homebrew_casks, "homebrew_casks"),
+        ("apt", &pkgs.apt, "apt"),
+        ("dnf", &pkgs.dnf, "dnf"),
+        ("pacman", &pkgs.pacman, "pacman"),
+        ("apk", &pkgs.apk, "apk"),
+    ];
+
+    manager_sections
+        .into_iter()
+        .filter(|(_, list, _)| !list.is_empty())
+        .map(|(label, list, field)| {
+            let lines = list
+                .iter()
+                .map(|p| format_package_line(p, field, installed_sets))
+                .collect();
+            (label, lines)
+        })
+        .collect()
+}
+
+/// Format one `packages list` line for `pkg`, declared under the manager
+/// identified by `manager_field` (a `PackageManager::field_name()`).
+fn format_package_line(
+    pkg: &str,
+    manager_field: &str,
+    installed_sets: Option<&HashMap<String, HashSet<String>>>,
+) -> String {
+    match installed_sets {
+        None => format!("  - {}", pkg),
+        Some(sets) => {
+            let is_installed = sets
+                .get(manager_field)
+                .map(|ids| ids.contains(pkg))
+                .unwrap_or(false);
+            format!(
+                "  - {} ({})",
+                pkg,
+                if is_installed { "installed" } else { "missing" }
+            )
+        }
+    }
 }
 
 fn add(pkg: &str, manager: Option<&str>, no_install: bool, id: Option<u64>) -> Result<()> {
@@ -291,4 +343,74 @@ fn pkg_info(name: &str) -> Result<()> {
     info(&format!("  apt-cache show {}", name));
     info(&format!("  dnf info {}", name));
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_pkgs() -> PackageMap {
+        PackageMap {
+            homebrew: vec!["git".to_string(), "curl".to_string()],
+            apt: vec!["vim".to_string()],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_build_package_sections_without_installed_flag_lists_plain() {
+        let pkgs = sample_pkgs();
+        let sections = build_package_sections(&pkgs, None);
+
+        let homebrew = sections
+            .iter()
+            .find(|(label, _)| *label == "homebrew")
+            .unwrap();
+        assert_eq!(
+            homebrew.1,
+            vec!["  - git".to_string(), "  - curl".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_build_package_sections_skips_empty_managers() {
+        let pkgs = sample_pkgs();
+        let sections = build_package_sections(&pkgs, None);
+        // pacman/apk/dnf/homebrew_casks were never declared, so they must
+        // not appear at all — matching the pre-existing list() behavior.
+        assert!(!sections.iter().any(|(label, _)| *label == "pacman"));
+        assert!(!sections.iter().any(|(label, _)| *label == "apk"));
+        assert!(!sections.iter().any(|(label, _)| *label == "dnf"));
+    }
+
+    // Covers "packages list --installed" against a mocked/injected installed
+    // set, so this test never has to shell out to a real brew/apt/etc.
+    #[test]
+    fn test_build_package_sections_with_installed_flag_marks_installed_and_missing() {
+        let pkgs = sample_pkgs();
+
+        let mut installed_sets: HashMap<String, HashSet<String>> = HashMap::new();
+        // Pretend the system genuinely has `git` (via homebrew) but not
+        // `curl`, and doesn't have apt available at all.
+        installed_sets.insert("homebrew".to_string(), HashSet::from(["git".to_string()]));
+
+        let sections = build_package_sections(&pkgs, Some(&installed_sets));
+
+        let homebrew = sections
+            .iter()
+            .find(|(label, _)| *label == "homebrew")
+            .unwrap();
+        assert_eq!(
+            homebrew.1,
+            vec![
+                "  - git (installed)".to_string(),
+                "  - curl (missing)".to_string(),
+            ]
+        );
+
+        // apt wasn't in `installed_sets` at all (manager unavailable) — its
+        // declared package must still show up, just as missing.
+        let apt = sections.iter().find(|(label, _)| *label == "apt").unwrap();
+        assert_eq!(apt.1, vec!["  - vim (missing)".to_string()]);
+    }
 }
