@@ -490,10 +490,14 @@ impl StageBar {
         }
     }
 
-    /// Print a line above all progress bars (e.g. inline symlink errors).
+    /// Print a line above all progress bars (e.g. inline symlink errors,
+    /// package-skip notices). Clipped to the terminal width for the same
+    /// reason as `HookViewport`: a line indicatif thinks is one row but the
+    /// terminal wraps to two-plus corrupts every redraw after it.
     pub fn println(&self, msg: impl AsRef<str>) {
         if self.enabled {
-            let _ = self.mp.println(msg.as_ref());
+            let clipped = HookViewport::clip_to(msg.as_ref(), terminal_width());
+            let _ = self.mp.println(clipped);
         }
     }
 
@@ -623,6 +627,29 @@ mod tests {
     #[test]
     fn test_hook_viewport_clip_passes_short_lines_through() {
         assert_eq!(HookViewport::clip_to("hello", 80), "hello");
+    }
+
+    /// Regression test: `StageBar::println` (used by the package-skip and
+    /// toolchain-skip "already installed" notices) must clip like
+    /// `HookViewport` does, or a long package name / `go` module import
+    /// path (these can easily exceed 80 columns, e.g.
+    /// `golang.org/x/tools/cmd/goimports@latest`) reintroduces the exact
+    /// multi-row redraw corruption the v3.2.0 fix closed.
+    #[test]
+    fn test_stagebar_println_line_stays_within_terminal_width() {
+        let long_skip_line = format!(
+            "         · skip       {} — already installed",
+            "golang.org/x/some/very/long/module/import/path/cmd/tool-name@v1.2.3"
+        );
+        let budget = 80;
+        let clipped = HookViewport::clip_to(&long_skip_line, budget);
+
+        assert!(
+            clipped.chars().count() <= budget,
+            "clipped skip line ({} cols) exceeds budget ({budget} cols): {clipped:?}",
+            clipped.chars().count()
+        );
+        assert!(clipped.ends_with('…'));
     }
 
     #[test]
