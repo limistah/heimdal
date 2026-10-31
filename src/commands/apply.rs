@@ -106,14 +106,15 @@ pub fn run(args: ApplyArgs) -> Result<()> {
                 Ok(path) => report.log_path = Some(path),
                 Err(e) => crate::utils::warning(&format!("Could not write install log: {}", e)),
             }
-            let mut line = format!("      {}", report.summary());
-            if let Some(ref p) = report.log_path {
-                if !outcome.failed.is_empty() {
-                    line.push_str(&format!(" — full errors: {}", p.display()));
+            // Separate short lines: StageBar::println clips to the terminal
+            // width, so one long line would cut off the log path.
+            stage2.println(format!("      {}", report.summary()));
+            if !outcome.failed.is_empty() {
+                stage2.println("      Details: heimdal packages report --failed");
+                if let Some(ref p) = report.log_path {
+                    stage2.println(format!("      Full log: {}", p.display()));
                 }
             }
-            line.push_str(" (see `heimdal packages report`)");
-            stage2.println(line);
             ctx.state.last_install_report = Some(report);
             // Save now so the report (and inventory) survive a later stage
             // bailing out, e.g. on a symlink conflict.

@@ -73,27 +73,69 @@ pub(crate) fn group_failures(failures: &[FailedPackage]) -> Vec<(String, Vec<Str
 /// Terminal lines for a failure list. A message shared by several packages
 /// is printed once, followed by the packages it applies to — so one root
 /// cause (e.g. "Homebrew can't run as root") doesn't repeat 70 times.
-pub(crate) fn failure_lines(failures: &[FailedPackage]) -> Vec<String> {
+///
+/// Every returned line fits in `width` columns: error text is clipped and
+/// the package list is wrapped, because a line the terminal soft-wraps
+/// corrupts indicatif's redraw (see `StageBar::println`). The full text is
+/// always in the install log / `heimdal packages report`.
+pub(crate) fn failure_lines(failures: &[FailedPackage], width: usize) -> Vec<String> {
+    const INDENT: &str = "        ";
     let mut lines = Vec::new();
     for (reason, labels) in group_failures(failures) {
-        if labels.len() == 1 {
-            lines.push(format!(
-                "      {} {}: {}",
-                "✗".red(),
-                labels[0].red(),
-                summarize_reason(&reason)
-            ));
+        let head = if labels.len() == 1 {
+            format!("{}: ", labels[0])
         } else {
-            lines.push(format!(
-                "      {} {} packages failed: {}",
-                "✗".red(),
-                labels.len(),
-                summarize_reason(&reason)
-            ));
-            lines.push(format!("        {}", labels.join(", ").red()));
+            format!("{} packages failed: ", labels.len())
+        };
+        // summarize_reason joins continuation lines with "\n" + INDENT.
+        let summary = summarize_reason(&reason);
+        let mut reason_lines = summary.lines();
+        let first = format!("{head}{}", reason_lines.next().unwrap_or(""));
+        // "      ✗ " is 8 columns; clip the rest, then add the colored mark.
+        lines.push(format!(
+            "      {} {}",
+            "✗".red(),
+            HookViewport::clip_to(&first, width.saturating_sub(8))
+        ));
+        for l in reason_lines {
+            lines.push(HookViewport::clip_to(l, width));
+        }
+        if labels.len() > 1 {
+            lines.extend(wrap_list(&labels, INDENT, width));
         }
     }
     lines
+}
+
+/// Wrap `items` as a comma-separated list into lines of at most `width`
+/// columns, each starting with `indent`. An item longer than a whole line
+/// gets a line of its own, clipped.
+fn wrap_list(items: &[String], indent: &str, width: usize) -> Vec<String> {
+    let budget = width.saturating_sub(indent.len()).max(1);
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    for (i, item) in items.iter().enumerate() {
+        let piece = if i + 1 < items.len() {
+            format!("{item},")
+        } else {
+            item.clone()
+        };
+        let needed = if cur.is_empty() { 0 } else { 1 } + piece.chars().count();
+        if !cur.is_empty() && cur.chars().count() + needed > budget {
+            out.push(format!("{indent}{cur}"));
+            cur.clear();
+        }
+        if !cur.is_empty() {
+            cur.push(' ');
+        }
+        cur.push_str(&piece);
+    }
+    if !cur.is_empty() {
+        out.push(format!("{indent}{cur}"));
+    }
+    out.into_iter()
+        .map(|l| HookViewport::clip_to(&l, width))
+        .collect()
 }
 
 /// Current terminal column count, falling back to a conservative default
@@ -531,7 +573,7 @@ impl StageBar {
             elapsed.as_secs_f64(),
             failures.len()
         ));
-        for line in failure_lines(failures) {
+        for line in failure_lines(failures, terminal_width()) {
             let _ = self.mp.println(line);
         }
     }
@@ -956,10 +998,38 @@ mod tests {
             mk("curl", "network down"),
             mk("fd", "root error"),
         ];
-        let lines = failure_lines(&failures);
+        let lines = failure_lines(&failures, 120);
         assert_eq!(lines.len(), 3, "{lines:?}");
         assert!(lines[0].contains("3 packages failed: root error"));
         assert!(lines[1].contains("zsh (homebrew), tmux (homebrew), fd (homebrew)"));
         assert!(lines[2].contains("curl (homebrew): network down"));
+    }
+
+    /// Same invariant as the StageBar::println regression test: no failure
+    /// line may exceed the terminal width, however long the error or the
+    /// list of affected packages.
+    #[test]
+    fn test_failure_lines_stay_within_terminal_width() {
+        colored::control::set_override(false);
+        let reason = "Error: Running Homebrew as root is extremely dangerous and no longer supported.\nAs Homebrew does not drop privileges on installation you would be giving all\nbuild scripts full access to your system.";
+        let failures: Vec<FailedPackage> = (0..40)
+            .map(|i| FailedPackage {
+                name: format!("package-with-a-longish-name-{i}"),
+                reason: reason.into(),
+                manager: "homebrew".into(),
+                output: String::new(),
+            })
+            .collect();
+        let width = 60;
+        let lines = failure_lines(&failures, width);
+        assert!(lines.len() > 4, "list should wrap onto several lines");
+        for l in &lines {
+            let cols = console::measure_text_width(l);
+            assert!(cols <= width, "{cols} cols > {width}: {l:?}");
+        }
+        // Every package is still listed somewhere (wrapped, not clipped away).
+        let all = lines.join(" ");
+        assert!(all.contains("package-with-a-longish-name-0 (homebrew)"));
+        assert!(all.contains("package-with-a-longish-name-39 (homebrew)"));
     }
 }
