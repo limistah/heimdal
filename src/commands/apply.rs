@@ -28,6 +28,19 @@ pub fn run(args: ApplyArgs) -> Result<()> {
         crate::utils::info("Dry-run mode — no changes will be made");
     }
 
+    // Dotfiles kept in git submodules (e.g. oh-my-zsh) must be checked out
+    // before anything links or sources them. `heimdal sync` runs apply after
+    // pulling, so this also picks up submodules added upstream.
+    match crate::git::GitRepo::open(&ctx.state.dotfiles_path).ensure_submodules(args.dry_run) {
+        Ok(done) if !done.is_empty() && !args.dry_run => crate::utils::info(&format!(
+            "Initialized {} git submodule(s): {}",
+            done.len(),
+            done.join(", ")
+        )),
+        Ok(_) => {}
+        Err(e) => crate::utils::warning(&format!("{}", e)),
+    }
+
     if let crate::privilege::Identity::SudoFrom(ref user) = crate::privilege::current_identity() {
         crate::utils::warning(&format!(
             "heimdal is running under sudo. Homebrew, mas and language toolchains will run as \

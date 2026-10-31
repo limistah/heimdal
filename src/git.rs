@@ -19,6 +19,17 @@ pub enum GitStatus {
     Untracked,
 }
 
+/// Parse `git submodule status` output, returning the paths of submodules
+/// that are not initialized (lines prefixed with `-`).
+fn parse_uninitialized_submodules(output: &str) -> Vec<String> {
+    output
+        .lines()
+        .filter_map(|l| l.strip_prefix('-'))
+        .filter_map(|rest| rest.split_whitespace().nth(1))
+        .map(String::from)
+        .collect()
+}
+
 impl GitRepo {
     /// Clone a remote URL to dest directory (includes submodules).
     pub fn clone(url: &str, dest: &Path) -> Result<Self> {
@@ -203,6 +214,57 @@ impl GitRepo {
         Ok(())
     }
 
+    /// Submodules declared in `.gitmodules` that haven't been checked out
+    /// yet (`git submodule status` marks them with a leading `-`). Happens
+    /// when the repo was cloned without `--recurse-submodules`, used via
+    /// `heimdal init --no-clone`, or a pull brought in a new submodule.
+    pub fn uninitialized_submodules(&self) -> Vec<String> {
+        if !self.path.join(".gitmodules").exists() {
+            return vec![];
+        }
+        Command::new("git")
+            .args(["submodule", "status", "--recursive"])
+            .current_dir(&self.path)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| parse_uninitialized_submodules(&String::from_utf8_lossy(&o.stdout)))
+            .unwrap_or_default()
+    }
+
+    /// Check out any uninitialized submodules (`git submodule update --init
+    /// --recursive`), so dotfiles that live in a submodule (e.g. oh-my-zsh)
+    /// exist before they're linked or sourced. Returns the submodules that
+    /// were initialized; a no-op when there are none.
+    pub fn ensure_submodules(&self, dry_run: bool) -> Result<Vec<String>> {
+        let missing = self.uninitialized_submodules();
+        if missing.is_empty() {
+            return Ok(vec![]);
+        }
+        if dry_run {
+            crate::utils::info(&format!(
+                "[dry-run] Would run: git submodule update --init --recursive ({})",
+                missing.join(", ")
+            ));
+            return Ok(missing);
+        }
+        let out = Command::new("git")
+            .args(["submodule", "update", "--init", "--recursive"])
+            .current_dir(&self.path)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| crate::error::HeimdallError::Git(format!("Cannot run git: {}", e)))?;
+        if !out.status.success() {
+            return Err(crate::error::HeimdallError::Git(format!(
+                "git submodule update failed: {}",
+                String::from_utf8_lossy(&out.stderr).trim()
+            ))
+            .into());
+        }
+        Ok(missing)
+    }
+
     pub fn push(&self, dry_run: bool) -> Result<()> {
         if dry_run {
             crate::utils::info("[dry-run] Would run: git push");
@@ -241,5 +303,20 @@ impl GitRepo {
             .into());
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_uninitialized_submodules() {
+        let out = "-4f1c2a0 config/zsh/ohmyzsh\n 9ab33cd vim/pack/x (v1.0)\n+77aa000 tmux/plugins/tpm (heads/main)\n";
+        assert_eq!(
+            parse_uninitialized_submodules(out),
+            vec!["config/zsh/ohmyzsh".to_string()]
+        );
+        assert!(parse_uninitialized_submodules("").is_empty());
     }
 }

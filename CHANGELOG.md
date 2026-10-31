@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (the 20 most recent are kept). A one-line summary is printed after the
   install stage.
 - `heimdal packages report [--failed] [--json]` shows the last install report.
+- `heimdal apply` (and therefore `heimdal sync`) now checks out any
+  uninitialized git submodules in the dotfiles repo before linking —
+  previously a repo cloned without `--recurse-submodules`, used with
+  `heimdal init --no-clone`, or a submodule added upstream left those
+  dotfiles (e.g. oh-my-zsh) missing.
 
 ### Fixed
 
