@@ -15,10 +15,85 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// A package install that failed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FailedPackage {
     pub name: String,
+    /// Short error message (stderr, falling back to stdout).
     pub reason: String,
+    /// `PackageManager::field_name()` the install ran through (e.g.
+    /// "homebrew", "apt", "npm"). Empty when unknown.
+    pub manager: String,
+    /// Full captured stdout + stderr of the install command, for the
+    /// install log. Empty when the command never ran.
+    pub output: String,
+}
+
+/// Max lines of a failure reason echoed to the terminal; the install log
+/// and `heimdal packages report` always have the full text.
+const FAILURE_REASON_MAX_LINES: usize = 4;
+
+/// Trim a (possibly long, multi-line) error message for terminal display:
+/// drop blank lines, keep the first `FAILURE_REASON_MAX_LINES`, and note how
+/// many were cut.
+pub(crate) fn summarize_reason(reason: &str) -> String {
+    let lines: Vec<&str> = reason
+        .lines()
+        .map(str::trim_end)
+        .filter(|l| !l.trim().is_empty())
+        .collect();
+    if lines.len() <= FAILURE_REASON_MAX_LINES {
+        return lines.join("\n        ");
+    }
+    let mut out = lines[..FAILURE_REASON_MAX_LINES].join("\n        ");
+    out.push_str(&format!(
+        "\n        … {} more line(s) — see the install log",
+        lines.len() - FAILURE_REASON_MAX_LINES
+    ));
+    out
+}
+
+/// Group failures that share the exact same error message, preserving the
+/// order each message first appeared in. Returns `(reason, labels)`.
+pub(crate) fn group_failures(failures: &[FailedPackage]) -> Vec<(String, Vec<String>)> {
+    let mut groups: Vec<(String, Vec<String>)> = Vec::new();
+    for f in failures {
+        let label = if f.manager.is_empty() {
+            f.name.clone()
+        } else {
+            format!("{} ({})", f.name, f.manager)
+        };
+        match groups.iter_mut().find(|(r, _)| *r == f.reason) {
+            Some((_, labels)) => labels.push(label),
+            None => groups.push((f.reason.clone(), vec![label])),
+        }
+    }
+    groups
+}
+
+/// Terminal lines for a failure list. A message shared by several packages
+/// is printed once, followed by the packages it applies to — so one root
+/// cause (e.g. "Homebrew can't run as root") doesn't repeat 70 times.
+pub(crate) fn failure_lines(failures: &[FailedPackage]) -> Vec<String> {
+    let mut lines = Vec::new();
+    for (reason, labels) in group_failures(failures) {
+        if labels.len() == 1 {
+            lines.push(format!(
+                "      {} {}: {}",
+                "✗".red(),
+                labels[0].red(),
+                summarize_reason(&reason)
+            ));
+        } else {
+            lines.push(format!(
+                "      {} {} packages failed: {}",
+                "✗".red(),
+                labels.len(),
+                summarize_reason(&reason)
+            ));
+            lines.push(format!("        {}", labels.join(", ").red()));
+        }
+    }
+    lines
 }
 
 /// Current terminal column count, falling back to a conservative default
@@ -332,6 +407,7 @@ impl PackageBar {
         s.failures.push(FailedPackage {
             name: pkg.to_string(),
             reason: reason.to_string(),
+            ..Default::default()
         });
         Self::render(&self.bar, &self.status, &s);
     }
@@ -455,13 +531,18 @@ impl StageBar {
             elapsed.as_secs_f64(),
             failures.len()
         ));
-        for f in failures {
-            let _ = self.mp.println(format!(
-                "      {} {}: {}",
-                "✗".red(),
-                f.name.red(),
-                f.reason
-            ));
+        for line in failure_lines(failures) {
+            let _ = self.mp.println(line);
+        }
+    }
+
+    /// Pause the live display, run `f` with the terminal to itself (e.g. to
+    /// show a password prompt), then redraw.
+    pub fn suspend<F: FnOnce() -> R, R>(&self, f: F) -> R {
+        if self.enabled {
+            self.mp.suspend(f)
+        } else {
+            f()
         }
     }
 
@@ -681,6 +762,7 @@ mod tests {
         let failures = vec![FailedPackage {
             name: "wget".to_string(),
             reason: "not found".to_string(),
+            ..Default::default()
         }];
         bar.finish_warn(Duration::from_millis(5000), &failures);
     }
@@ -840,5 +922,44 @@ mod tests {
         vp.push_line("line".into());
         vp.clear();
         assert!(vp.bars.is_empty());
+    }
+
+    #[test]
+    fn test_summarize_reason_short_passes_through_without_blank_lines() {
+        assert_eq!(summarize_reason("E: boom\n\n"), "E: boom");
+    }
+
+    #[test]
+    fn test_summarize_reason_truncates_long_output() {
+        let long = (1..=10)
+            .map(|i| format!("line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let out = summarize_reason(&long);
+        assert!(out.contains("line 4"));
+        assert!(!out.contains("line 5"));
+        assert!(out.contains("6 more line(s)"));
+    }
+
+    #[test]
+    fn test_failure_lines_groups_identical_errors() {
+        colored::control::set_override(false);
+        let mk = |n: &str, r: &str| FailedPackage {
+            name: n.into(),
+            reason: r.into(),
+            manager: "homebrew".into(),
+            output: String::new(),
+        };
+        let failures = vec![
+            mk("zsh", "root error"),
+            mk("tmux", "root error"),
+            mk("curl", "network down"),
+            mk("fd", "root error"),
+        ];
+        let lines = failure_lines(&failures);
+        assert_eq!(lines.len(), 3, "{lines:?}");
+        assert!(lines[0].contains("3 packages failed: root error"));
+        assert!(lines[1].contains("zsh (homebrew), tmux (homebrew), fd (homebrew)"));
+        assert!(lines[2].contains("curl (homebrew): network down"));
     }
 }

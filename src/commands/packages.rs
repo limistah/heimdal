@@ -17,7 +17,82 @@ pub fn run(action: PackagesCmd) -> Result<()> {
         PackagesCmd::Remove { name, no_uninstall } => remove(&name, no_uninstall),
         PackagesCmd::Search { query } => search(&query),
         PackagesCmd::Info { name } => pkg_info(&name),
+        PackagesCmd::Report { failed, json } => report(failed, json),
     }
+}
+
+fn report(failed_only: bool, json: bool) -> Result<()> {
+    let state = State::load()?;
+    let Some(report) = state.last_install_report else {
+        info("No install report yet. Run 'heimdal apply' first.");
+        return Ok(());
+    };
+    if json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        return Ok(());
+    }
+    print!("{}", format_report(&report, failed_only));
+    Ok(())
+}
+
+/// Human-readable rendering of an `InstallReport`.
+pub fn format_report(report: &crate::report::InstallReport, failed_only: bool) -> String {
+    use colored::Colorize;
+    let mut out = format!(
+        "Last install: {}\n{}\n",
+        report
+            .run_at
+            .with_timezone(&chrono::Local)
+            .format("%Y-%m-%d %H:%M:%S"),
+        report.summary()
+    );
+
+    if !report.failed.is_empty() {
+        out.push_str(&format!(
+            "\n{} ({})\n",
+            "Failed".red().bold(),
+            report.failed.len()
+        ));
+        for f in &report.failed {
+            out.push_str(&format!("  {} {} ({})\n", "✗".red(), f.package, f.manager));
+            for line in f.error.lines().filter(|l| !l.trim().is_empty()) {
+                out.push_str(&format!("      {}\n", line.trim_end()));
+            }
+        }
+    }
+
+    if !failed_only {
+        if !report.installed.is_empty() {
+            out.push_str(&format!(
+                "\n{} ({})\n",
+                "Installed".green().bold(),
+                report.installed.len()
+            ));
+            for e in &report.installed {
+                out.push_str(&format!(
+                    "  {} {} ({})\n",
+                    "✓".green(),
+                    e.package,
+                    e.manager
+                ));
+            }
+        }
+        if !report.skipped.is_empty() {
+            out.push_str(&format!(
+                "\n{} ({})\n",
+                "Already installed".dimmed(),
+                report.skipped.len()
+            ));
+            for e in &report.skipped {
+                out.push_str(&format!("  · {} ({})\n", e.package, e.manager));
+            }
+        }
+    }
+
+    if let Some(ref p) = report.log_path {
+        out.push_str(&format!("\nFull log: {}\n", p.display()));
+    }
+    out
 }
 
 fn list(installed: bool) -> Result<()> {
@@ -412,5 +487,33 @@ mod tests {
         // declared package must still show up, just as missing.
         let apt = sections.iter().find(|(label, _)| *label == "apt").unwrap();
         assert_eq!(apt.1, vec!["  - vim (missing)".to_string()]);
+    }
+
+    #[test]
+    fn test_format_report_lists_failures_with_errors() {
+        colored::control::set_override(false);
+        let report = crate::report::InstallReport {
+            run_at: chrono::Utc::now(),
+            installed: vec![crate::report::ReportEntry {
+                manager: "homebrew".into(),
+                package: "ripgrep".into(),
+            }],
+            skipped: vec![],
+            failed: vec![crate::report::FailedEntry {
+                manager: "apt".into(),
+                package: "curl".into(),
+                error: "E: Unable to locate package curl".into(),
+            }],
+            log_path: None,
+        };
+        let full = format_report(&report, false);
+        assert!(full.contains("Failed (1)"));
+        assert!(full.contains("curl (apt)"));
+        assert!(full.contains("E: Unable to locate package curl"));
+        assert!(full.contains("ripgrep (homebrew)"));
+
+        let failed_only = format_report(&report, true);
+        assert!(failed_only.contains("curl (apt)"));
+        assert!(!failed_only.contains("ripgrep"));
     }
 }
