@@ -57,9 +57,20 @@ fn test_autosync_help() {
 }
 
 /// Test that status command provides meaningful output (not just stub message)
+///
+/// `#[serial]` + disabling first: every macOS auto-sync test shares the real
+/// `~/Library/LaunchAgents/com.heimdal.autosync.plist`, so without them this
+/// test raced the enable tests and flakily saw "AutoSync is enabled".
 #[test]
+#[serial]
 #[cfg(target_os = "macos")]
 fn test_autosync_status_macos_not_stub() {
+    let _ = Command::cargo_bin("heimdal")
+        .unwrap()
+        .arg("auto-sync")
+        .arg("disable")
+        .output();
+
     let mut cmd = Command::cargo_bin("heimdal").unwrap();
     cmd.arg("auto-sync").arg("status");
 
@@ -542,6 +553,7 @@ fn test_autosync_cron_multiple_cycles() {
 
 /// Test that enable on macOS doesn't reference cron in stub way
 #[test]
+#[serial]
 #[cfg(target_os = "macos")]
 fn test_autosync_enable_macos_not_cron_stub() {
     let mut cmd = Command::cargo_bin("heimdal").unwrap();
@@ -554,6 +566,13 @@ fn test_autosync_enable_macos_not_cron_stub() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{}{}", stdout, stderr);
+
+    // Don't leave auto-sync enabled for whichever test runs next.
+    let _ = Command::cargo_bin("heimdal")
+        .unwrap()
+        .arg("auto-sync")
+        .arg("disable")
+        .output();
 
     // The stub suggests adding a cron job which is inappropriate for macOS
     // Real implementation should use launchd
@@ -568,6 +587,7 @@ fn test_autosync_enable_macos_not_cron_stub() {
 
 /// Test that disable on macOS doesn't reference cron in stub way
 #[test]
+#[serial]
 #[cfg(target_os = "macos")]
 fn test_autosync_disable_macos_not_cron_stub() {
     let mut cmd = Command::cargo_bin("heimdal").unwrap();

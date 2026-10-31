@@ -301,7 +301,7 @@ fn plan_toolchain_work(
     state: &crate::state::State,
     stage: &crate::progress::StageBar,
     dry_run: bool,
-) -> anyhow::Result<(Vec<WorkItem>, Vec<(String, String)>)> {
+) -> anyhow::Result<(Vec<WorkItem>, Vec<(String, String)>, Vec<(String, String)>)> {
     for entry in &toolchains.go {
         crate::config::validate_go_module_entry(entry).map_err(|e| anyhow::anyhow!(e))?;
     }
@@ -321,6 +321,7 @@ fn plan_toolchain_work(
 
     let mut work: Vec<WorkItem> = Vec::new();
     let mut newly_tracked: Vec<(String, String)> = Vec::new();
+    let mut skipped: Vec<(String, String)> = Vec::new();
 
     for manager in managers {
         let field = manager.field_name();
@@ -353,6 +354,7 @@ fn plan_toolchain_work(
                 )
             };
             if skip {
+                skipped.push((field.to_string(), pkg));
                 continue;
             }
             work.push(WorkItem {
@@ -362,11 +364,13 @@ fn plan_toolchain_work(
                 manager_field: field.to_string(),
                 display_name: pkg,
                 dry_run,
+                // Toolchain installs are user-level; never wrapped in sudo.
+                needs_root: false,
             });
         }
     }
 
-    Ok((work, newly_tracked))
+    Ok((work, newly_tracked, skipped))
 }
 
 /// Install every declared language-toolchain package for the active profile
@@ -388,7 +392,7 @@ pub fn install_toolchains_for_profile(
     parallel_jobs: usize,
     force: bool,
     state: &mut crate::state::State,
-) -> anyhow::Result<Vec<crate::progress::FailedPackage>> {
+) -> anyhow::Result<crate::packages::InstallOutcome> {
     let managers: Vec<Box<dyn ToolchainManager>> = vec![
         Box::new(Npm),
         Box::new(Cargo),
@@ -397,7 +401,7 @@ pub fn install_toolchains_for_profile(
         Box::new(Pip),
     ];
 
-    let (work, newly_tracked) =
+    let (work, newly_tracked, skipped) =
         plan_toolchain_work(&profile.toolchains, &managers, force, state, stage, dry_run)?;
 
     // Packages the system already has but heimdal didn't know about: record
@@ -408,20 +412,26 @@ pub fn install_toolchains_for_profile(
         }
     }
 
+    let mut outcome = crate::packages::InstallOutcome {
+        skipped,
+        ..Default::default()
+    };
     if work.is_empty() {
-        return Ok(vec![]);
+        return Ok(outcome);
     }
 
     let bar = Arc::new(stage.package_bar(work.len()));
     let (failures, successes) = crate::packages::run_parallel(work, bar, parallel_jobs);
+    outcome.failed = failures;
 
     if !dry_run {
-        for (manager_field, pkg) in successes {
-            state.record_installed(&manager_field, [pkg]);
+        for (manager_field, pkg) in &successes {
+            state.record_installed(manager_field, [pkg.clone()]);
         }
+        outcome.installed = successes;
     }
 
-    Ok(failures)
+    Ok(outcome)
 }
 
 #[cfg(test)]
@@ -541,7 +551,7 @@ mod tests {
         };
         let managers = vec![mock_npm(&["typescript"])];
         let state = crate::state::State::default();
-        let (work, newly_tracked) =
+        let (work, newly_tracked, _skipped) =
             plan_toolchain_work(&toolchains, &managers, false, &state, &stage, false).unwrap();
         assert!(
             work.is_empty(),
@@ -562,7 +572,7 @@ mod tests {
         };
         let managers = vec![mock_cargo(&[])];
         let state = crate::state::State::default();
-        let (work, newly_tracked) =
+        let (work, newly_tracked, _skipped) =
             plan_toolchain_work(&toolchains, &managers, false, &state, &stage, false).unwrap();
         assert_eq!(work.len(), 1);
         assert_eq!(work[0].pkg, "ripgrep");
@@ -579,7 +589,7 @@ mod tests {
         };
         let managers = vec![mock_npm(&["typescript"])];
         let state = crate::state::State::default();
-        let (work, newly_tracked) =
+        let (work, newly_tracked, _skipped) =
             plan_toolchain_work(&toolchains, &managers, true, &state, &stage, false).unwrap();
         assert_eq!(
             work.len(),
@@ -603,7 +613,7 @@ mod tests {
             installed_set: HashSet::new(),
         })];
         let state = crate::state::State::default();
-        let (work, _) =
+        let (work, _, _skipped) =
             plan_toolchain_work(&toolchains, &managers, false, &state, &stage, false).unwrap();
         assert!(work.is_empty());
     }
@@ -686,7 +696,7 @@ mod tests {
         let mut state = crate::state::State::default();
         let result = install_toolchains_for_profile(&profile, true, &stage, 2, false, &mut state);
         assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
+        assert!(result.unwrap().failed.is_empty());
         assert!(
             state.package_inventory.is_empty(),
             "dry run must not record anything as actually installed"
@@ -700,6 +710,6 @@ mod tests {
         let mut state = crate::state::State::default();
         let result = install_toolchains_for_profile(&profile, false, &stage, 4, false, &mut state);
         assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
+        assert!(result.unwrap().failed.is_empty());
     }
 }

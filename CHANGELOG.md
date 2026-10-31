@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Install report: every `heimdal apply` now records what it installed,
+  skipped (already installed) and failed — with each failure's error
+  message — in `state.json`, and writes a plain-text log with the full
+  output of every failed install to `~/.heimdal/logs/install-<timestamp>.log`
+  (the 20 most recent are kept). A one-line summary is printed after the
+  install stage.
+- `heimdal packages report [--failed] [--json]` shows the last install report.
+- `heimdal apply` (and therefore `heimdal sync`) now checks out any
+  uninitialized git submodules in the dotfiles repo before linking —
+  previously a repo cloned without `--recurse-submodules`, used with
+  `heimdal init --no-clone`, or a submodule added upstream left those
+  dotfiles (e.g. oh-my-zsh) missing.
+
 ### Fixed
 
 - Reverted the v3.2.0 progress-display corruption fix's coverage: the new
@@ -18,6 +33,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   again wrap to a second terminal row and corrupt every redraw after it.
   `StageBar::println` now clips to the terminal width like `HookViewport`
   already does, closing this for every current and future caller.
+- Packages that need an administrator password no longer hide the prompt
+  or hang. heimdal now asks for the password once, up front, with the
+  progress display paused, and keeps the sudo credential alive while
+  installs run. Installs no longer read from the terminal, so nothing can
+  sit waiting on an invisible prompt.
+- apt, dnf, pacman and apk installs now run through `sudo -n` automatically
+  (they previously only worked when heimdal itself ran as root), and run one
+  at a time so they no longer fail on the package database lock.
+- Running `sudo heimdal apply` no longer fails every Homebrew package with
+  "Running Homebrew as root is extremely dangerous": Homebrew, mas and
+  language toolchains are run as the invoking user, and `state.json` and the
+  install logs stay owned by that user.
+- Failures that share the same error are grouped into one line listing the
+  affected packages instead of repeating the message for each one; long
+  errors are trimmed in the terminal (the full text is in the install log).
 
 ## [3.3.0] - 2026-08-30
 
