@@ -15,7 +15,17 @@ db-urls = ["https://github.com/rustsec/advisory-db"]
 # RUSTSEC-2025-0119: number_prefix (pulled in by indicatif, for progress-bar
 # byte-size formatting) is unmaintained with "no safe upgrade available" per
 # the advisory itself — not a vulnerability, and there's nothing to bump to.
-ignore = ["RUSTSEC-2026-0195", "RUSTSEC-2026-0194", "RUSTSEC-2025-0119"]
+#
+# RUSTSEC-2024-0449: unsafe-libyaml (pulled in by serde_yaml_ng, our YAML
+# parser for heimdal.yaml) is unmaintained — the upstream repo is archived.
+# Informational, not a vulnerability; replacing it means migrating off
+# serde_yaml_ng, tracked separately.
+ignore = [
+    "RUSTSEC-2026-0195",
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2025-0119",
+    "RUSTSEC-2024-0449",
+]
 
 [licenses]
 # https://embarkstudios.github.io/cargo-deny/checks/licenses/cfg.html
