@@ -92,7 +92,35 @@ pub struct InstallResult {
     #[allow(dead_code)]
     pub already_installed: bool,
     pub message: Option<String>,
+    /// Full captured stdout + stderr (empty on success / dry-run).
+    pub output: String,
 }
+
+/// Everything one install pass did — returned by `install_for_profile` and
+/// `install_toolchains_for_profile` and turned into an `InstallReport`.
+#[derive(Debug, Default)]
+pub struct InstallOutcome {
+    /// `(manager_field, pkg)` installed during this run.
+    pub installed: Vec<(String, String)>,
+    /// `(manager_field, pkg)` skipped because they were already present.
+    pub skipped: Vec<(String, String)>,
+    /// Installs that failed, with their error output.
+    pub failed: Vec<crate::progress::FailedPackage>,
+}
+
+impl InstallOutcome {
+    pub fn extend(&mut self, other: InstallOutcome) {
+        self.installed.extend(other.installed);
+        self.skipped.extend(other.skipped);
+        self.failed.extend(other.failed);
+    }
+}
+
+/// System package managers hold an exclusive database lock (dpkg, rpm,
+/// pacman, apk), so running two of their installs at once just makes one
+/// fail with "could not get lock". Root installs take this lock and run one
+/// at a time; user-level installs (brew, npm, ...) stay parallel.
+static ROOT_INSTALL_LOCK: Mutex<()> = Mutex::new(());
 
 pub trait PackageManager: Send + Sync {
     fn name(&self) -> &str;
@@ -317,55 +345,103 @@ pub(crate) struct WorkItem {
     /// Human-readable name shown in the progress bar (e.g. "Xcode" instead of "409183694").
     pub(crate) display_name: String,
     pub(crate) dry_run: bool,
+    /// Run through `sudo -n` (unless already root) and serialized with
+    /// other root installs. True for apt/dnf/pacman/apk.
+    pub(crate) needs_root: bool,
 }
 
 /// Install one package synchronously; returns an `InstallResult`.
 fn install_one(item: &WorkItem) -> InstallResult {
+    let base = |success: bool, message: Option<String>, output: String| InstallResult {
+        package: item.pkg.clone(),
+        manager_field: item.manager_field.clone(),
+        display_name: item.display_name.clone(),
+        success,
+        already_installed: false,
+        message,
+        output,
+    };
     if item.dry_run {
-        return InstallResult {
-            package: item.pkg.clone(),
-            manager_field: item.manager_field.clone(),
-            display_name: item.display_name.clone(),
-            success: true,
-            already_installed: false,
-            message: Some(format!("[dry-run] Would install: {}", item.display_name)),
-        };
+        return base(
+            true,
+            Some(format!("[dry-run] Would install: {}", item.display_name)),
+            String::new(),
+        );
     }
-    let mut cmd = std::process::Command::new(&item.cmd);
-    cmd.args(&item.args).arg(&item.pkg);
-    cmd.stdout(std::process::Stdio::piped())
+
+    let (program, argv) = crate::privilege::build_invocation(
+        &item.cmd,
+        &item.args,
+        &item.pkg,
+        item.needs_root,
+        &crate::privilege::current_identity(),
+    );
+
+    // Hold the root lock for the whole install (see ROOT_INSTALL_LOCK).
+    let _root_guard = if item.needs_root {
+        Some(ROOT_INSTALL_LOCK.lock().unwrap_or_else(|e| e.into_inner()))
+    } else {
+        None
+    };
+
+    let mut cmd = std::process::Command::new(&program);
+    cmd.args(&argv);
+    // Never let a background install read the keyboard: with a live
+    // progress display on screen, any prompt it printed would be invisible
+    // and the run would look hung. Passwords are collected up front by
+    // `privilege::acquire` instead.
+    cmd.stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
+
     match cmd.output() {
-        Err(e) => InstallResult {
-            package: item.pkg.clone(),
-            manager_field: item.manager_field.clone(),
-            display_name: item.display_name.clone(),
-            success: false,
-            already_installed: false,
-            message: Some(format!("Cannot run {}: {}", item.cmd, e)),
-        },
-        Ok(out) => InstallResult {
-            package: item.pkg.clone(),
-            manager_field: item.manager_field.clone(),
-            display_name: item.display_name.clone(),
-            success: out.status.success(),
-            already_installed: false,
-            message: if out.status.success() {
-                None
+        Err(e) => base(
+            false,
+            Some(format!("Cannot run {}: {}", program, e)),
+            String::new(),
+        ),
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            let output = combine_output(&stdout, &stderr);
+            if out.status.success() {
+                return base(true, None, output);
+            }
+            // Prefer stderr; fall back to stdout (some tools write errors there).
+            // Normalize empty strings to None so unwrap_or("unknown error") fires.
+            let msg = if !stderr.is_empty() { stderr } else { stdout };
+            let msg = if item.needs_root && is_sudo_password_error(&msg) {
+                "needs administrator rights, but no sudo credential was available \
+                 (run `sudo -v` and try again)"
+                    .to_string()
+            } else if msg.contains("Running Homebrew as root") {
+                "Homebrew can't run as root. Run `heimdal apply` without sudo — heimdal \
+                 asks for your password itself when a package needs it."
+                    .to_string()
             } else {
-                // Prefer stderr; fall back to stdout (some tools write errors there).
-                // Normalize empty strings to None so unwrap_or("unknown error") fires.
-                let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-                let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                let msg = if !stderr.is_empty() { stderr } else { stdout };
-                if msg.is_empty() {
-                    None
-                } else {
-                    Some(msg)
-                }
-            },
-        },
+                msg
+            };
+            base(false, (!msg.is_empty()).then_some(msg), output)
+        }
     }
+}
+
+/// Join stdout and stderr into one labelled block for the install log.
+fn combine_output(stdout: &str, stderr: &str) -> String {
+    match (stdout.is_empty(), stderr.is_empty()) {
+        (true, true) => String::new(),
+        (false, true) => format!("--- stdout ---\n{stdout}"),
+        (true, false) => format!("--- stderr ---\n{stderr}"),
+        (false, false) => format!("--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}"),
+    }
+}
+
+/// `sudo -n` refuses to prompt and prints one of these when no credential
+/// is cached.
+fn is_sudo_password_error(msg: &str) -> bool {
+    msg.contains("sudo: a password is required")
+        || msg.contains("sudo: a terminal is required")
+        || msg.contains("sudo: no tty present")
 }
 
 /// Returns `(cmd, base_args)` for a package manager name.
@@ -426,7 +502,8 @@ fn get_manager_packages(field: &str, pkgs: &crate::config::PackageMap) -> Vec<(S
 
 /// Run `work` items in parallel across `num_threads` workers.
 /// Results are reported to `bar` as they arrive.
-/// Returns `(failures, successes)`, where `successes` is a list of
+/// Returns `(failures, successes)`. Each failure carries its manager and
+/// the full command output. `successes` is a list of
 /// `(manager_field, pkg)` pairs for every install that succeeded — including
 /// dry-run "installs", which callers should filter out before recording
 /// anything as actually installed.
@@ -464,15 +541,23 @@ pub(crate) fn run_parallel(
     drop(tx); // close sender so rx terminates when all workers finish
 
     let mut successes: Vec<(String, String)> = Vec::new();
+    let mut failures: Vec<crate::progress::FailedPackage> = Vec::new();
     for result in rx {
         if result.success {
             bar.record_success(&result.display_name);
             successes.push((result.manager_field.clone(), result.package.clone()));
         } else {
-            bar.record_failure(
-                &result.display_name,
-                result.message.as_deref().unwrap_or("unknown error"),
-            );
+            let reason = result
+                .message
+                .clone()
+                .unwrap_or_else(|| "unknown error".to_string());
+            bar.record_failure(&result.display_name, &reason);
+            failures.push(crate::progress::FailedPackage {
+                name: result.display_name,
+                reason,
+                manager: result.manager_field,
+                output: result.output,
+            });
         }
     }
 
@@ -480,8 +565,9 @@ pub(crate) fn run_parallel(
         let _ = h.join();
     }
 
-    // Unwrap the Arc before calling into_failures (all workers have finished)
-    let failures = Arc::try_unwrap(bar)
+    // Unwrap the Arc and clear the bars (all workers have finished). The
+    // bar's own failure list lacks manager/output, so ours is returned.
+    let _ = Arc::try_unwrap(bar)
         .expect("PackageBar arc still referenced after all workers joined")
         .into_failures();
     (failures, successes)
@@ -625,9 +711,12 @@ pub(crate) fn maybe_skip_installed(
 /// `force` bypasses the "already installed" check entirely, matching apply's
 /// `--force`: every declared package still gets a `WorkItem`.
 ///
-/// Returns `(work, newly_tracked)` — `work` is what `run_parallel` should
-/// actually run; `newly_tracked` is `(manager_field, pkg)` pairs the caller
-/// should record directly into `state`, without running an install command.
+/// Returns `(work, newly_tracked, skipped)` — `work` is what `run_parallel`
+/// should actually run; `newly_tracked` is `(manager_field, pkg)` pairs the
+/// caller should record directly into `state`, without running an install
+/// command; `skipped` is every `(manager_field, pkg)` skipped as already
+/// installed (a superset of `newly_tracked`), for the install report.
+#[allow(clippy::type_complexity)]
 fn plan_work(
     pkgs: &crate::config::PackageMap,
     managers: &[Box<dyn PackageManager>],
@@ -635,7 +724,7 @@ fn plan_work(
     state: &crate::state::State,
     stage: &crate::progress::StageBar,
     dry_run: bool,
-) -> (Vec<WorkItem>, Vec<(String, String)>) {
+) -> (Vec<WorkItem>, Vec<(String, String)>, Vec<(String, String)>) {
     // Skip the live query entirely when forcing: every package installs
     // regardless of what's already present, so there's nothing to check.
     let installed_sets: HashMap<String, HashSet<String>> = if force {
@@ -650,6 +739,7 @@ fn plan_work(
 
     let mut work: Vec<WorkItem> = Vec::new();
     let mut newly_tracked: Vec<(String, String)> = Vec::new();
+    let mut skipped: Vec<(String, String)> = Vec::new();
 
     // Common packages → first available manager
     if !pkgs.common.is_empty() {
@@ -669,6 +759,7 @@ fn plan_work(
                         stage,
                         &mut newly_tracked,
                     ) {
+                        skipped.push((field.to_string(), name));
                         continue;
                     }
                     work.push(WorkItem {
@@ -678,6 +769,7 @@ fn plan_work(
                         manager_field: field.to_string(),
                         display_name: name,
                         dry_run,
+                        needs_root: crate::privilege::manager_needs_root(manager.name()),
                     });
                 }
             }
@@ -717,6 +809,7 @@ fn plan_work(
                 stage,
                 &mut newly_tracked,
             ) {
+                skipped.push((field.to_string(), pkg));
                 continue;
             }
             work.push(WorkItem {
@@ -726,11 +819,12 @@ fn plan_work(
                 manager_field: field.to_string(),
                 display_name,
                 dry_run,
+                needs_root: crate::privilege::manager_needs_root(manager.name()),
             });
         }
     }
 
-    (work, newly_tracked)
+    (work, newly_tracked, skipped)
 }
 
 /// Install packages for the active profile. Reports progress via `stage`.
@@ -744,7 +838,12 @@ fn plan_work(
 /// still recorded, so "installed outside heimdal" and "installed by heimdal
 /// before" both end up accurately tracked.
 ///
-/// Returns the list of packages that failed to install.
+/// Before anything runs, if the planned work needs administrator rights
+/// (apt/dnf/pacman/apk, or Homebrew casks that may call sudo), the password
+/// is asked for once in the foreground — see `crate::privilege`. If that
+/// fails, root-only installs are reported as failed without being run.
+///
+/// Returns what was installed, skipped and failed.
 pub fn install_for_profile(
     profile: &crate::config::Profile,
     dry_run: bool,
@@ -752,7 +851,7 @@ pub fn install_for_profile(
     parallel_jobs: usize,
     force: bool,
     state: &mut crate::state::State,
-) -> anyhow::Result<Vec<crate::progress::FailedPackage>> {
+) -> anyhow::Result<InstallOutcome> {
     let managers: Vec<Box<dyn PackageManager>> = vec![
         Box::new(Homebrew),
         Box::new(HomebrewCask),
@@ -763,7 +862,7 @@ pub fn install_for_profile(
         Box::new(Mas),
     ];
 
-    let (work, newly_tracked) =
+    let (mut work, newly_tracked, skipped) =
         plan_work(&profile.packages, &managers, force, state, stage, dry_run);
 
     // Packages the system already has but heimdal didn't know about: record
@@ -774,22 +873,62 @@ pub fn install_for_profile(
         }
     }
 
+    let mut outcome = InstallOutcome {
+        skipped,
+        ..Default::default()
+    };
+
     if work.is_empty() {
-        return Ok(vec![]);
+        return Ok(outcome);
+    }
+
+    // Authenticate once, up front, while nothing else is drawing.
+    let mut _sudo_session = None;
+    if !dry_run
+        && crate::privilege::needs_auth(
+            work.iter()
+                .map(|w| (w.needs_root, w.manager_field.as_str())),
+        )
+    {
+        match crate::privilege::acquire(stage) {
+            crate::privilege::Auth::Root => {}
+            crate::privilege::Auth::Session(session) => _sudo_session = Some(session),
+            crate::privilege::Auth::Failed(reason) => {
+                // Root-only installs can't succeed — report them without
+                // running. Casks may still work (only some need sudo).
+                let (root_only, rest): (Vec<_>, Vec<_>) =
+                    work.into_iter().partition(|w| w.needs_root);
+                work = rest;
+                outcome.failed.extend(root_only.into_iter().map(|w| {
+                    crate::progress::FailedPackage {
+                        name: w.display_name,
+                        reason: reason.clone(),
+                        manager: w.manager_field,
+                        output: String::new(),
+                    }
+                }));
+            }
+        }
+    }
+
+    if work.is_empty() {
+        return Ok(outcome);
     }
 
     let bar = Arc::new(stage.package_bar(work.len()));
     let (failures, successes) = run_parallel(work, bar, parallel_jobs);
+    outcome.failed.extend(failures);
 
     // Dry runs report every item as a "success" purely for progress display;
     // nothing was actually installed, so nothing should be recorded.
     if !dry_run {
-        for (manager_field, pkg) in successes {
-            state.record_installed(&manager_field, [pkg]);
+        for (manager_field, pkg) in &successes {
+            state.record_installed(manager_field, [pkg.clone()]);
         }
+        outcome.installed = successes;
     }
 
-    Ok(failures)
+    Ok(outcome)
 }
 
 #[cfg(test)]
@@ -820,8 +959,15 @@ mod tests {
         let mut state = crate::state::State::default();
         let result = install_for_profile(&profile, true, &stage, 2, false, &mut state);
         assert!(result.is_ok());
-        let failures = result.unwrap();
-        assert!(failures.is_empty(), "dry run should produce no failures");
+        let outcome = result.unwrap();
+        assert!(
+            outcome.failed.is_empty(),
+            "dry run should produce no failures"
+        );
+        assert!(
+            outcome.installed.is_empty(),
+            "dry run must not report anything as installed"
+        );
         assert!(
             state.package_inventory.is_empty(),
             "dry run must not record anything as actually installed"
@@ -835,7 +981,7 @@ mod tests {
         let mut state = crate::state::State::default();
         let result = install_for_profile(&profile, false, &stage, 4, false, &mut state);
         assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
+        assert!(result.unwrap().failed.is_empty());
     }
 
     // Bug 3: empty stderr should produce None message, not Some(""), so that
@@ -851,6 +997,7 @@ mod tests {
             manager_field: "homebrew".to_string(),
             display_name: "testpkg".to_string(),
             dry_run: false,
+            needs_root: false,
         };
         let result = install_one(&item);
         assert!(!result.success);
@@ -979,7 +1126,7 @@ mod tests {
         let mut state = crate::state::State::default();
         let result = install_for_profile(&profile, true, &stage, 2, false, &mut state);
         assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
+        assert!(result.unwrap().failed.is_empty());
     }
 
     // ── Idempotent install (skip already-installed packages) ────────────────
@@ -1026,7 +1173,8 @@ mod tests {
         };
         let managers = mock_homebrew(&["git"]);
         let state = crate::state::State::default();
-        let (work, newly_tracked) = plan_work(&pkgs, &managers, false, &state, &stage, false);
+        let (work, newly_tracked, _skipped) =
+            plan_work(&pkgs, &managers, false, &state, &stage, false);
         assert!(
             work.is_empty(),
             "an already-installed package must not enqueue an install command"
@@ -1047,7 +1195,8 @@ mod tests {
         };
         let managers = mock_homebrew(&[]);
         let state = crate::state::State::default();
-        let (work, newly_tracked) = plan_work(&pkgs, &managers, false, &state, &stage, false);
+        let (work, newly_tracked, _skipped) =
+            plan_work(&pkgs, &managers, false, &state, &stage, false);
         assert_eq!(
             work.len(),
             1,
@@ -1066,7 +1215,8 @@ mod tests {
         };
         let managers = mock_homebrew(&["git"]);
         let state = crate::state::State::default();
-        let (work, newly_tracked) = plan_work(&pkgs, &managers, true, &state, &stage, false);
+        let (work, newly_tracked, _skipped) =
+            plan_work(&pkgs, &managers, true, &state, &stage, false);
         assert_eq!(
             work.len(),
             1,
@@ -1088,7 +1238,8 @@ mod tests {
         let managers = mock_homebrew(&["git"]);
         let mut state = crate::state::State::default();
         state.record_installed("homebrew", vec!["git".to_string()]);
-        let (work, newly_tracked) = plan_work(&pkgs, &managers, false, &state, &stage, false);
+        let (work, newly_tracked, _skipped) =
+            plan_work(&pkgs, &managers, false, &state, &stage, false);
         assert!(work.is_empty());
         assert!(
             newly_tracked.is_empty(),

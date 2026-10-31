@@ -258,6 +258,15 @@ pub enum PackagesCmd {
     Search { query: String },
     /// Show package info
     Info { name: String },
+    /// Show what the last `heimdal apply` installed, skipped and failed
+    Report {
+        /// Only show failed packages
+        #[arg(long)]
+        failed: bool,
+        /// Print the report as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]

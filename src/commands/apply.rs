@@ -28,6 +28,27 @@ pub fn run(args: ApplyArgs) -> Result<()> {
         crate::utils::info("Dry-run mode — no changes will be made");
     }
 
+    // Dotfiles kept in git submodules (e.g. oh-my-zsh) must be checked out
+    // before anything links or sources them. `heimdal sync` runs apply after
+    // pulling, so this also picks up submodules added upstream.
+    match crate::git::GitRepo::open(&ctx.state.dotfiles_path).ensure_submodules(args.dry_run) {
+        Ok(done) if !done.is_empty() && !args.dry_run => crate::utils::info(&format!(
+            "Initialized {} git submodule(s): {}",
+            done.len(),
+            done.join(", ")
+        )),
+        Ok(_) => {}
+        Err(e) => crate::utils::warning(&format!("{}", e)),
+    }
+
+    if let crate::privilege::Identity::SudoFrom(ref user) = crate::privilege::current_identity() {
+        crate::utils::warning(&format!(
+            "heimdal is running under sudo. Homebrew, mas and language toolchains will run as \
+             '{user}' (Homebrew refuses root). You don't need sudo — heimdal asks for your \
+             password when a package needs it."
+        ));
+    }
+
     let ignore_patterns = compile_ignore_patterns(&ctx.profile.ignore);
     let apply_ctx = ApplyContext {
         dotfiles_dir: ctx.state.dotfiles_path.clone(),
@@ -51,7 +72,7 @@ pub fn run(args: ApplyArgs) -> Result<()> {
     let t = Instant::now();
     let stage2 = progress.stage(2, "Installing packages");
     if !args.dotfiles_only {
-        let mut failures = install_for_profile(
+        let mut outcome = install_for_profile(
             &ctx.profile,
             args.dry_run,
             &stage2,
@@ -62,7 +83,7 @@ pub fn run(args: ApplyArgs) -> Result<()> {
         // Language-toolchain installs (npm/cargo/go/gem/pip) are a separate
         // axis from OS-level packages — see `crate::toolchains` — but share
         // this same stage and its failure reporting.
-        failures.extend(install_toolchains_for_profile(
+        outcome.extend(install_toolchains_for_profile(
             &ctx.profile,
             args.dry_run,
             &stage2,
@@ -70,10 +91,34 @@ pub fn run(args: ApplyArgs) -> Result<()> {
             args.force,
             &mut ctx.state,
         )?);
-        if failures.is_empty() {
+        if outcome.failed.is_empty() {
             stage2.finish_success(t.elapsed());
         } else {
-            stage2.finish_warn(t.elapsed(), &failures);
+            stage2.finish_warn(t.elapsed(), &outcome.failed);
+        }
+
+        if !args.dry_run {
+            let mut report =
+                crate::report::InstallReport::from_outcome(&outcome, chrono::Utc::now());
+            match crate::report::logs_dir()
+                .and_then(|dir| crate::report::write_log_in(&dir, &report, &outcome))
+            {
+                Ok(path) => report.log_path = Some(path),
+                Err(e) => crate::utils::warning(&format!("Could not write install log: {}", e)),
+            }
+            // Separate short lines: StageBar::println clips to the terminal
+            // width, so one long line would cut off the log path.
+            stage2.println(format!("      {}", report.summary()));
+            if !outcome.failed.is_empty() {
+                stage2.println("      Details: heimdal packages report --failed");
+                if let Some(ref p) = report.log_path {
+                    stage2.println(format!("      Full log: {}", p.display()));
+                }
+            }
+            ctx.state.last_install_report = Some(report);
+            // Save now so the report (and inventory) survive a later stage
+            // bailing out, e.g. on a symlink conflict.
+            ctx.state.save()?;
         }
     } else {
         stage2.finish_success(t.elapsed());

@@ -40,6 +40,10 @@ pub struct State {
     /// defaults to empty rather than failing to parse.
     #[serde(default)]
     pub package_inventory: BTreeMap<String, PackageInventoryEntry>,
+    /// What the most recent `heimdal apply` installed, skipped and failed.
+    /// Additive field — absent in older state.json files.
+    #[serde(default)]
+    pub last_install_report: Option<crate::report::InstallReport>,
 }
 
 impl State {
@@ -62,6 +66,7 @@ impl State {
         crate::utils::ensure_parent_exists(&path)?;
         let content = serde_json::to_string_pretty(self)?;
         crate::utils::atomic_write(&path, content.as_bytes())?;
+        crate::privilege::give_back_to_invoking_user(&path);
         Ok(())
     }
 
@@ -83,6 +88,7 @@ impl State {
             last_sync: None,
             heimdal_version: env!("CARGO_PKG_VERSION").to_string(),
             package_inventory: BTreeMap::new(),
+            last_install_report: None,
         };
         state.save()?;
         Ok(state)
